@@ -1,4 +1,4 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod sha1;
+pub mod sha1;
