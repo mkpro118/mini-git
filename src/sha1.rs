@@ -7,6 +7,9 @@
 use std::ops::BitXor;
 
 pub const DIGEST_SIZE_BYTES: usize = 20;
+pub const SHA1_INIT_DIGEST: [u32; DIGEST_SIZE] =
+    [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
+
 const SIZE_OF_BYTE: usize = 8;
 const SIZE_OF_U32: usize = 32;
 const SIZE_OF_U64: usize = 64;
@@ -16,9 +19,6 @@ const ROUND1_K: u32 = 0x5A82_7999;
 const ROUND2_K: u32 = 0x6ED9_EBA1;
 const ROUND3_K: u32 = 0x8F1B_BCDC;
 const ROUND4_K: u32 = 0xCA62_C1D6;
-
-const SHA1_INIT_DIGEST: [u32; DIGEST_SIZE] =
-    [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
 
 #[derive(Debug)]
 pub struct SHA1 {
@@ -66,14 +66,14 @@ impl Hash<&str> for SHA1 {
 
 impl Hash<&[u8]> for SHA1 {
     fn hash(&mut self, message: &[u8]) {
-        self.digest = hash(self.digest, message);
+        self.digest = hash(&self.digest, message);
     }
 }
 
 /// Shortcut function to hash a message
-fn hash(initial_digest: [u32; 5], message: &[u8]) -> [u32; 5] {
+fn hash(initial_digest: &[u32; 5], message: &[u8]) -> [u32; 5] {
     let preprocessed = preprocess_message(message);
-    hash_pre_processed(&initial_digest, &preprocessed)
+    hash_pre_processed(initial_digest, &preprocessed)
 }
 
 /// Preprocesses a message to make it SHA-1 compatible
