@@ -53,6 +53,7 @@ impl From<&str> for SHA1 {
     }
 }
 
+/// Allow generic hash function based on param type
 trait Hash<T> {
     fn hash(&mut self, message: T);
 }
@@ -65,13 +66,14 @@ impl Hash<&str> for SHA1 {
 
 impl Hash<&[u8]> for SHA1 {
     fn hash(&mut self, message: &[u8]) {
-        self.digest = hash(message);
+        self.digest = hash(self.digest, message);
     }
 }
 
-fn hash(message: &[u8]) -> [u32; 5] {
+/// Shortcut function to hash a message
+fn hash(initial_digest: [u32; 5], message: &[u8]) -> [u32; 5] {
     let preprocessed = preprocess_message(message);
-    hash_pre_processed(&preprocessed)
+    hash_pre_processed(&initial_digest, &preprocessed)
 }
 
 /// Preprocesses a message to make it SHA-1 compatible
@@ -109,14 +111,14 @@ fn preprocess_message(message: &[u8]) -> Vec<u8> {
 }
 
 /// Computes the SHA-1 hash over a preprocessed message
-fn hash_pre_processed(message: &[u8]) -> [u32; 5] {
+fn hash_pre_processed(digest: &[u32; 5], message: &[u8]) -> [u32; 5] {
     assert!(message.len() >= 512, "Message is too short");
     assert_eq!(message.len() % 512, 0, "Message is not a multiple of 512");
 
     // Break message into 512 bit chunks
-    message.chunks(CHUNK_SIZE / SIZE_OF_BYTE).fold(
-        SHA1_INIT_DIGEST,
-        |digest: [u32; 5], chunk: &[u8]| {
+    message
+        .chunks(CHUNK_SIZE / SIZE_OF_BYTE)
+        .fold(*digest, |digest: [u32; 5], chunk: &[u8]| {
             // Convert a chunk of 4 bytes (u8) to a word (u32)
             let chunk: [u32; 16] = chunk
                 .chunks(SIZE_OF_U32 / SIZE_OF_BYTE)
@@ -130,8 +132,7 @@ fn hash_pre_processed(message: &[u8]) -> [u32; 5] {
 
             // Hash the chunk
             hash_chunk(&digest, &chunk)
-        },
-    )
+        })
 }
 
 /// Hashes a 512-bit chunk using the given initial hash variables
