@@ -1,10 +1,13 @@
 use std::error::Error;
+use std::fs::canonicalize;
+use std::path::{Path, PathBuf};
 
 #[cfg(target_family = "unix")]
 pub mod glob {
     use super::*;
-    use std::ffi::CString;
+    use std::ffi::{c_char, c_int, CStr, CString};
     use std::os::raw::c_void;
+    use std::{path, ptr};
 
     #[repr(C)]
     struct Glob {
@@ -45,13 +48,20 @@ pub mod glob {
                 0 => {
                     for i in 0..glob_result.gl_pathc {
                         let path = CStr::from_ptr(*glob_result.gl_pathv.add(i));
-                        paths.push(String::from_utf8_lossy(path.to_bytes()).to_string());
+                        let file_name = String::from_utf8_lossy(path.to_bytes()).to_string();
+                        paths.push(
+                            canonicalize(PathBuf::from(file_name))
+                                .expect("Should be able to get canonical path")
+                                .to_str()
+                                .expect("Should be able to convert path to string")
+                                .to_string(),
+                        );
                     }
 
                     globfree(&mut glob_result);
                     Ok(paths)
                 }
-                GLOB_NOMATCH => Err("No matches found.".into()),
+                GLOB_NOMATCH => Err("No matches found!".into()),
                 _ => Err("An error occurred while globbing.".into()),
             }
         }
@@ -64,7 +74,6 @@ pub mod glob {
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStrExt;
     use std::os::windows::ffi::OsStringExt;
-    use std::path::PathBuf;
     use std::ptr;
 
     use std::os::raw::c_void;
@@ -95,6 +104,16 @@ pub mod glob {
     }
 
     pub fn fnmatch(pattern: &str) -> Result<Vec<String>, Box<dyn Error>> {
+        let parent = if pattern.contains('\\') {
+            Path::new(pattern)
+                .parent()
+                .expect("Should have a parent")
+                .to_str()
+                .unwrap()
+                .to_string()
+        } else {
+            ".\\".to_string()
+        };
         let mut results = Vec::new();
         let wide_pattern: Vec<u16> = OsString::from(pattern)
             .encode_wide()
@@ -104,7 +123,10 @@ pub mod glob {
 
         unsafe {
             let handle = FindFirstFileW(wide_pattern.as_ptr(), &mut find_data);
-            if handle != ptr::null_mut() {
+            dbg!(&handle);
+            if handle == (usize::MAX as *mut c_void) {
+                return Err("Either no files were found, or pattern was invalid!".into());
+            } else if handle != ptr::null_mut() {
                 loop {
                     let file_name = OsString::from_wide(
                         &find_data.c_file_name[..find_data
@@ -113,12 +135,13 @@ pub mod glob {
                             .position(|&x| x == 0)
                             .unwrap_or(260)],
                     );
-                    results.push(
-                        PathBuf::from(file_name)
+                    results.push(format!(
+                        "{parent}\\{}",
+                        PathBuf::from(&file_name)
                             .to_str()
                             .expect("Should be able to convert path to string")
                             .to_string(),
-                    );
+                    ));
 
                     if FindNextFileW(handle, &mut find_data) == 0 {
                         break;
@@ -126,6 +149,7 @@ pub mod glob {
                 }
 
                 FindClose(handle);
+            } else {
             }
         }
 
