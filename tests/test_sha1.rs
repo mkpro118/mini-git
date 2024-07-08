@@ -7,9 +7,9 @@ mod tests {
     #[test]
     fn test_empty_string() {
         let mut sha1 = SHA1::new();
-        sha1.update(b"");
+        let sha1 = sha1.update(b"");
         assert_eq!(
-            sha1.hex_digest(),
+            &sha1.hex_digest(),
             "da39a3ee5e6b4b0d3255bfef95601890afd80709"
         );
     }
@@ -17,7 +17,7 @@ mod tests {
     #[test]
     fn test_fox() {
         let mut sha1 = SHA1::new();
-        sha1.update(b"The quick brown fox jumps over the lazy dog");
+        let sha1 = sha1.update(b"The quick brown fox jumps over the lazy dog");
         assert_eq!(
             sha1.hex_digest(),
             "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"
@@ -27,7 +27,7 @@ mod tests {
     #[test]
     fn test_rust() {
         let mut sha1 = SHA1::new();
-        sha1.update(b"Rust");
+        let sha1 = sha1.update(b"Rust");
         assert_eq!(
             sha1.hex_digest(),
             "e2ae20d9ae7fcacb605c03c198e0a1c51d446f50"
@@ -101,7 +101,7 @@ mod tests {
 
         for x in data {
             let mut sha1 = SHA1::new();
-            sha1.update(x.0.as_bytes());
+            let sha1 = sha1.update(x.0.as_bytes());
             assert_eq!(sha1.hex_digest(), x.1);
         }
     }
