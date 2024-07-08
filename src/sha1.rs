@@ -1,3 +1,9 @@
+//! This module computes the SHA-1 hash following the algorithm specified
+//! by Wikipedia
+//!
+//! The algorithm can be found here:
+//! https://en.wikipedia.org/wiki/SHA-1#SHA-1_pseudocode
+
 use std::ops::BitXor;
 
 pub const DIGEST_SIZE_BYTES: usize = 20;
@@ -63,8 +69,7 @@ impl Hash<&[u8]> for SHA1 {
     }
 }
 
-// This function follows the algorithm specified by Wikipedia
-// for the SHA-1 algorithm
+/// Preprocesses a message to make it SHA-1 compatible
 fn preprocess_message(message: &[u8]) -> Vec<u8> {
     // Ensure all values are big-endian
     let mut seq: Vec<u8> = message.iter().map(|x| x.to_be()).collect();
@@ -98,12 +103,13 @@ fn preprocess_message(message: &[u8]) -> Vec<u8> {
     seq
 }
 
-fn hash_pre_processed(message: &[u8]) -> [u32; 20] {
+/// Computes the SHA-1 hash over a preprocessed message
+fn hash_pre_processed(message: &[u8]) -> [u32; 5] {
     assert!(message.len() >= 512, "Message is too short");
     assert_eq!(message.len() % 512, 0, "Message is not a multiple of 512");
 
     // Break message into 512 bit chunks
-    let digest = message.chunks(CHUNK_SIZE / SIZE_OF_BYTE).fold(
+    message.chunks(CHUNK_SIZE / SIZE_OF_BYTE).fold(
         SHA1_INIT_DIGEST,
         |digest: [u32; 5], chunk: &[u8]| {
             // Convert a chunk of 4 bytes (u8) to a word (u32)
@@ -120,16 +126,19 @@ fn hash_pre_processed(message: &[u8]) -> [u32; 20] {
             // Hash the chunk
             hash_chunk(&digest, &chunk)
         },
-    );
-
-    [0; 20]
+    )
 }
 
-fn hash_chunk(digest: &[u32; 5], chunk: &[u32; 16]) -> [u32; 5] {
+/// Hashes a 512-bit chunk using the given initial hash variables
+/// Returns the final hash variable after performing the SHA-1 hash
+/// on the chunk
+fn hash_chunk(hash_vars: &[u32; 5], chunk: &[u32; 16]) -> [u32; 5] {
     let schedule = message_schedule(chunk);
-    sha1_main(digest, &schedule)
+    sha1_main(hash_vars, &schedule)
 }
 
+/// Creates the message schedule for a given chunk
+/// It extends the 16-word chunk into a 80-word chunk
 fn message_schedule(chunk: &[u32; 16]) -> [u32; 80] {
     let mut words = [0u32; 80];
 
@@ -148,12 +157,14 @@ fn message_schedule(chunk: &[u32; 16]) -> [u32; 80] {
     words
 }
 
+/// The main loop of the SHA-1 Hash
 fn sha1_main(hash_vars: &[u32; 5], schedule: &[u32; 80]) -> [u32; 5] {
     let r1 = round1(hash_vars, schedule[..20].try_into().unwrap());
     let r2 = round2_or_4(&r1, schedule[20..40].try_into().unwrap(), true);
     let r3 = round3(&r2, schedule[40..60].try_into().unwrap());
     let r4 = round2_or_4(&r3, schedule[60..80].try_into().unwrap(), false);
 
+    // Add this schedule's result to the original hash variables
     hash_vars
         .iter()
         .zip(r4.iter())
@@ -163,6 +174,7 @@ fn sha1_main(hash_vars: &[u32; 5], schedule: &[u32; 80]) -> [u32; 5] {
         .unwrap()
 }
 
+/// SHA-1 Round 1, computes hash over the first 20 words of the schedule
 #[inline]
 fn round1(hash_vars: &[u32; 5], words: &[u32; 20]) -> [u32; 5] {
     let [mut a, mut b, mut c, mut d, mut e] = hash_vars;
@@ -175,6 +187,10 @@ fn round1(hash_vars: &[u32; 5], words: &[u32; 20]) -> [u32; 5] {
     [a, b, c, d, e]
 }
 
+/// This function computes the hash over both round 2 and round 4
+/// The only difference between those rounds is the round constant used.
+/// `r2 = true` means use the constant for round 2, and `false` means use the
+/// constant for round 4.
 #[inline]
 fn round2_or_4(hash_vars: &[u32; 5], words: &[u32; 20], r2: bool) -> [u32; 5] {
     let [mut a, mut b, mut c, mut d, mut e] = hash_vars;
@@ -188,6 +204,7 @@ fn round2_or_4(hash_vars: &[u32; 5], words: &[u32; 20], r2: bool) -> [u32; 5] {
     [a, b, c, d, e]
 }
 
+/// SHA-1 Round 3, computes hash over the words 40-60 of the schedule
 #[inline]
 fn round3(hash_vars: &[u32; 5], words: &[u32; 20]) -> [u32; 5] {
     let [mut a, mut b, mut c, mut d, mut e] = hash_vars;
@@ -200,6 +217,8 @@ fn round3(hash_vars: &[u32; 5], words: &[u32; 20]) -> [u32; 5] {
     [a, b, c, d, e]
 }
 
+/// This function is common to all the rounds, where the hash variables
+/// are manipulated and swapped
 #[inline]
 fn swap_vars(word: u32, vars: [u32; 5], f: u32, k: u32) -> [u32; 5] {
     let temp = rotate_left(vars[0], 5)
