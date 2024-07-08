@@ -47,26 +47,31 @@ impl Default for SHA1 {
 
 impl From<&str> for SHA1 {
     fn from(text: &str) -> Self {
-        let sha = Self::default();
+        let mut sha = Self::default();
         sha.hash(text);
         sha
     }
 }
 
 trait Hash<T> {
-    fn hash(&self, message: T);
+    fn hash(&mut self, message: T);
 }
 
 impl Hash<&str> for SHA1 {
-    fn hash(&self, message: &str) {
+    fn hash(&mut self, message: &str) {
         self.hash(message.as_bytes())
     }
 }
 
 impl Hash<&[u8]> for SHA1 {
-    fn hash(&self, message: &[u8]) {
-        unimplemented!()
+    fn hash(&mut self, message: &[u8]) {
+        self.digest = hash(message);
     }
+}
+
+fn hash(message: &[u8]) -> [u32; 5] {
+    let preprocessed = preprocess_message(message);
+    hash_pre_processed(&preprocessed)
 }
 
 /// Preprocesses a message to make it SHA-1 compatible
