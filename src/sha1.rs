@@ -26,6 +26,12 @@ pub struct SHA1 {
 }
 
 impl SHA1 {
+    fn from_digest(digest: &[u32; 5]) -> Self {
+        Self {
+            digest: digest.clone(),
+        }
+    }
+
     fn reset(&mut self) {
         self.digest = SHA1_INIT_DIGEST;
     }
