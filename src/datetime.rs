@@ -1,9 +1,13 @@
+//! This module provides functionality for working with date and time,
+//! including timezone information.
+
 use std::ffi::{c_char, c_ulonglong, CStr};
 use std::ptr;
 use std::time::{Duration, SystemTime};
 
 const ONE_HOUR: u64 = 60 * 60;
 
+/// Represents timezone information.
 #[derive(Debug)]
 pub struct TZInfo {
     hours: u64,
@@ -11,6 +15,7 @@ pub struct TZInfo {
     ahead: bool,
 }
 
+/// Represents a date and time with timezone information.
 #[derive(Debug)]
 pub struct DateTime {
     time: Duration,
@@ -52,6 +57,23 @@ extern "C" {
 }
 
 impl TZInfo {
+    /// Creates a new `TZInfo` instance based on the current system timezone.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it calls C functions to retrieve
+    /// timezone information. However the C functions called use only static
+    /// memory, so this function should be memory-safe.
+    /// The caller must ensure that the system's time and timezone settings are
+    /// correctly configured.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use mini_git::datetime::TZInfo;
+    /// let tz_info = unsafe { TZInfo::new() };
+    /// println!("Current timezone offset: {}", tz_info.to_str());
+    /// ```
     #[allow(clippy::cast_possible_wrap)]
     #[must_use]
     pub unsafe fn new() -> Self {
@@ -86,6 +108,24 @@ impl TZInfo {
         }
     }
 
+    /// Converts the timezone information to a string representation.
+    ///
+    /// The format used is "+hhmm" or "-hhmm" where
+    /// - `hh` is a 2 digit representation of difference in hours
+    /// - `mm` is a 2 digit representation of difference in minutes
+    /// - `+` means local time is ahead of UTC
+    /// - `-` means local time is behind UTC
+    ///
+    /// For example, `"+0230"` would mean local time is 2 hours and 30 minutes
+    /// ahead of UTC
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use mini_git::datetime::TZInfo;
+    /// let tz_info = unsafe { TZInfo::new() };
+    /// assert!(tz_info.to_str().starts_with(['+', '-']));
+    /// ```
     #[must_use]
     pub fn to_str(&self) -> String {
         let mut repr = String::new();
@@ -98,6 +138,21 @@ impl TZInfo {
 }
 
 impl DateTime {
+    /// Creates a new `DateTime` instance representing the current date and time.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the system time is set to a date before the Unix epoch
+    /// (January 1, 1970). This is extremely unlikely to occur in practice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::datetime::DateTime;
+    ///
+    /// let now = DateTime::now();
+    /// println!("Current date and time: {}", now.to_str());
+    /// ```
     #[must_use]
     pub fn now() -> Self {
         let cur_time = SystemTime::now();
@@ -111,6 +166,17 @@ impl DateTime {
         }
     }
 
+    /// Creates a new `DateTime` instance from a Unix timestamp.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::datetime::DateTime;
+    ///
+    /// let timestamp = 1609459200; // January 1, 2021 00:00:00 UTC
+    /// let date_time = DateTime::from_timestamp(timestamp);
+    /// println!("Date and time: {}", date_time.to_str());
+    /// ```
     #[must_use]
     pub fn from_timestamp(timestamp: u64) -> Self {
         Self {
@@ -119,6 +185,18 @@ impl DateTime {
         }
     }
 
+    /// Converts the `DateTime` to a string representation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::datetime::DateTime;
+    ///
+    /// let now = DateTime::now();
+    /// let date_string = now.to_str();
+    /// println!("Current date and time: {}", date_string);
+    /// assert!(date_string.ends_with("+0000") || date_string.contains("-"));
+    /// ```
     #[must_use]
     pub fn to_str(&self) -> String {
         let time_str = unsafe {
