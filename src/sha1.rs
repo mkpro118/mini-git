@@ -27,7 +27,6 @@
 //! ```
 
 use std::fmt::Write;
-use std::iter;
 
 /// Initial state constants for the SHA-1 algorithm.
 const INITIAL_STATE: [u32; 5] = [
