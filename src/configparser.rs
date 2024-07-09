@@ -126,20 +126,21 @@ impl ConfigSection {
         self
     }
 
+    #[must_use]
     pub fn get_int(&self, key: &str) -> Option<isize> {
-        match self.configs.get(key) {
-            Some(value) => Some(value.parse().expect("Should be parsed as float")),
-            None => None,
-        }
+        self.configs
+            .get(key)
+            .map(|value| value.parse().expect("Should be parsed as float"))
     }
 
+    #[must_use]
     pub fn get_float(&self, key: &str) -> Option<f64> {
-        match self.configs.get(key) {
-            Some(value) => Some(value.parse().expect("Should be parsed as float")),
-            None => None,
-        }
+        self.configs
+            .get(key)
+            .map(|value| value.parse().expect("Should be parsed as float"))
     }
 
+    #[must_use]
     pub fn get_bool(&self, key: &str) -> Option<bool> {
         match self.configs.get(key) {
             Some(value) => match value.to_lowercase().as_str() {
