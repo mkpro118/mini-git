@@ -1,4 +1,7 @@
 use core::ops::Index;
+use std::fs::canonicalize;
+use std::iter::FromIterator;
+use std::path::Path;
 use std::{collections::HashMap, ops::IndexMut};
 
 #[derive(Debug)]
@@ -51,14 +54,20 @@ impl IndexMut<&str> for ConfigSection {
 
 impl ConfigParser {
     pub fn new() -> Self {
-        Self {
+        let mut parser = Self {
             sections: HashMap::new(),
-        }
+        };
+
+        // Global section
+        parser.add_section("");
+        parser
     }
 
     pub fn add_section(&mut self, section: &str) -> &mut ConfigSection {
-        self.sections
-            .insert(section.to_string(), ConfigSection::default());
+        if !self.sections.contains_key(section) {
+            self.sections
+                .insert(section.to_string(), ConfigSection::default());
+        }
         &mut self[section]
     }
 
@@ -90,5 +99,57 @@ impl IndexMut<&str> for ConfigParser {
         self.sections
             .get_mut(section)
             .expect("should be able to add key")
+    }
+}
+
+impl From<&str> for ConfigParser {
+    fn from(value: &str) -> Self {
+        // If we're able to successfully get a full path, then the str
+        // more likely a path than INI text
+        if let Ok(path) = canonicalize(value) {
+            return Self::from(Path::new(&path));
+        }
+
+        Self::from_iter(value.split("\n"))
+    }
+}
+
+impl From<&Path> for ConfigParser {
+    fn from(path: &Path) -> Self {
+        // assert!(va)
+        // use std::fs::File;
+        // use std::io::BufReader;
+
+        // Self
+        Self::default()
+    }
+}
+
+impl<'a> FromIterator<&'a str> for ConfigParser {
+    fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
+        let mut parser = Self::new();
+        let mut curr_section = &mut parser[""];
+        let iter = iter.into_iter().filter_map(|x| {
+            let x = x.trim();
+            if !x.is_empty() || x.starts_with(";") {
+                None
+            } else {
+                Some(x)
+            }
+        });
+
+        for line in iter {
+            if line.starts_with("[") && line.ends_with("]") {
+                let new_section = &line[1..(line.len() - 1)];
+                parser.add_section(new_section);
+                curr_section = &mut parser[new_section];
+                continue;
+            }
+            if let Some((key, value)) = line.split_once("=") {
+                curr_section[&key] = value.to_string();
+            }
+        }
+
+        parser
     }
 }
