@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::ffi::{c_char, c_ulonglong, CStr};
 use std::ptr;
 use std::time::{Duration, SystemTime};
@@ -7,8 +6,8 @@ const ONE_HOUR: u64 = 60 * 60;
 
 #[derive(Debug)]
 pub struct TZInfo {
-    hours: usize,
-    minutes: usize,
+    hours: u64,
+    minutes: u64,
     ahead: bool,
 }
 
@@ -21,15 +20,15 @@ pub struct DateTime {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 struct Tm {
-    tm_sec: i32,   /* seconds */
-    tm_min: i32,   /* minutes */
-    tm_hour: i32,  /* hours */
-    tm_mday: i32,  /* day of the month */
-    tm_mon: i32,   /* month */
-    tm_year: i32,  /* year */
-    tm_wday: i32,  /* day of the week */
-    tm_yday: i32,  /* day in the year */
-    tm_isdst: i32, /* daylight saving time */
+    sec: i32,   /* seconds */
+    min: i32,   /* minutes */
+    hour: i32,  /* hours */
+    mday: i32,  /* day of the month */
+    mon: i32,   /* month */
+    year: i32,  /* year */
+    wday: i32,  /* day of the week */
+    yday: i32,  /* day in the year */
+    isdst: i32, /* daylight saving time */
 }
 
 #[cfg(target_family = "windows")]
@@ -53,20 +52,22 @@ extern "C" {
 }
 
 impl TZInfo {
+    #[allow(clippy::cast_possible_wrap)]
+    #[must_use]
     pub unsafe fn new() -> Self {
         // Current TimeStamp
         let ts = time(ptr::null());
 
         // Local Time
-        let local = localtime(&ts as *const u64);
+        let local = localtime(std::ptr::from_ref::<u64>(&ts));
         let local_ts = mktime(local);
 
         // GMT/UTC Time
-        let gmt = gmtime(&ts as *const u64);
+        let gmt = gmtime(std::ptr::from_ref::<u64>(&ts));
         let mut gmt_ts = mktime(gmt);
 
         // If GMT is in Daylight Savings, remove subtract an hour
-        if (*gmt).tm_isdst > 0 {
+        if (*gmt).isdst > 0 {
             gmt_ts -= ONE_HOUR;
         }
 
@@ -79,13 +80,14 @@ impl TZInfo {
         let minutes = diff - hours * ONE_HOUR;
 
         Self {
-            hours: hours as usize,
-            minutes: minutes as usize,
+            hours,
+            minutes,
             ahead,
         }
     }
 
-    fn to_str(&self) -> String {
+    #[must_use]
+    pub fn to_str(&self) -> String {
         let mut repr = String::new();
 
         repr.push(if self.ahead { '+' } else { '-' });
@@ -96,6 +98,7 @@ impl TZInfo {
 }
 
 impl DateTime {
+    #[must_use]
     pub fn now() -> Self {
         let cur_time = SystemTime::now();
         let time = cur_time
@@ -108,6 +111,7 @@ impl DateTime {
         }
     }
 
+    #[must_use]
     pub fn from_timestamp(timestamp: u64) -> Self {
         Self {
             time: Duration::from_secs(timestamp),
@@ -115,9 +119,10 @@ impl DateTime {
         }
     }
 
+    #[must_use]
     pub fn to_str(&self) -> String {
         let time_str = unsafe {
-            let str_time = ctime(&self.time.as_secs() as *const u64);
+            let str_time = ctime(std::ptr::from_ref::<u64>(&self.time.as_secs()));
             CStr::from_ptr(str_time).to_string_lossy().to_string()
         };
 
