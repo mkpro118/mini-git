@@ -2,5 +2,5 @@
 #![allow(unused_imports)]
 
 pub mod configparser;
-pub mod glob;
+pub mod fnmatch;
 pub mod sha1;
