@@ -21,8 +21,10 @@
 //! ```
 
 use std::error::Error;
-use std::fs::canonicalize;
 use std::path::{Path, PathBuf};
+
+#[allow(unused_imports)]
+use std::fs::canonicalize;
 
 /// Unix-specific globbing implementation.
 #[cfg(target_family = "unix")]
