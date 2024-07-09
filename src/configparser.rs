@@ -89,6 +89,7 @@ pub struct ConfigParser {
 
 impl ConfigSection {
     /// Creates a new, empty `ConfigSection`.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             configs: HashMap::new(),
@@ -142,7 +143,7 @@ impl IndexMut<&str> for ConfigSection {
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
         let index = index.trim();
         if !self.configs.contains_key(index) {
-            self.configs.insert(index.to_string(), "".to_string());
+            self.configs.insert(index.to_string(), String::new());
         }
         self.configs
             .get_mut(index)
@@ -160,6 +161,7 @@ impl ConfigParser {
     ///
     /// let config = ConfigParser::new();
     /// ```
+    #[must_use]
     pub fn new() -> Self {
         let mut parser = Self {
             sections: HashMap::new(),
@@ -283,7 +285,7 @@ impl From<&str> for ConfigParser {
             return Self::from(Path::new(&path));
         }
 
-        Self::from_iter(value.split("\n"))
+        value.split('\n').collect::<Self>()
     }
 }
 
@@ -304,19 +306,19 @@ impl From<&Path> for ConfigParser {
     /// // Use the config...
     /// ```
     fn from(path: &Path) -> Self {
-        assert!(path.exists(), "File {:?} does not exist", path);
-
         use std::fs::File;
         use std::io::{BufRead, BufReader};
 
-        let file = File::open(path).expect("Should be able to open the file");
-        let iter = BufReader::new(file).lines().flatten();
+        assert!(path.exists(), "File {path:?} does not exist");
 
-        Self::from_iter(iter)
+        let file = File::open(path).expect("Should be able to open the file");
+        let iter = BufReader::new(file).lines().map_while(Result::ok);
+
+        iter.collect::<Self>()
     }
 }
 
-impl<'a, S> FromIterator<S> for ConfigParser
+impl<S> FromIterator<S> for ConfigParser
 where
     S: Borrow<str>,
 {
@@ -325,7 +327,7 @@ where
         let mut curr_section = &mut parser[""];
         let iter = iter.into_iter().filter_map(|x| {
             let x = x.borrow().trim();
-            if x.is_empty() || x.starts_with(";") {
+            if x.is_empty() || x.starts_with(';') {
                 None
             } else {
                 Some(x.to_owned())
@@ -333,14 +335,14 @@ where
         });
 
         for line in iter {
-            if line.starts_with("[") && line.ends_with("]") {
+            if line.starts_with('[') && line.ends_with(']') {
                 let new_section = &line[1..(line.len() - 1)];
                 parser.add_section(new_section);
                 curr_section = &mut parser[new_section];
                 continue;
             }
-            if let Some((key, value)) = line.split_once("=") {
-                curr_section[&key.trim()] = value.trim().to_string();
+            if let Some((key, value)) = line.split_once('=') {
+                curr_section[key.trim()] = value.trim().to_string();
             }
         }
 
