@@ -39,6 +39,8 @@
 //! assert_eq!(config["logging"]["level"], "info");
 //! ```
 
+#![allow(clippy::missing_panics_doc)]
+
 use core::ops::Index;
 use std::borrow::Borrow;
 use std::fs::canonicalize;
@@ -122,6 +124,31 @@ impl ConfigSection {
     pub fn add_config(&mut self, key: &str, value: &str) -> &mut Self {
         self[key] = value.to_string();
         self
+    }
+
+    pub fn get_int(&self, key: &str) -> Option<isize> {
+        match self.configs.get(key) {
+            Some(value) => Some(value.parse().expect("Should be parsed as float")),
+            None => None,
+        }
+    }
+
+    pub fn get_float(&self, key: &str) -> Option<f64> {
+        match self.configs.get(key) {
+            Some(value) => Some(value.parse().expect("Should be parsed as float")),
+            None => None,
+        }
+    }
+
+    pub fn get_bool(&self, key: &str) -> Option<bool> {
+        match self.configs.get(key) {
+            Some(value) => match value.to_lowercase().as_str() {
+                "true" | "1" | "on" | "yes" => Some(true),
+                "false" | "0" | "off" | "no" => Some(false),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 }
 
