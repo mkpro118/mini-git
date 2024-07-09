@@ -20,6 +20,8 @@
 //! }
 //! ```
 
+#![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
+
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -123,7 +125,7 @@ pub mod glob {
 /// Windows-specific globbing implementation.
 #[cfg(target_family = "windows")]
 pub mod glob {
-    use super::*;
+    use super::{Error, Path, PathBuf};
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStrExt;
     use std::os::windows::ffi::OsStringExt;
@@ -131,29 +133,29 @@ pub mod glob {
 
     use std::os::raw::c_void;
 
-    type HANDLE = *mut c_void;
-    type DWORD = u32;
-    type LPCWSTR = *const u16;
+    type Handle = *mut c_void;
+    type Dword = u32;
+    type Lpcwstr = *const u16;
 
     #[repr(C)]
     struct Win32FindDataw {
-        dw_file_attributes: DWORD,
-        ft_creation_time: [DWORD; 2],
-        ft_last_access_time: [DWORD; 2],
-        ft_last_write_time: [DWORD; 2],
-        n_file_size_high: DWORD,
-        n_file_size_low: DWORD,
-        dw_reserved0: DWORD,
-        dw_reserved1: DWORD,
+        dw_file_attributes: Dword,
+        ft_creation_time: [Dword; 2],
+        ft_last_access_time: [Dword; 2],
+        ft_last_write_time: [Dword; 2],
+        n_file_size_high: Dword,
+        n_file_size_low: Dword,
+        dw_reserved0: Dword,
+        dw_reserved1: Dword,
         c_file_name: [u16; 260],
         c_alternate_file_name: [u16; 14],
     }
 
     #[link(name = "kernel32")]
     extern "system" {
-        fn FindFirstFileW(lpFileName: LPCWSTR, lpFindFileData: *mut Win32FindDataw) -> HANDLE;
-        fn FindNextFileW(hFindFile: HANDLE, lpFindFileData: *mut Win32FindDataw) -> i32;
-        fn FindClose(hFindFile: HANDLE) -> i32;
+        fn FindFirstFileW(lpFileName: Lpcwstr, lpFindFileData: *mut Win32FindDataw) -> Handle;
+        fn FindNextFileW(hFindFile: Handle, lpFindFileData: *mut Win32FindDataw) -> i32;
+        fn FindClose(hFindFile: Handle) -> i32;
     }
 
     /// Performs file globbing on Windows systems.
@@ -183,6 +185,7 @@ pub mod glob {
     ///     Ok(())
     /// }
     /// ```
+    #[allow(clippy::cmp_null)]
     pub fn fnmatch(pattern: &str) -> Result<Vec<String>, Box<dyn Error>> {
         let parent = if pattern.contains('\\') {
             Path::new(pattern)
@@ -219,7 +222,6 @@ pub mod glob {
                         PathBuf::from(&file_name)
                             .to_str()
                             .expect("Should be able to convert path to string")
-                            .to_string(),
                     ));
 
                     if FindNextFileW(handle, &mut find_data) == 0 {
@@ -228,7 +230,6 @@ pub mod glob {
                 }
 
                 FindClose(handle);
-            } else {
             }
         }
 
