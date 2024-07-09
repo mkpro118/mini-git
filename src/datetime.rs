@@ -108,6 +108,13 @@ impl DateTime {
         }
     }
 
+    pub fn from_timestamp(timestamp: u64) -> Self {
+        Self {
+            time: Duration::from_secs(timestamp),
+            tz: unsafe { TZInfo::new() },
+        }
+    }
+
     pub fn to_str(&self) -> String {
         let time_str = unsafe {
             let str_time = ctime(&self.time.as_secs() as *const u64);
