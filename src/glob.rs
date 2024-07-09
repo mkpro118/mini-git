@@ -1,7 +1,30 @@
+//! A cross-platform file globbing module.
+//!
+//! This module provides functionality to perform file globbing (pattern matching for file paths)
+//! on both Unix-like systems and Windows. It uses the native globbing functions of each platform
+//! for efficient file matching.
+//!
+//! # Examples
+//!
+//! Basic usage:
+//!
+//! ```no_run
+//! use mini_git::glob::fnmatch;
+//!
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let matches = fnmatch("*.rs")?;
+//!     for file in matches {
+//!         println!("Matched file: {}", file);
+//!     }
+//!     Ok(())
+//! }
+//! ```
+
 use std::error::Error;
 use std::fs::canonicalize;
 use std::path::{Path, PathBuf};
 
+/// Unix-specific globbing implementation.
 #[cfg(target_family = "unix")]
 pub mod glob {
     use super::*;
@@ -30,6 +53,33 @@ pub mod glob {
         fn globfree(pglob: *mut Glob);
     }
 
+    /// Performs file globbing on Unix-like systems.
+    ///
+    /// This function uses the system's `glob` function to find files matching the given pattern.
+    ///
+    /// # Arguments
+    ///
+    /// * `pattern` - A string slice that holds the pattern to match against.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<String>)` - A vector of strings containing the matched file paths.
+    /// * `Err(Box<dyn Error>)` - An error if no matches are found or if an error occurs during globbing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::glob::fnmatch;
+    ///
+    /// #[cfg(target_family = "unix")]
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let matches = fnmatch("/home/user/*.rs")?;
+    ///     for file in matches {
+    ///         println!("Matched Rust file: {}", file);
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn fnmatch(pattern: &str) -> Result<Vec<String>, Box<dyn Error>> {
         let pattern = CString::new(pattern)?;
         let mut glob_result = Glob {
@@ -68,6 +118,7 @@ pub mod glob {
     }
 }
 
+/// Windows-specific globbing implementation.
 #[cfg(target_family = "windows")]
 pub mod glob {
     use super::*;
@@ -103,6 +154,33 @@ pub mod glob {
         fn FindClose(hFindFile: HANDLE) -> i32;
     }
 
+    /// Performs file globbing on Windows systems.
+    ///
+    /// This function uses the Windows API functions to find files matching the given pattern.
+    ///
+    /// # Arguments
+    ///
+    /// * `pattern` - A string slice that holds the pattern to match against.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<String>)` - A vector of strings containing the matched file paths.
+    /// * `Err(Box<dyn Error>)` - An error if no matches are found or if the pattern is invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use mini_git::glob::fnmatch;
+    ///
+    /// #[cfg(target_family = "windows")]
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let matches = fnmatch("C:\\Users\\*.txt")?;
+    ///     for file in matches {
+    ///         println!("Matched text file: {}", file);
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn fnmatch(pattern: &str) -> Result<Vec<String>, Box<dyn Error>> {
         let parent = if pattern.contains('\\') {
             Path::new(pattern)
