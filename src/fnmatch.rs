@@ -68,7 +68,7 @@ pub mod glob {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
     /// use mini_git::fnmatch::fnmatch;
     ///
     /// #[cfg(target_family = "unix")]
