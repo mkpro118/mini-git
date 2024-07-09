@@ -38,12 +38,13 @@ impl Index<&str> for ConfigSection {
     type Output = String;
 
     fn index(&self, index: &str) -> &Self::Output {
-        &self.configs[index]
+        &self.configs[index.trim()]
     }
 }
 
 impl IndexMut<&str> for ConfigSection {
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
+        let index = index.trim();
         if !self.configs.contains_key(index) {
             self.configs.insert(index.to_string(), "".to_string());
         }
@@ -65,6 +66,7 @@ impl ConfigParser {
     }
 
     pub fn add_section(&mut self, section: &str) -> &mut ConfigSection {
+        let section = section.trim();
         if !self.sections.contains_key(section) {
             self.sections
                 .insert(section.to_string(), ConfigSection::default());
@@ -73,7 +75,7 @@ impl ConfigParser {
     }
 
     pub fn add_config(&mut self, section: &str, key: &str, value: &str) -> &mut Self {
-        self[section][key] = value.to_string();
+        self[section.trim()][key.trim()] = value.trim().to_string();
         self
     }
 }
@@ -153,7 +155,7 @@ where
                 continue;
             }
             if let Some((key, value)) = line.split_once("=") {
-                curr_section[&key] = value.to_string();
+                curr_section[&key.trim()] = value.trim().to_string();
             }
         }
 
