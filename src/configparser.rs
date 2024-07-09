@@ -1,4 +1,5 @@
 use core::ops::Index;
+use std::borrow::Borrow;
 use std::fs::canonicalize;
 use std::iter::FromIterator;
 use std::path::Path;
@@ -116,25 +117,31 @@ impl From<&str> for ConfigParser {
 
 impl From<&Path> for ConfigParser {
     fn from(path: &Path) -> Self {
-        // assert!(va)
-        // use std::fs::File;
-        // use std::io::BufReader;
+        assert!(path.exists(), "File {:?} does not exist", path);
 
-        // Self
-        Self::default()
+        use std::fs::File;
+        use std::io::{BufRead, BufReader};
+
+        let file = File::open(path).expect("Should be able to open the file");
+        let iter = BufReader::new(file).lines().flatten();
+
+        Self::from_iter(iter)
     }
 }
 
-impl<'a> FromIterator<&'a str> for ConfigParser {
-    fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
+impl<'a, S> FromIterator<S> for ConfigParser
+where
+    S: Borrow<str>,
+{
+    fn from_iter<T: IntoIterator<Item = S>>(iter: T) -> Self {
         let mut parser = Self::new();
         let mut curr_section = &mut parser[""];
         let iter = iter.into_iter().filter_map(|x| {
-            let x = x.trim();
-            if !x.is_empty() || x.starts_with(";") {
+            let x = x.borrow().trim();
+            if x.is_empty() || x.starts_with(";") {
                 None
             } else {
-                Some(x)
+                Some(x.to_owned())
             }
         });
 
