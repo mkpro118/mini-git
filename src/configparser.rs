@@ -56,10 +56,10 @@ impl ConfigParser {
         }
     }
 
-    pub fn add_section(&mut self, section: &str) -> &ConfigSection {
+    pub fn add_section(&mut self, section: &str) -> &mut ConfigSection {
         self.sections
             .insert(section.to_string(), ConfigSection::default());
-        &self[section]
+        &mut self[section]
     }
 
     pub fn add_config(&mut self, section: &str, key: &str, value: &str) -> &mut Self {
