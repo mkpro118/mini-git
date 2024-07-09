@@ -17,6 +17,11 @@ impl ConfigSection {
             configs: HashMap::new(),
         }
     }
+
+    pub fn add_config(&mut self, key: &str, value: &str) -> &mut Self {
+        self[key] = value.to_string();
+        self
+    }
 }
 
 impl Default for ConfigSection {
@@ -50,6 +55,17 @@ impl ConfigParser {
             sections: HashMap::new(),
         }
     }
+
+    pub fn add_section(&mut self, section: &str) -> &ConfigSection {
+        self.sections
+            .insert(section.to_string(), ConfigSection::default());
+        &self[section]
+    }
+
+    pub fn add_config(&mut self, section: &str, key: &str, value: &str) -> &mut Self {
+        self[section][key] = value.to_string();
+        self
+    }
 }
 
 impl Default for ConfigParser {
@@ -67,13 +83,12 @@ impl Index<&str> for ConfigParser {
 }
 
 impl IndexMut<&str> for ConfigParser {
-    fn index_mut(&mut self, index: &str) -> &mut Self::Output {
-        if !self.sections.contains_key(index) {
-            self.sections
-                .insert(index.to_string(), ConfigSection::default());
+    fn index_mut(&mut self, section: &str) -> &mut Self::Output {
+        if !self.sections.contains_key(section) {
+            self.add_section(section);
         }
         self.sections
-            .get_mut(index)
+            .get_mut(section)
             .expect("should be able to add key")
     }
 }
