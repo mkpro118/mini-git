@@ -35,6 +35,9 @@ impl Index<&str> for ConfigSection {
 
 impl IndexMut<&str> for ConfigSection {
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
+        if !self.configs.contains_key(index) {
+            self.configs.insert(index.to_string(), "".to_string());
+        }
         self.configs
             .get_mut(index)
             .expect("should be able to add key")
@@ -65,6 +68,10 @@ impl Index<&str> for ConfigParser {
 
 impl IndexMut<&str> for ConfigParser {
     fn index_mut(&mut self, index: &str) -> &mut Self::Output {
+        if !self.sections.contains_key(index) {
+            self.sections
+                .insert(index.to_string(), ConfigSection::default());
+        }
         self.sections
             .get_mut(index)
             .expect("should be able to add key")
