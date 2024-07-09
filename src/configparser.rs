@@ -2,12 +2,12 @@ use core::ops::Index;
 use std::{collections::HashMap, ops::IndexMut};
 
 #[derive(Debug)]
-struct ConfigSection {
+pub struct ConfigSection {
     configs: HashMap<String, String>,
 }
 
 #[derive(Debug)]
-struct ConfigParser {
+pub struct ConfigParser {
     sections: HashMap<String, ConfigSection>,
 }
 
