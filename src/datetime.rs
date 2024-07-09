@@ -222,3 +222,70 @@ impl DateTime {
         time_str
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::SystemTime;
+
+    #[test]
+    fn test_tzinfo_new() {
+        unsafe {
+            let tz = TZInfo::new();
+            assert!(tz.hours < 24, "Hours should be less than 24");
+            assert!(tz.minutes < 60, "Minutes should be less than 60");
+        }
+    }
+
+    #[test]
+    fn test_tzinfo_to_str() {
+        let tz = TZInfo {
+            hours: 5,
+            minutes: 30,
+            ahead: true,
+        };
+        assert_eq!(tz.to_str(), "+0530");
+
+        let tz = TZInfo {
+            hours: 3,
+            minutes: 45,
+            ahead: false,
+        };
+        assert_eq!(tz.to_str(), "-0345");
+    }
+
+    #[test]
+    fn test_datetime_now() {
+        let now = DateTime::now();
+        let system_time = SystemTime::now();
+        let system_duration = system_time
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("Time went backwards");
+
+        // Allow for a small difference due to the time it takes to execute the code
+        assert!(
+            (now.time.as_secs() as i64 - system_duration.as_secs() as i64).abs() < 2,
+            "DateTime::now() should be close to the current system time"
+        );
+    }
+
+    #[test]
+    fn test_datetime_from_timestamp() {
+        let timestamp = 1609459200; // January 1, 2021 00:00:00 UTC
+        let dt = DateTime::from_timestamp(timestamp);
+        assert_eq!(dt.time.as_secs(), timestamp);
+    }
+
+    #[test]
+    fn test_tzinfo_debug_impl() {
+        let tz = TZInfo {
+            hours: 2,
+            minutes: 30,
+            ahead: true,
+        };
+        let debug_str = format!("{:?}", tz);
+        assert!(debug_str.contains("hours: 2"));
+        assert!(debug_str.contains("minutes: 30"));
+        assert!(debug_str.contains("ahead: true"));
+    }
+}
