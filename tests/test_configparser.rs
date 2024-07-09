@@ -37,6 +37,105 @@ mod tests {
             section["new_key"] = "new_value".to_string();
             assert_eq!(section["new_key"], "new_value");
         }
+
+        fn setup_config_section() -> ConfigSection {
+            let mut section = ConfigSection::new();
+            section.add_config("int_value", "42");
+            section.add_config("negative_int", "-10");
+            section.add_config("float_value", "3.14");
+            section.add_config("negative_float", "-2.5");
+            section.add_config("bool_true", "true");
+            section.add_config("bool_false", "false");
+            section.add_config("bool_yes", "yes");
+            section.add_config("bool_no", "no");
+            section.add_config("bool_on", "on");
+            section.add_config("bool_off", "off");
+            section.add_config("bool_1", "1");
+            section.add_config("bool_0", "0");
+            section.add_config("invalid_value", "not_a_number");
+            section
+        }
+
+        #[test]
+        fn test_get_int() {
+            let section = setup_config_section();
+
+            assert_eq!(section.get_int("int_value"), Some(42));
+            assert_eq!(section.get_int("negative_int"), Some(-10));
+            assert_eq!(section.get_int("non_existent"), None);
+        }
+
+        #[test]
+        #[should_panic]
+        fn test_get_int_from_float() {
+            let section = setup_config_section();
+
+            assert_eq!(section.get_int("float_value"), Some(3));
+        }
+
+        #[test]
+        #[should_panic(expected = "Should be parsed as float")]
+        fn test_get_int_invalid() {
+            let section = setup_config_section();
+            let _ = section.get_int("invalid_value");
+        }
+
+        #[test]
+        fn test_get_float() {
+            let section = setup_config_section();
+
+            assert_eq!(section.get_float("float_value"), Some(3.14));
+            assert_eq!(section.get_float("negative_float"), Some(-2.5));
+            assert_eq!(section.get_float("non_existent"), None);
+        }
+
+        #[test]
+        fn test_get_float_from_int() {
+            let section = setup_config_section();
+
+            assert_eq!(section.get_float("int_value"), Some(42.0));
+        }
+
+        #[test]
+        #[should_panic(expected = "Should be parsed as float")]
+        fn test_get_float_invalid() {
+            let section = setup_config_section();
+            let _ = section.get_float("invalid_value");
+        }
+
+        #[test]
+        fn test_get_bool() {
+            let section = setup_config_section();
+
+            assert_eq!(section.get_bool("bool_true"), Some(true));
+            assert_eq!(section.get_bool("bool_false"), Some(false));
+            assert_eq!(section.get_bool("bool_yes"), Some(true));
+            assert_eq!(section.get_bool("bool_no"), Some(false));
+            assert_eq!(section.get_bool("bool_on"), Some(true));
+            assert_eq!(section.get_bool("bool_off"), Some(false));
+            assert_eq!(section.get_bool("bool_1"), Some(true));
+            assert_eq!(section.get_bool("bool_0"), Some(false));
+            assert_eq!(section.get_bool("non_existent"), None);
+        }
+
+        #[test]
+        fn test_get_bool_case_insensitive() {
+            let mut section = ConfigSection::new();
+            section.add_config("upper_true", "TRUE");
+            section.add_config("mixed_false", "FaLsE");
+
+            assert_eq!(section.get_bool("upper_true"), Some(true));
+            assert_eq!(section.get_bool("mixed_false"), Some(false));
+        }
+
+        #[test]
+        fn test_get_bool_invalid() {
+            let section = setup_config_section();
+
+            assert_eq!(section.get_bool("invalid_value"), None);
+            assert_eq!(section.get_bool("int_value"), None);
+            assert_eq!(section.get_bool("float_value"), None);
+        }
     }
 
     mod config_parser_tests {
