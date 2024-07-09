@@ -9,7 +9,7 @@
 //! Basic usage:
 //!
 //! ```no_run
-//! use mini_git::glob::fnmatch;
+//! use mini_git::fnmatch::fnmatch;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let matches = fnmatch("*.rs")?;
@@ -69,7 +69,7 @@ pub mod glob {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::glob::fnmatch;
+    /// use mini_git::fnmatch::fnmatch;
     ///
     /// #[cfg(target_family = "unix")]
     /// fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -170,7 +170,7 @@ pub mod glob {
     /// # Examples
     ///
     /// ```no_run
-    /// use mini_git::glob::fnmatch;
+    /// use mini_git::fnmatch::fnmatch;
     ///
     /// #[cfg(target_family = "windows")]
     /// fn main() -> Result<(), Box<dyn std::error::Error>> {
