@@ -123,7 +123,6 @@ pub mod glob {
 
         unsafe {
             let handle = FindFirstFileW(wide_pattern.as_ptr(), &mut find_data);
-            dbg!(&handle);
             if handle == (usize::MAX as *mut c_void) {
                 return Err("Either no files were found, or pattern was invalid!".into());
             } else if handle != ptr::null_mut() {
