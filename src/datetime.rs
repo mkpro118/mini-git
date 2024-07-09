@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use std::ffi::{c_char, c_ulonglong, CStr};
-use std::mem::MaybeUninit;
 use std::ptr;
 use std::time::{Duration, SystemTime};
 
@@ -68,13 +67,13 @@ impl TZInfo {
 
         // If GMT is in Daylight Savings, remove subtract an hour
         if (*gmt).tm_isdst > 0 {
-            gmt_ts = gmt_ts - ONE_HOUR;
+            gmt_ts -= ONE_HOUR;
         }
 
         let diff = (local_ts as i64) - (gmt_ts as i64);
         let ahead = diff >= 0;
 
-        let diff: u64 = diff.abs() as u64;
+        let diff: u64 = diff.unsigned_abs();
 
         let hours = diff / ONE_HOUR;
         let minutes = diff - hours * ONE_HOUR;
@@ -116,7 +115,7 @@ impl DateTime {
         };
 
         let mut time_str = time_str
-            .split(" ")
+            .split(' ')
             .filter_map(|x| {
                 let x = x.trim();
                 if x.is_empty() {
