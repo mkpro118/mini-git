@@ -22,19 +22,14 @@
 
 #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 
-use std::error::Error;
-use std::path::{Path, PathBuf};
-
-#[allow(unused_imports)]
-use std::fs::canonicalize;
-
 /// Unix-specific globbing implementation.
 #[cfg(target_family = "unix")]
 pub mod glob {
-    use super::*;
+    use std::error::Error;
     use std::ffi::{c_char, c_int, CStr, CString};
-    use std::os::raw::c_void;
-    use std::{path, ptr};
+    use std::fs::canonicalize;
+    use std::path::PathBuf;
+    use std::ptr;
 
     #[repr(C)]
     struct Glob {
@@ -125,10 +120,11 @@ pub mod glob {
 /// Windows-specific globbing implementation.
 #[cfg(target_family = "windows")]
 pub mod glob {
-    use super::{Error, Path, PathBuf};
+    use std::error::Error;
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStrExt;
     use std::os::windows::ffi::OsStringExt;
+    use std::path::{Path, PathBuf};
     use std::ptr;
 
     use std::os::raw::c_void;
