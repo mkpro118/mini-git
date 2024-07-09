@@ -9,7 +9,6 @@ mod tests {
     fn setup_test_directory(dirname: &str) -> PathBuf {
         let test_dir = env::temp_dir().join(dirname);
         fs::create_dir_all(&test_dir).unwrap();
-        dbg!(&test_dir);
         test_dir
     }
 
@@ -78,7 +77,6 @@ mod tests {
             let pattern = format!("{}\\*.txt", test_dir.to_str().unwrap());
             let result = fnmatch(&pattern).unwrap();
 
-            dbg!(&result);
             assert_eq!(result.len(), 2);
             assert!(result.contains(&format!("{}\\test1.txt", test_dir.to_str().unwrap())));
             assert!(result.contains(&format!("{}\\test2.txt", test_dir.to_str().unwrap())));
