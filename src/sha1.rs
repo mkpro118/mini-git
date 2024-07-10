@@ -95,17 +95,17 @@ impl SHA1 {
         self.total_len += data.len() as u64;
         self.buffer.extend_from_slice(data);
 
-        let (new_buffer, new_state) =
-            self.buffer
-                .chunks(64)
-                .fold((Vec::new(), self.state), |(mut buffer, state), chunk| {
-                    if chunk.len() == 64 {
-                        (buffer, process_chunk(chunk, state))
-                    } else {
-                        buffer.extend_from_slice(chunk);
-                        (buffer, state)
-                    }
-                });
+        let (new_buffer, new_state) = self.buffer.chunks(64).fold(
+            (Vec::new(), self.state),
+            |(mut buffer, state), chunk| {
+                if chunk.len() == 64 {
+                    (buffer, process_chunk(chunk, state))
+                } else {
+                    buffer.extend_from_slice(chunk);
+                    (buffer, state)
+                }
+            },
+        );
 
         self.state = new_state;
         self.buffer = new_buffer;
@@ -217,7 +217,9 @@ fn expand_chunk(chunk: &[u8]) -> [u32; 80] {
     });
 
     (16..80).for_each(|i| {
-        words[i] = (words[i - 3] ^ words[i - 8] ^ words[i - 14] ^ words[i - 16]).rotate_left(1);
+        words[i] =
+            (words[i - 3] ^ words[i - 8] ^ words[i - 14] ^ words[i - 16])
+                .rotate_left(1);
     });
 
     words

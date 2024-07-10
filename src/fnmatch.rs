@@ -91,18 +91,23 @@ pub mod glob {
         let mut paths = vec![];
 
         unsafe {
-            let result = glob(pattern.as_ptr(), 0, ptr::null_mut(), &mut glob_result);
+            let result =
+                glob(pattern.as_ptr(), 0, ptr::null_mut(), &mut glob_result);
 
             match result {
                 0 => {
                     for i in 0..glob_result.gl_pathc {
                         let path = CStr::from_ptr(*glob_result.gl_pathv.add(i));
-                        let file_name = String::from_utf8_lossy(path.to_bytes()).to_string();
+                        let file_name =
+                            String::from_utf8_lossy(path.to_bytes())
+                                .to_string();
                         paths.push(
                             canonicalize(PathBuf::from(file_name))
                                 .expect("Should be able to get canonical path")
                                 .to_str()
-                                .expect("Should be able to convert path to string")
+                                .expect(
+                                    "Should be able to convert path to string",
+                                )
                                 .to_string(),
                         );
                     }
@@ -149,8 +154,14 @@ pub mod glob {
 
     #[link(name = "kernel32")]
     extern "system" {
-        fn FindFirstFileW(lpFileName: Lpcwstr, lpFindFileData: *mut Win32FindDataw) -> Handle;
-        fn FindNextFileW(hFindFile: Handle, lpFindFileData: *mut Win32FindDataw) -> i32;
+        fn FindFirstFileW(
+            lpFileName: Lpcwstr,
+            lpFindFileData: *mut Win32FindDataw,
+        ) -> Handle;
+        fn FindNextFileW(
+            hFindFile: Handle,
+            lpFindFileData: *mut Win32FindDataw,
+        ) -> i32;
         fn FindClose(hFindFile: Handle) -> i32;
     }
 
@@ -203,7 +214,10 @@ pub mod glob {
         unsafe {
             let handle = FindFirstFileW(wide_pattern.as_ptr(), &mut find_data);
             if handle == (usize::MAX as *mut c_void) {
-                return Err("Either no files were found, or pattern was invalid!".into());
+                return Err(
+                    "Either no files were found, or pattern was invalid!"
+                        .into(),
+                );
             } else if handle != ptr::null_mut() {
                 loop {
                     let file_name = OsString::from_wide(

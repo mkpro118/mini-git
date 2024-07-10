@@ -200,7 +200,8 @@ impl DateTime {
     #[must_use]
     pub fn to_str(&self) -> String {
         let time_str = unsafe {
-            let str_time = ctime(std::ptr::from_ref::<u64>(&self.time.as_secs()));
+            let str_time =
+                ctime(std::ptr::from_ref::<u64>(&self.time.as_secs()));
             CStr::from_ptr(str_time).to_string_lossy().to_string()
         };
 
@@ -264,7 +265,9 @@ mod tests {
 
         // Allow for a small difference due to the time it takes to execute the code
         assert!(
-            (now.time.as_secs() as i64 - system_duration.as_secs() as i64).abs() < 2,
+            (now.time.as_secs() as i64 - system_duration.as_secs() as i64)
+                .abs()
+                < 2,
             "DateTime::now() should be close to the current system time"
         );
     }
