@@ -254,7 +254,12 @@ impl ConfigParser {
     /// assert_eq!(config["app"]["name"], "MyApp");
     /// assert_eq!(config["app"]["version"], "1.0.0");
     /// ```
-    pub fn add_config(&mut self, section: &str, key: &str, value: &str) -> &mut Self {
+    pub fn add_config(
+        &mut self,
+        section: &str,
+        key: &str,
+        value: &str,
+    ) -> &mut Self {
         self[section.trim()][key.trim()] = value.trim().to_string();
         self
     }
