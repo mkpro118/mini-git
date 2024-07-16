@@ -84,10 +84,8 @@ impl GitRepository {
             {
                 return Err(format!("{:?} is not empty", path.as_os_str()));
             }
-        } else {
-            if fs::create_dir_all(&repo.worktree).is_err() {
-                return Err("error in making directories".to_string());
-            }
+        } else if fs::create_dir_all(&repo.worktree).is_err() {
+            return Err("error in making directories".to_string());
         }
 
         path_utils::repo_dir(&repo.gitdir, &["branches"], true)?;
