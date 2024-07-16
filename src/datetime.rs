@@ -1,6 +1,8 @@
 //! This module provides functionality for working with date and time,
 //! including timezone information.
 
+#![allow(unsafe_code)]
+
 use std::ffi::{c_char, c_ulonglong, CStr};
 use std::ptr;
 use std::time::{Duration, SystemTime};
