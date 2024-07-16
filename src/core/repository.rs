@@ -132,7 +132,7 @@ impl GitRepository {
         if let Some(file) =
             path_utils::repo_file(&repo.gitdir, &["HEAD"], false)?
         {
-            fs::write(&file, "ref: refs/heads/main\n")
+            fs::write(file, "ref: refs/heads/main\n")
                 .expect("Should write to file!");
         }
 
