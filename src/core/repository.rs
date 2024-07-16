@@ -117,14 +117,23 @@ impl GitRepository {
             path_utils::repo_file(&repo.gitdir, &["config"], false)?
         {
             let default_config = Self::default_config();
-            default_config.write_to_file(&file);
+            if default_config.write_to_file(&file).is_err() {
+                return Err("error occurred while writing \
+                            configuration file"
+                    .to_string());
+            }
         }
 
         Ok(repo)
     }
 
     fn default_config() -> ConfigParser {
-        todo!()
+        let mut config = ConfigParser::new();
+        config["core"]["repositoryformatversion"] = String::from("0");
+        config["core"]["filemode"] = String::from("false");
+        config["core"]["bare"] = String::from("false");
+
+        config
     }
 }
 
