@@ -5,5 +5,6 @@
 #![deny(clippy::suspicious)]
 #![deny(unsafe_code)]
 
+pub mod core;
 pub mod utils;
 pub mod zlib;
