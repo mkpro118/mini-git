@@ -8,7 +8,7 @@
 //! Creating a configuration programmatically:
 //!
 //! ```
-//! use mini_git::configparser::ConfigParser;
+//! use mini_git::utils::configparser::ConfigParser;
 //!
 //! let mut config = ConfigParser::new();
 //! config.add_section("database")
@@ -23,7 +23,7 @@
 //! Parsing a configuration from a string:
 //!
 //! ```
-//! use mini_git::configparser::ConfigParser;
+//! use mini_git::utils::configparser::ConfigParser;
 //!
 //! let config_str = r#"
 //! [server]
@@ -56,7 +56,7 @@ use std::{collections::HashMap, ops::IndexMut};
 /// # Examples
 ///
 /// ```
-/// use mini_git::configparser::ConfigSection;
+/// use mini_git::utils::configparser::ConfigSection;
 ///
 /// let mut section = ConfigSection::new();
 /// section.add_config("key1", "value1")
@@ -76,7 +76,7 @@ pub struct ConfigSection {
 /// # Examples
 ///
 /// ```
-/// use mini_git::configparser::ConfigParser;
+/// use mini_git::utils::configparser::ConfigParser;
 ///
 /// let mut config = ConfigParser::new();
 /// config.add_section("database")
@@ -113,7 +113,7 @@ impl ConfigSection {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::configparser::ConfigSection;
+    /// # use mini_git::utils::configparser::ConfigSection;
     ///
     /// let mut section = ConfigSection::new();
     /// section.add_config("database", "postgres")
@@ -186,7 +186,7 @@ impl ConfigParser {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::configparser::ConfigParser;
+    /// # use mini_git::utils::configparser::ConfigParser;
     ///
     /// let config = ConfigParser::new();
     /// ```
@@ -214,7 +214,7 @@ impl ConfigParser {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::configparser::ConfigParser;
+    /// # use mini_git::utils::configparser::ConfigParser;
     ///
     /// let mut config = ConfigParser::new();
     /// config.add_section("database")
@@ -246,7 +246,7 @@ impl ConfigParser {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::configparser::ConfigParser;
+    /// # use mini_git::utils::configparser::ConfigParser;
     ///
     /// let mut config = ConfigParser::new();
     /// config.add_config("app", "name", "MyApp")
@@ -300,7 +300,7 @@ impl From<&str> for ConfigParser {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::configparser::ConfigParser;
+    /// # use mini_git::utils::configparser::ConfigParser;
     ///
     /// let config_str = r#"
     /// [server]
@@ -334,7 +334,7 @@ impl From<&Path> for ConfigParser {
     ///
     /// ```no_run
     /// use std::path::Path;
-    /// use mini_git::configparser::ConfigParser;
+    /// use mini_git::utils::configparser::ConfigParser;
     ///
     /// let config = ConfigParser::from(Path::new("config.ini"));
     /// // Use the config...
