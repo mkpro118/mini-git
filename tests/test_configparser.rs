@@ -1,4 +1,4 @@
-use mini_git::configparser::*;
+use mini_git::utils::configparser::*;
 use std::env;
 use std::fs::File;
 use std::io::Write;
