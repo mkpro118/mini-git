@@ -4,7 +4,7 @@ mod tests {
     use std::env;
     use std::fs::{self, File};
     use std::io::Write;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     fn setup_test_directory(dirname: &str) -> PathBuf {
         let test_dir = env::temp_dir().join(dirname);
@@ -16,7 +16,7 @@ mod tests {
         fs::remove_dir_all(test_dir).expect("Should remove all");
     }
 
-    fn create_test_file(test_dir: &PathBuf, filename: &str) {
+    fn create_test_file(test_dir: &Path, filename: &str) {
         let path = test_dir.join(filename);
         let mut file = File::create(path).expect("Should have created file");
         file.write_all(b"test content").unwrap();
@@ -37,8 +37,14 @@ mod tests {
             let result = fnmatch(&pattern).unwrap();
 
             assert_eq!(result.len(), 2);
-            assert!(result.contains(&format!("{}/test1.txt", test_dir.to_str().unwrap())));
-            assert!(result.contains(&format!("{}/test2.txt", test_dir.to_str().unwrap())));
+            assert!(result.contains(&format!(
+                "{}/test1.txt",
+                test_dir.to_str().unwrap()
+            )));
+            assert!(result.contains(&format!(
+                "{}/test2.txt",
+                test_dir.to_str().unwrap()
+            )));
 
             cleanup_test_directory(&test_dir);
         }
@@ -78,8 +84,14 @@ mod tests {
             let result = fnmatch(&pattern).unwrap();
 
             assert_eq!(result.len(), 2);
-            assert!(result.contains(&format!("{}\\test1.txt", test_dir.to_str().unwrap())));
-            assert!(result.contains(&format!("{}\\test2.txt", test_dir.to_str().unwrap())));
+            assert!(result.contains(&format!(
+                "{}\\test1.txt",
+                test_dir.to_str().unwrap()
+            )));
+            assert!(result.contains(&format!(
+                "{}\\test2.txt",
+                test_dir.to_str().unwrap()
+            )));
 
             cleanup_test_directory(&test_dir);
         }
