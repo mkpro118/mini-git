@@ -71,6 +71,9 @@ mod tests {
     use std::env;
     use std::fs;
     use std::path::PathBuf;
+    use std::time;
+
+    const WAIT_TIME: u64 = 5;
 
     struct TempDir {
         original_dir: PathBuf,
@@ -79,12 +82,19 @@ mod tests {
 
     impl TempDir {
         fn create(dirname: &str) -> Self {
+            let salt = time::SystemTime::now()
+                .duration_since(time::UNIX_EPOCH)
+                .expect("Should return time")
+                .as_nanos();
             let original_dir =
                 Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
-            println!("CURR DIR = {original_dir:?}");
+
+            let dirname = format!("{dirname}{salt}");
             let test_dir = env::temp_dir().join(&dirname);
             fs::create_dir_all(&test_dir).unwrap();
             env::set_current_dir(&test_dir).expect("Should chdir");
+
+            // Hidden by cargo test unless required
             println!("Temp Dir is {test_dir:?}");
 
             Self {
@@ -101,8 +111,31 @@ mod tests {
         }
     }
 
+    fn walkdir(top: &Path) -> Vec<PathBuf> {
+        assert!(top.is_dir(), "Top is not a directory (top = {top:?})");
+        top.read_dir()
+            .expect("Should read the dir")
+            .flatten()
+            .map(|e| e.path())
+            .filter(|path| {
+                path.file_stem().is_some_and(|stem| {
+                    !stem.to_str().is_some_and(|x| x.starts_with('.'))
+                })
+            })
+            .fold(vec![], |mut paths, entry| {
+                if entry.is_file() {
+                    paths.push(entry);
+                } else {
+                    paths.extend_from_slice(&walkdir(&entry));
+                }
+                paths
+            })
+    }
+
     impl Drop for TempDir {
         fn drop(&mut self) {
+            let listing = walkdir(&self.test_dir);
+            println!("{listing:?}");
             self.revert();
         }
     }
@@ -125,6 +158,9 @@ mod tests {
         let args: [&str; 0] = [];
         let res = cmd_init(args);
 
+        // Allow a couple seconds FS changes to appear
+        std::thread::sleep(time::Duration::from_secs(WAIT_TIME));
+
         assert!(res.is_ok());
         let res = res.unwrap();
 
@@ -139,6 +175,9 @@ mod tests {
 
         let args = ["."];
         let res = cmd_init(args);
+
+        // Allow a couple seconds FS changes to appear
+        std::thread::sleep(time::Duration::from_secs(WAIT_TIME));
 
         assert!(res.is_ok());
         let res = res.unwrap();
@@ -155,6 +194,9 @@ mod tests {
         let args = ["new_dir"];
         let res = cmd_init(args);
 
+        // Allow a couple seconds FS changes to appear
+        std::thread::sleep(time::Duration::from_secs(WAIT_TIME));
+
         assert!(res.is_ok());
         let res = res.unwrap();
 
@@ -169,6 +211,9 @@ mod tests {
 
         let args = ["new_repo", "arg1", "arg2"];
         let res = cmd_init(args);
+
+        // Allow a couple seconds FS changes to appear
+        std::thread::sleep(time::Duration::from_secs(WAIT_TIME));
 
         assert!(res.is_ok());
         let res = res.unwrap();
@@ -194,37 +239,47 @@ mod tests {
 
         // Really complicated struct for abstraction and code reduction
         // Basically contains
-        // (function to get path, function to test path, components of path)
-        struct TestData<'a, 'b, 'c>(
+        // (function to get path, function to test path, items to test)
+        struct TestData<'a, 'b, 'c, 'd, 'e, 'f, 'g>(
             &'a dyn Fn(
-                &'a Path,
-                &'a [&'a str],
+                &'b Path,
+                &'c [&'d str],
                 bool,
             ) -> Result<Option<PathBuf>, String>,
-            &'b dyn Fn(&Path) -> bool,
-            &'c [&'static str],
+            &'e dyn Fn(&Path) -> bool,
+            &'f [&'g [&'static str]],
         );
 
         let expected_gitdir_subitems = [
-            TestData(&path_utils::repo_dir, &Path::is_dir, &["branches"]),
-            TestData(&path_utils::repo_dir, &Path::is_dir, &["objects"]),
-            TestData(&path_utils::repo_dir, &Path::is_dir, &["refs", "tags"]),
-            TestData(&path_utils::repo_dir, &Path::is_dir, &["refs", "heads"]),
-            TestData(&path_utils::repo_file, &Path::is_file, &["description"]),
-            TestData(&path_utils::repo_file, &Path::is_file, &["HEAD"]),
-            TestData(&path_utils::repo_file, &Path::is_file, &["config"]),
+            TestData(
+                &path_utils::repo_dir,
+                &Path::is_dir,
+                &[
+                    &["branches"],
+                    &["objects"],
+                    &["refs", "tags"],
+                    &["refs", "heads"],
+                ],
+            ),
+            TestData(
+                &path_utils::repo_file,
+                &Path::is_file,
+                &[&["description"], &["HEAD"], &["config"]],
+            ),
         ];
 
-        for TestData(path_fn, test_fn, subdir) in expected_gitdir_subitems {
-            let dir = path_fn(&expected_git_dir, &subdir, false);
-            assert!(
-                dir.as_ref()
-                    .is_ok_and(|p| p.as_ref().is_some_and(|p| p.exists())),
-                "{subdir:?} expected, but doesn't exist"
-            );
-            assert!(dir
-                .as_ref()
-                .is_ok_and(|p| p.as_ref().is_some_and(|p| test_fn(p))));
+        for TestData(path_fn, test_fn, subdirs) in expected_gitdir_subitems {
+            for subdir in subdirs {
+                let dir = path_fn(&expected_git_dir, &subdir, false);
+                assert!(
+                    dir.as_ref()
+                        .is_ok_and(|p| p.as_ref().is_some_and(|p| p.exists())),
+                    "{subdir:?} expected, but doesn't exist"
+                );
+                assert!(dir
+                    .as_ref()
+                    .is_ok_and(|p| p.as_ref().is_some_and(|p| test_fn(p))));
+            }
         }
     }
 }
