@@ -316,6 +316,12 @@ impl ConfigParser {
         self.sections.get_mut(key)
     }
 
+    /// Write the config to the given file
+    ///
+    /// # Errors
+    ///
+    /// If I/O operations fail. Essentially propagates the error from
+    /// [`std::fs::write`]
     pub fn write_to_file(&self, file: &Path) -> Result<(), std::io::Error> {
         fs::write(file, self.to_string())
     }
