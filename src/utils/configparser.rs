@@ -44,7 +44,7 @@
 
 use core::ops::Index;
 use std::borrow::Borrow;
-use std::fs::canonicalize;
+use std::fs::{self, canonicalize};
 use std::iter::FromIterator;
 use std::path::Path;
 use std::{collections::HashMap, ops::IndexMut};
@@ -151,6 +151,16 @@ impl ConfigSection {
             },
             _ => None,
         }
+    }
+
+    pub fn to_string(&self) -> String {
+        self.configs.iter().fold(
+            String::new(),
+            |mut string, (ref key, ref value)| {
+                string.push_str(&format!("    {key}={value}\n"));
+                string
+            },
+        )
     }
 }
 
@@ -275,8 +285,30 @@ impl ConfigParser {
         self.sections.get_mut(key)
     }
 
-    pub fn write_to_file(&self, file: &Path) {
-        todo!()
+    pub fn to_string(&self) -> String {
+        let sections = self.sections.keys().filter(|k| !String::is_empty(k));
+
+        let mut string = String::new();
+
+        // Global config first
+        if !self[""].configs.is_empty() {
+            string.push_str(&self[""].to_string());
+            string.push('\n');
+        }
+
+        // The rest go in whatever order the map returns them to us
+        sections
+            .into_iter()
+            .fold(String::new(), |mut string, section| {
+                string.push_str(&format!("[{section}]\n"));
+                string.push_str(&self[&section].to_string());
+                string.push('\n');
+                string
+            })
+    }
+
+    pub fn write_to_file(&self, file: &Path) -> Result<(), std::io::Error> {
+        fs::write(file, self.to_string())
     }
 }
 
