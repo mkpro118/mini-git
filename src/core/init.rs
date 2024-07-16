@@ -28,9 +28,8 @@ pub fn cmd_init(
         return Ok(help().to_owned());
     }
 
-    let cwd = match std::env::current_dir() {
-        Ok(path) => path,
-        Err(_) => return Err("failed to get cwd".to_owned()),
+    let Ok(cwd) = std::env::current_dir() else {
+        return Err("failed to get cwd".to_owned());
     };
 
     let path = if path == DEFAULT_PATH {
