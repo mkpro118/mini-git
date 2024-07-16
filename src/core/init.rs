@@ -3,15 +3,18 @@ use std::path::Path;
 
 const DEFAULT_PATH: &str = ".";
 
-fn cmd_init(
+pub fn cmd_init(
     args: impl IntoIterator<Item = impl AsRef<str>>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let path = args.into_iter().next();
     let path = match path {
         Some(ref arg) => arg.as_ref(),
         None => DEFAULT_PATH,
     };
 
-    let _ = GitRepository::create(&Path::new(&path))?;
-    Ok(())
+    let repo = GitRepository::create(Path::new(&path))?;
+    Ok(format!(
+        "initialized empty repository in {:?}\n",
+        repo.worktree().as_os_str()
+    ))
 }
