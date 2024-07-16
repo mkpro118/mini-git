@@ -20,6 +20,7 @@
 //! }
 //! ```
 
+#![allow(unsafe_code)]
 #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 
 /// Unix-specific globbing implementation.
