@@ -35,17 +35,11 @@ impl GitRepository {
         };
 
         let Some(parent) = path.parent() else {
-            return Err(format!(
-                "1. {:?} is not a valid path!",
-                path.as_os_str()
-            ));
+            return Err(format!("{:?} is not a valid path!", path.as_os_str()));
         };
 
         let Ok(parent) = parent.canonicalize() else {
-            return Err(format!(
-                "2. {:?} is not a valid path!",
-                path.as_os_str()
-            ));
+            return Err(format!("{:?} is not a valid path!", path.as_os_str()));
         };
 
         let worktree = parent.join(
@@ -160,7 +154,7 @@ impl GitRepository {
     }
 }
 
-mod path_utils {
+pub mod path_utils {
     use std::fs;
     use std::path::{Path, PathBuf};
 
