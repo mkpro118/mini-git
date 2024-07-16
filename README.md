@@ -19,7 +19,9 @@
 </p>
 
 <p align="center">
+
   A smaller re-implementation of the Git VCS in Rust, built completely from scratch with *zero* dependencies.
+
 </p>
 
 ## Status
