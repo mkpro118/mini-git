@@ -81,6 +81,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::approx_constant)]
         fn test_get_float() {
             let section = setup_config_section();
 
@@ -222,7 +223,8 @@ key3 = value3
         #[test]
         #[should_panic(expected = "File")]
         fn test_from_nonexistent_path() {
-            let non_existent_path = env::temp_dir().join("nonexistent_file.ini");
+            let non_existent_path =
+                env::temp_dir().join("nonexistent_file.ini");
             let _ = ConfigParser::from(non_existent_path.as_path());
         }
 
@@ -257,7 +259,7 @@ key3 = value3
                 "key3 = value3",
             ];
 
-            let parser = ConfigParser::from_iter(lines.into_iter());
+            let parser = ConfigParser::from_iter(lines);
 
             assert_eq!(parser["Section1"]["key1"], "value1");
             assert_eq!(parser["Section1"]["key2"], "value2");
