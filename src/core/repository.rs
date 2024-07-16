@@ -20,17 +20,42 @@ impl GitRepository {
         Self::new_repo(path, false)
     }
 
+    #[must_use]
+    pub fn worktree(&self) -> &Path {
+        &self.worktree
+    }
+
     fn new_repo(path: &Path, forced: bool) -> Result<Self, String> {
         let not_forced = !forced;
-        let Ok(worktree) = path.canonicalize() else {
+
+        let path = if path.is_relative() && !path.starts_with(".") {
+            &Path::new(".").join(path)
+        } else {
+            path
+        };
+
+        let Some(parent) = path.parent() else {
             return Err(format!(
-                "could not parse the given path {:?}",
+                "1. {:?} is not a valid path!",
                 path.as_os_str()
             ));
         };
+
+        let Ok(parent) = parent.canonicalize() else {
+            return Err(format!(
+                "2. {:?} is not a valid path!",
+                path.as_os_str()
+            ));
+        };
+
+        let worktree = parent.join(
+            path.file_name()
+                .expect("Should be a valid path unless it ends with .."),
+        );
+
         let gitdir = path.join(".git");
 
-        if not_forced || !gitdir.is_dir() {
+        if not_forced && !gitdir.is_dir() {
             return Err(format!("not a git repository {:?}", path.as_os_str()));
         }
 
@@ -97,7 +122,7 @@ impl GitRepository {
             path_utils::repo_file(&repo.gitdir, &["description"], false)?
         {
             fs::write(
-                &file,
+                file,
                 "Unnamed repository; edit this file 'description' to name the \
                 repository.\n",
             )
