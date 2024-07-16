@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use mini_git::fnmatch::fnmatch;
+    use mini_git::utils::fnmatch::fnmatch;
     use std::env;
     use std::fs::{self, File};
     use std::io::Write;

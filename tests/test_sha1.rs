@@ -1,4 +1,4 @@
-use mini_git::sha1::SHA1;
+use mini_git::utils::sha1::SHA1;
 
 #[cfg(test)]
 mod tests {

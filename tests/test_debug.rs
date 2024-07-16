@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use mini_git::datetime::*;
+    use mini_git::utils::datetime::*;
 
     #[test]
     fn test_datetime_to_str() {
