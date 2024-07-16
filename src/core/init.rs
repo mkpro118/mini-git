@@ -179,12 +179,18 @@ mod tests {
     }
 
     fn check_expected_path(root: &Path) {
-        assert!(root.exists());
-        assert!(root.is_dir());
+        assert!(root.exists(), "ROOT {root:?} does not exist");
+        assert!(root.is_dir(), "ROOT {root:?} is not a directory");
 
         let expected_git_dir = root.join(".git");
-        assert!(expected_git_dir.exists());
-        assert!(expected_git_dir.is_dir());
+        assert!(
+            expected_git_dir.exists(),
+            "GITDIR {expected_git_dir:?} does not exist"
+        );
+        assert!(
+            expected_git_dir.is_dir(),
+            "GITDIR {expected_git_dir:?} is not a directory"
+        );
 
         // Really complicated struct for abstraction and code reduction
         // Basically contains
@@ -219,7 +225,6 @@ mod tests {
             assert!(dir
                 .as_ref()
                 .is_ok_and(|p| p.as_ref().is_some_and(|p| test_fn(p))));
-            println!("{dir:?} worked!");
         }
     }
 }
