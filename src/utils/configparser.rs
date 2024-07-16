@@ -274,6 +274,10 @@ impl ConfigParser {
     pub fn get_mut(&mut self, key: &str) -> Option<&mut ConfigSection> {
         self.sections.get_mut(key)
     }
+
+    pub fn write_to_file(&self, file: &Path) {
+        todo!()
+    }
 }
 
 impl Default for ConfigParser {
