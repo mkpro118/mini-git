@@ -3,6 +3,7 @@
 #![deny(clippy::perf)]
 #![deny(clippy::style)]
 #![deny(clippy::suspicious)]
+#![deny(unsafe_code)]
 
 pub mod configparser;
 pub mod datetime;

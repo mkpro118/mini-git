@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod adler;
 pub mod bitreader;
 pub mod bitwriter;

@@ -39,6 +39,7 @@
 //! assert_eq!(config["logging"]["level"], "info");
 //! ```
 
+#![forbid(unsafe_code)]
 #![allow(clippy::missing_panics_doc)]
 
 use core::ops::Index;
