@@ -26,6 +26,7 @@
 //! assert_eq!(result, [42, 174, 108, 53, 201, 79, 207, 180, 21, 219, 233, 95, 64, 139, 156, 233, 30, 232, 70, 237]);
 //! ```
 
+#![forbid(unsafe_code)]
 #![allow(clippy::missing_panics_doc)]
 
 use std::fmt::Write;
