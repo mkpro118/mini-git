@@ -264,6 +264,16 @@ impl ConfigParser {
         self[section.trim()][key.trim()] = value.trim().to_string();
         self
     }
+
+    #[must_use]
+    pub fn get(&self, key: &str) -> Option<&ConfigSection> {
+        self.sections.get(key)
+    }
+
+    #[must_use]
+    pub fn get_mut(&mut self, key: &str) -> Option<&mut ConfigSection> {
+        self.sections.get_mut(key)
+    }
 }
 
 impl Default for ConfigParser {
