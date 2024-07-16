@@ -9,7 +9,7 @@
 //! Basic usage:
 //!
 //! ```
-//! use mini_git::sha1::SHA1;
+//! use mini_git::utils::sha1::SHA1;
 //!
 //! let mut hasher = SHA1::new();
 //! hasher.update(b"hello world");
@@ -20,7 +20,7 @@
 //! One-shot hash calculation:
 //!
 //! ```
-//! use mini_git::sha1::hash;
+//! use mini_git::utils::sha1::hash;
 //!
 //! let result = hash(b"hello world");
 //! assert_eq!(result, [42, 174, 108, 53, 201, 79, 207, 180, 21, 219, 233, 95, 64, 139, 156, 233, 30, 232, 70, 237]);
@@ -53,7 +53,7 @@ impl Default for SHA1 {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::sha1::SHA1;
+    /// # use mini_git::utils::sha1::SHA1;
     /// let hasher = SHA1::default();
     /// ```
     fn default() -> Self {
@@ -67,7 +67,7 @@ impl SHA1 {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::sha1::SHA1;
+    /// # use mini_git::utils::sha1::SHA1;
     /// let hasher = SHA1::new();
     /// ```
     #[must_use]
@@ -86,7 +86,7 @@ impl SHA1 {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::sha1::SHA1;
+    /// # use mini_git::utils::sha1::SHA1;
     /// let mut hasher = SHA1::new();
     /// hasher.update(b"hello");
     /// hasher.update(b" world");
@@ -119,7 +119,7 @@ impl SHA1 {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::sha1::SHA1;
+    /// # use mini_git::utils::sha1::SHA1;
     /// let mut hasher = SHA1::new();
     /// hasher.update(b"hello world");
     /// let result = hasher.finalize();
@@ -144,7 +144,7 @@ impl SHA1 {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::sha1::SHA1;
+    /// # use mini_git::utils::sha1::SHA1;
     /// let mut hasher = SHA1::new();
     /// hasher.update(b"hello world");
     /// let result = hasher.hex_digest();
@@ -231,7 +231,7 @@ fn expand_chunk(chunk: &[u8]) -> [u32; 80] {
 /// # Examples
 ///
 /// ```
-/// # use mini_git::sha1::hash;
+/// # use mini_git::utils::sha1::hash;
 /// let result = hash(b"hello world");
 /// assert_eq!(result, [42, 174, 108, 53, 201, 79, 207, 180, 21, 219, 233, 95, 64, 139, 156, 233, 30, 232, 70, 237]);
 /// ```

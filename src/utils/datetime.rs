@@ -72,7 +72,7 @@ impl TZInfo {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::datetime::TZInfo;
+    /// # use mini_git::utils::datetime::TZInfo;
     /// let tz_info = unsafe { TZInfo::new() };
     /// println!("Current timezone offset: {}", tz_info.to_str());
     /// ```
@@ -124,7 +124,7 @@ impl TZInfo {
     /// # Examples
     ///
     /// ```
-    /// # use mini_git::datetime::TZInfo;
+    /// # use mini_git::utils::datetime::TZInfo;
     /// let tz_info = unsafe { TZInfo::new() };
     /// assert!(tz_info.to_str().starts_with(['+', '-']));
     /// ```
@@ -150,7 +150,7 @@ impl DateTime {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::datetime::DateTime;
+    /// use mini_git::utils::datetime::DateTime;
     ///
     /// let now = DateTime::now();
     /// println!("Current date and time: {}", now.to_str());
@@ -173,7 +173,7 @@ impl DateTime {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::datetime::DateTime;
+    /// use mini_git::utils::datetime::DateTime;
     ///
     /// let timestamp = 1609459200; // January 1, 2021 00:00:00 UTC
     /// let date_time = DateTime::from_timestamp(timestamp);
@@ -192,7 +192,7 @@ impl DateTime {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::datetime::DateTime;
+    /// use mini_git::utils::datetime::DateTime;
     ///
     /// let now = DateTime::now();
     /// let date_string = now.to_str();
