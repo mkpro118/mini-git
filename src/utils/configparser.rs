@@ -42,6 +42,7 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_panics_doc)]
 
+use core::fmt::Display;
 use core::ops::Index;
 use std::borrow::Borrow;
 use std::fs::{self, canonicalize};
@@ -88,6 +89,19 @@ pub struct ConfigSection {
 #[derive(Debug)]
 pub struct ConfigParser {
     sections: HashMap<String, ConfigSection>,
+}
+
+impl Display for ConfigSection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = self.configs.iter().fold(
+            String::new(),
+            |mut string, (key, value)| {
+                string.push_str(&format!("    {key}={value}\n"));
+                string
+            },
+        );
+        f.write_str(&string)
+    }
 }
 
 impl ConfigSection {
@@ -152,16 +166,6 @@ impl ConfigSection {
             _ => None,
         }
     }
-
-    pub fn to_string(&self) -> String {
-        self.configs.iter().fold(
-            String::new(),
-            |mut string, (ref key, ref value)| {
-                string.push_str(&format!("    {key}={value}\n"));
-                string
-            },
-        )
-    }
 }
 
 impl Default for ConfigSection {
@@ -187,6 +191,33 @@ impl IndexMut<&str> for ConfigSection {
         self.configs
             .get_mut(index)
             .expect("should be able to add key")
+    }
+}
+
+impl Display for ConfigParser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let sections = self.sections.keys().filter(|k| !String::is_empty(k));
+
+        let mut string = String::new();
+
+        // Global config first
+        if !self[""].configs.is_empty() {
+            string.push_str(&self[""].to_string());
+            string.push('\n');
+        }
+
+        // The rest go in whatever order the map returns them to us
+        let string =
+            sections
+                .into_iter()
+                .fold(String::new(), |mut string, section| {
+                    string.push_str(&format!("[{section}]\n"));
+                    string.push_str(&self[section].to_string());
+                    string.push('\n');
+                    string
+                });
+
+        f.write_str(&string)
     }
 }
 
@@ -283,28 +314,6 @@ impl ConfigParser {
     #[must_use]
     pub fn get_mut(&mut self, key: &str) -> Option<&mut ConfigSection> {
         self.sections.get_mut(key)
-    }
-
-    pub fn to_string(&self) -> String {
-        let sections = self.sections.keys().filter(|k| !String::is_empty(k));
-
-        let mut string = String::new();
-
-        // Global config first
-        if !self[""].configs.is_empty() {
-            string.push_str(&self[""].to_string());
-            string.push('\n');
-        }
-
-        // The rest go in whatever order the map returns them to us
-        sections
-            .into_iter()
-            .fold(String::new(), |mut string, section| {
-                string.push_str(&format!("[{section}]\n"));
-                string.push_str(&self[&section].to_string());
-                string.push('\n');
-                string
-            })
     }
 
     pub fn write_to_file(&self, file: &Path) -> Result<(), std::io::Error> {
