@@ -113,3 +113,45 @@ pub fn read_object(
     };
     Ok(res)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::path::repo_dir;
+    use crate::utils::test::TempDir;
+
+    #[test]
+    fn test_read_object_bad_path() {
+        let tmp_dir = TempDir::create("test_read_object_bad_path");
+        let sha = "abcdef09123456789abc";
+
+        let repo = GitRepository::create(tmp_dir.test_dir())
+            .expect("Should create repo");
+
+        assert!(read_object(&repo, sha).is_err_and(|msg| msg.contains(sha)));
+    }
+
+    #[test]
+    fn test_read_object_good_path() {
+        let tmp_dir = TempDir::create("test_read_object_bad_path");
+        let sha = "abcdef09123456789abc";
+
+        let repo = GitRepository::create(tmp_dir.test_dir())
+            .expect("Should create repo");
+
+        let path = repo_dir(repo.gitdir(), &[OBJECTS_DIR, &sha[..2]], true)
+            .expect("Should create dir!")
+            .expect("Should contain path!");
+
+        let contents = b"tree 0\0";
+        let compressed = zlib::compress(contents, &zlib::Strategy::Fixed);
+
+        fs::write(path.join(&sha[2..]), &compressed)
+            .expect("Should write contents");
+
+        assert!(read_object(&repo, sha).is_ok_and(|obj| match obj {
+            GitObject::Tree => true,
+            _ => false,
+        }));
+    }
+}
