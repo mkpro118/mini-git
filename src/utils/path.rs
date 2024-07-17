@@ -120,7 +120,7 @@ mod tests {
     use std::path::Path;
 
     use super::{repo_dir, repo_file, repo_path};
-    use crate::utils::test_utils::*;
+    use crate::utils::test::*;
 
     #[test]
     fn test_repo_path() {
