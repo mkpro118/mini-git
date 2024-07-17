@@ -1,20 +1,11 @@
 #[cfg(test)]
 mod tests {
     use mini_git::utils::fnmatch::fnmatch;
-    use std::env;
-    use std::fs::{self, File};
+    #[cfg(test)]
+    use mini_git::utils::test_utils::TempDir;
+    use std::fs::File;
     use std::io::Write;
-    use std::path::{Path, PathBuf};
-
-    fn setup_test_directory(dirname: &str) -> PathBuf {
-        let test_dir = env::temp_dir().join(dirname);
-        fs::create_dir_all(&test_dir).unwrap();
-        test_dir
-    }
-
-    fn cleanup_test_directory(test_dir: &PathBuf) {
-        fs::remove_dir_all(test_dir).expect("Should remove all");
-    }
+    use std::path::Path;
 
     fn create_test_file(test_dir: &Path, filename: &str) {
         let path = test_dir.join(filename);
@@ -28,7 +19,8 @@ mod tests {
 
         #[test]
         fn test_fnmatch_with_existing_files() {
-            let test_dir = setup_test_directory("existing_files");
+            let tmp_dir = TempDir::create("existing_files");
+            let test_dir = tmp_dir.test_dir();
             create_test_file(&test_dir, "test1.txt");
             create_test_file(&test_dir, "test2.txt");
             create_test_file(&test_dir, "other.log");
@@ -45,21 +37,18 @@ mod tests {
                 "{}/test2.txt",
                 test_dir.to_str().unwrap()
             )));
-
-            cleanup_test_directory(&test_dir);
         }
 
         #[test]
         fn test_fnmatch_with_no_matches() {
-            let test_dir = setup_test_directory("no_matches");
+            let tmp_dir = TempDir::create("no_matches");
+            let test_dir = tmp_dir.test_dir();
             create_test_file(&test_dir, "test.log");
 
             let pattern = format!("{}/*.txt", test_dir.to_str().unwrap());
             let result = fnmatch(&pattern);
 
             assert!(result.is_err());
-
-            cleanup_test_directory(&test_dir);
         }
 
         #[test]
@@ -75,7 +64,8 @@ mod tests {
 
         #[test]
         fn test_fnmatch_with_existing_files() {
-            let test_dir = setup_test_directory("existing_files");
+            let tmp_dir = TempDir::create("existing_files");
+            let test_dir = tmp_dir.test_dir();
             create_test_file(&test_dir, "test1.txt");
             create_test_file(&test_dir, "test2.txt");
             create_test_file(&test_dir, "other.log");
@@ -92,21 +82,18 @@ mod tests {
                 "{}\\test2.txt",
                 test_dir.to_str().unwrap()
             )));
-
-            cleanup_test_directory(&test_dir);
         }
 
         #[test]
         fn test_fnmatch_with_no_matches() {
-            let test_dir = setup_test_directory("no_matches");
+            let tmp_dir = TempDir::create("no_matches");
+            let test_dir = tmp_dir.test_dir();
             create_test_file(&test_dir, "test.log");
 
             let pattern = format!("{}\\*.txt", test_dir.to_str().unwrap());
             let result = fnmatch(&pattern);
 
             assert!(result.is_err());
-
-            cleanup_test_directory(&test_dir);
         }
 
         #[test]

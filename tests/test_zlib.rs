@@ -1,31 +1,13 @@
+#![cfg(feature = "test-utils")]
+
 #[cfg(test)]
 mod tests {
+    use mini_git::utils::test_utils::walkdir;
     use mini_git::zlib::{compress, compress::Strategy, decompress};
     use std::{
         fs,
         path::{Path, PathBuf},
     };
-
-    fn walkdir(top: &Path) -> Vec<PathBuf> {
-        assert!(top.is_dir(), "Top is not a directory (top = {top:?})");
-        top.read_dir()
-            .expect("Should read the dir")
-            .flatten()
-            .map(|e| e.path())
-            .filter(|path| {
-                path.file_stem().is_some_and(|stem| {
-                    !stem.to_str().is_some_and(|x| x.starts_with('.'))
-                })
-            })
-            .fold(vec![], |mut paths, entry| {
-                if entry.is_file() {
-                    paths.push(entry);
-                } else {
-                    paths.extend_from_slice(&walkdir(&entry));
-                }
-                paths
-            })
-    }
 
     #[test]
     fn test_fixed_on_license() {
