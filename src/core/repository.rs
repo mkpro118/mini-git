@@ -26,6 +26,11 @@ impl GitRepository {
         &self.worktree
     }
 
+    #[must_use]
+    pub fn gitdir(&self) -> &Path {
+        &self.worktree
+    }
+
     fn new_repo(path: &Path, forced: bool) -> Result<Self, String> {
         let not_forced = !forced;
 
