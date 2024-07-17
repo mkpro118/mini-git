@@ -61,6 +61,32 @@ where
     Ok(Some(repo_path(gitdir, paths)))
 }
 
+/// Returns the path to the last directory after joining `gitdir` with the
+/// given `paths`.
+/// Optionally, if `create = true`, then it creates any missing directories
+/// in the path. It DOES create the last directory.
+///
+/// Use [`repo_path`] directly if you are not interested in creating missing
+/// directories.
+///
+/// # Errors
+///
+/// If an I/O error occurs while creating missing intermediate directories
+/// or if the path is invalid (this may be OS dependent).
+/// Returns a [`String`] message describing the error.
+///
+/// # Example
+/// ```no_run
+/// use mini_git::utils::path::repo_dir;
+/// use std::path::Path;
+///
+/// let base = Path::new(".git");
+/// let head_path = repo_dir(base, &["refs", "head"], true)?;
+/// assert!(base.join("hooks").exists());
+/// assert!(base.join("hooks").is_dir());
+/// assert_eq!(head_path, Some(base.join("refs").join("head")));
+/// # Ok::<(), String>(())
+/// ```
 pub fn repo_dir<P>(
     gitdir: &Path,
     paths: &[P],
