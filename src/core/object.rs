@@ -26,12 +26,12 @@ use GitObject::{Blob, Commit, Tag, Tree};
 
 impl GitObject {
     #[must_use]
-    pub fn deserialize(&self, data: &[u8]) {
+    pub fn deserialize(&self, data: &[u8]) -> GitObject {
         match self {
-            Blob(_) => self.blob_deserialize(data),
-            Commit => self.commit_deserialize(data),
-            Tag => self.tag_deserialize(data),
-            Tree => self.tree_deserialize(data),
+            Blob(_) => Self::blob_deserialize(data),
+            Commit => Self::commit_deserialize(data),
+            Tag => Self::tag_deserialize(data),
+            Tree => Self::tree_deserialize(data),
         }
     }
 
@@ -45,6 +45,7 @@ impl GitObject {
         }
     }
 
+    #[must_use]
     pub const fn format(&self) -> &'static [u8] {
         match self {
             Blob(_) => Self::blob_format(),
@@ -106,10 +107,14 @@ impl GitObject {
     }
 
     fn blob_serialize(&self) -> Vec<u8> {
-        todo!()
+        let Blob(data) = self else {
+            unreachable!();
+        };
+        data.to_vec()
     }
-    fn blob_deserialize(&self, _data: &[u8]) {
-        todo!()
+
+    fn blob_deserialize(data: &[u8]) -> GitObject {
+        Blob(BlobData::from(data))
     }
 }
 
@@ -127,7 +132,7 @@ impl GitObject {
     fn commit_serialize(&self) -> Vec<u8> {
         todo!()
     }
-    fn commit_deserialize(&self, _data: &[u8]) {
+    fn commit_deserialize(_data: &[u8]) -> GitObject {
         todo!()
     }
 }
@@ -146,7 +151,7 @@ impl GitObject {
     fn tag_serialize(&self) -> Vec<u8> {
         todo!()
     }
-    fn tag_deserialize(&self, _data: &[u8]) {
+    fn tag_deserialize(_data: &[u8]) -> GitObject {
         todo!()
     }
 }
@@ -165,7 +170,7 @@ impl GitObject {
     fn tree_serialize(&self) -> Vec<u8> {
         todo!()
     }
-    fn tree_deserialize(&self, _data: &[u8]) {
+    fn tree_deserialize(_data: &[u8]) -> GitObject {
         todo!()
     }
 }
@@ -200,6 +205,7 @@ pub fn read_object(
 }
 
 #[allow(clippy::module_name_repetitions)]
+#[must_use]
 pub fn hash_object(obj: &GitObject) -> SHA1 {
     let data = obj.serialize();
     let len = data.len().to_string();
