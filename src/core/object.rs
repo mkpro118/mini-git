@@ -206,7 +206,7 @@ pub fn read_object(
 
 #[allow(clippy::module_name_repetitions)]
 #[must_use]
-pub fn hash_object(obj: &GitObject) -> SHA1 {
+pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
     let data = obj.serialize();
     let len = data.len().to_string();
     let len = len.as_bytes();
@@ -215,7 +215,39 @@ pub fn hash_object(obj: &GitObject) -> SHA1 {
     let mut hash = SHA1::new();
     let _ = hash.update(&res);
 
-    hash
+    (res, hash)
+}
+
+pub fn write_object(
+    obj: &GitObject,
+    repo: &GitRepository,
+) -> Result<String, String> {
+    let (res, mut hash) = hash_object(obj);
+
+    let digest = hash.hex_digest();
+
+    let path = repo_file(
+        repo.gitdir(),
+        &[OBJECTS_DIR, &digest[..2], &digest[2..]],
+        true,
+    )?;
+    let Some(path) = path else {
+        return Err(format!(
+            "Failed to create object file for digest {digest}"
+        ));
+    };
+
+    if !path.exists() {
+        let compressed = zlib::compress(&res, &zlib::Strategy::Auto);
+        if fs::write(&path, compressed).is_err() {
+            return Err(format!(
+                "Failed to write to file {:?}",
+                path.as_os_str()
+            ));
+        };
+    }
+
+    Ok(digest)
 }
 
 #[cfg(test)]
@@ -275,7 +307,8 @@ mod tests {
                 .update(&b"0".repeat(20))
                 .hex_digest();
 
-            let actual_hash = hash_object(&obj).hex_digest();
+            let (_, mut actual_hash) = hash_object(&obj);
+            let actual_hash = actual_hash.hex_digest();
 
             assert_eq!(expected_hash, actual_hash);
         }
