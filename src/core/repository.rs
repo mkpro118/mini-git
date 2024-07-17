@@ -28,7 +28,7 @@ impl GitRepository {
 
     #[must_use]
     pub fn gitdir(&self) -> &Path {
-        &self.worktree
+        &self.gitdir
     }
 
     fn new_repo(path: &Path, forced: bool) -> Result<Self, String> {
