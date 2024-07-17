@@ -1,6 +1,18 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Joins the given `paths` to the base `gitdir`
+/// This function does NOT create any files or directories
+///
+/// # Example
+/// ```
+/// use mini_git::utils::path::repo_path;
+/// use std::path::Path;
+///
+/// let base = Path::new(".git");
+/// let head_path = repo_path(base, &["refs", "heads"]);
+/// assert_eq!(head_path, base.join("refs").join("heads"));
+/// ```
 pub fn repo_path<P>(gitdir: &Path, paths: &[P]) -> PathBuf
 where
     P: AsRef<Path>,
