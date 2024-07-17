@@ -11,10 +11,12 @@ static OBJECTS_DIR: &str = "objects";
 static SPACE_BYTE: u8 = b' ';
 static NULL_BYTE: u8 = b'\0';
 
+type BlobData = Vec<u8>;
+
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub enum GitObject {
-    Blob,
+    Blob(BlobData),
     Commit,
     Tag,
     Tree,
@@ -26,7 +28,7 @@ impl GitObject {
     #[must_use]
     pub fn deserialize(&self, data: &[u8]) {
         match self {
-            Blob => self.blob_deserialize(data),
+            Blob(_) => self.blob_deserialize(data),
             Commit => self.commit_deserialize(data),
             Tag => self.tag_deserialize(data),
             Tree => self.tree_deserialize(data),
@@ -36,7 +38,7 @@ impl GitObject {
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         match self {
-            Blob => self.blob_serialize(),
+            Blob(_) => self.blob_serialize(),
             Commit => self.commit_serialize(),
             Tag => self.tag_serialize(),
             Tree => self.tree_serialize(),
@@ -45,7 +47,7 @@ impl GitObject {
 
     pub const fn format(&self) -> &'static [u8] {
         match self {
-            Blob => Self::blob_format(),
+            Blob(_) => Self::blob_format(),
             Commit => Self::commit_format(),
             Tag => Self::tag_format(),
             Tree => Self::tree_format(),
@@ -95,7 +97,7 @@ impl GitObject {
 // This is the implementation for GitObject::Blob
 impl GitObject {
     pub fn blob_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        Blob
+        Blob(Vec::new())
     }
 
     const fn blob_format() -> &'static [u8] {
@@ -255,7 +257,7 @@ mod tests {
     #[test]
     #[ignore = "WIP"]
     fn test_hash_object_blob() {
-        let objects = [Blob, Commit, Tag, Tree];
+        let objects = [Blob(BlobData::new()), Commit, Tag, Tree];
 
         for obj in objects {
             let mut expected_hash = SHA1::new();
