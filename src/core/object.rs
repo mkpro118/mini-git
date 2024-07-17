@@ -213,6 +213,7 @@ mod tests {
     use super::*;
     use crate::utils::path::repo_dir;
     use crate::utils::test::TempDir;
+    use GitObject::{Blob, Commit, Tag, Tree};
 
     #[test]
     fn test_read_object_bad_path() {
@@ -244,8 +245,29 @@ mod tests {
             .expect("Should write contents");
 
         assert!(read_object(&repo, sha).is_ok_and(|obj| match obj {
-            GitObject::Tree => true,
+            Tree => true,
             _ => false,
         }));
+    }
+
+    #[test]
+    #[ignore = "WIP"]
+    fn test_hash_object_blob() {
+        let objects = [Blob, Commit, Tag, Tree];
+
+        for obj in objects {
+            let mut expected_hash = SHA1::new();
+            let expected_hash = expected_hash
+                .update(obj.format())
+                .update(b" ")
+                .update(b"20")
+                .update(b"\0")
+                .update(&b"0".repeat(20))
+                .hex_digest();
+
+            let actual_hash = hash_object(&obj).hex_digest();
+
+            assert_eq!(expected_hash, actual_hash);
+        }
     }
 }
