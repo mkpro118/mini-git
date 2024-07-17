@@ -30,30 +30,56 @@ impl GitObject {
     }
 
     pub fn blob_from(_iter: impl Iterator<Item = u8>) -> GitObject {
-        todo!()
+        GitObject::Blob
     }
 
     pub fn commit_from(_iter: impl Iterator<Item = u8>) -> GitObject {
-        todo!()
+        GitObject::Commit
     }
 
     pub fn tag_from(_iter: impl Iterator<Item = u8>) -> GitObject {
-        todo!()
+        GitObject::Tag
     }
 
     pub fn tree_from(_iter: impl Iterator<Item = u8>) -> GitObject {
-        todo!()
+        GitObject::Tree
     }
 
-    pub fn from_iter(
-        format: &[u8],
-        data_iter: impl Iterator<Item = u8>,
-    ) -> Result<GitObject, String> {
-        match format {
-            b"blob" => Ok(Self::blob_from(data_iter)),
-            b"commit" => Ok(Self::commit_from(data_iter)),
-            b"tag" => Ok(Self::tag_from(data_iter)),
-            b"tree" => Ok(Self::tree_from(data_iter)),
+    pub fn from_raw_data(raw: &[u8]) -> Result<GitObject, String> {
+        let total_size = raw.len();
+        let mut raw_iter = raw.iter().map(|x| *x);
+        // Read the object format
+        let Some(space_idx) = raw_iter.position(|byte| byte == SPACE_BYTE)
+        else {
+            return Err("format not specified".to_owned());
+        };
+        let format = raw[..space_idx].to_vec();
+
+        // Read the object size
+        let Some(null_idx) = raw_iter.position(|byte| byte == 0) else {
+            return Err("size not specified".to_owned());
+        };
+        // Iterator position restarts from 0, add prev offset
+        let null_idx = null_idx + space_idx + 1;
+        let Ok(size) = String::from_utf8(raw[space_idx..null_idx].to_vec())
+        else {
+            return Err("invalid size".to_owned());
+        };
+        let Ok(size) = size.trim().parse::<usize>() else {
+            return Err("failed to read size".to_owned());
+        };
+
+        // Ensure size matches contents
+        if size != (total_size - null_idx - 1) {
+            return Err("size mismatch!".to_owned());
+        }
+
+        // Create object from data
+        match format.as_slice() {
+            b"blob" => Ok(Self::blob_from(raw_iter)),
+            b"commit" => Ok(Self::commit_from(raw_iter)),
+            b"tag" => Ok(Self::tag_from(raw_iter)),
+            b"tree" => Ok(Self::tree_from(raw_iter)),
             _ => Err(format!("Unknown format {format:?}")),
         }
     }
@@ -79,40 +105,11 @@ pub fn read_object(
         return Err(format!("failed to read object with digest {sha}"));
     };
     let raw = zlib::decompress(&raw)?;
-    let mut raw_iter = raw.iter();
-
-    // Read the object format
-    let Some(space_idx) = raw_iter.position(|&byte| byte == SPACE_BYTE) else {
-        return Err(format!(
-            "malformed object with digest {sha}, format not specified"
-        ));
+    let res = match GitObject::from_raw_data(&raw) {
+        Ok(obj) => obj,
+        Err(msg) => {
+            return Err(format!("malformed object with digest {sha}, {msg}"))
+        }
     };
-    let format = raw[..space_idx].to_vec();
-
-    // Read the object size
-    let Some(null_idx) = raw_iter.position(|&byte| byte == 0) else {
-        return Err(format!(
-            "malformed object with digest {sha}, size not specified"
-        ));
-    };
-    let Ok(size) = String::from_utf8(raw[space_idx..null_idx].to_vec()) else {
-        return Err(format!(
-            "malformed object with digest {sha}, invalid size"
-        ));
-    };
-    let Ok(size) = size.trim().parse::<usize>() else {
-        return Err(format!(
-            "failed to read size from object with digest {sha}"
-        ));
-    };
-
-    // Ensure size matches contents
-    if size != (raw.len() - null_idx - 1) {
-        return Err(format!(
-            "malformed object with digest {sha}, size mismatch!"
-        ));
-    }
-
-    // Create object from data
-    GitObject::from_iter(&format, raw.into_iter().skip(null_idx + 1))
+    Ok(res)
 }
