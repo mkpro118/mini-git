@@ -21,29 +21,23 @@ pub enum GitObject {
 
 impl GitObject {
     #[must_use]
-    pub fn deserialize(_data: &[u8]) -> Self {
-        todo!()
+    pub fn deserialize(&self, data: &[u8]) {
+        match self {
+            GitObject::Blob => self.blob_deserialize(data),
+            GitObject::Commit => self.commit_deserialize(data),
+            GitObject::Tag => self.tag_deserialize(data),
+            GitObject::Tree => self.tree_deserialize(data),
+        }
     }
 
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
-        todo!()
-    }
-
-    pub fn blob_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        GitObject::Blob
-    }
-
-    pub fn commit_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        GitObject::Commit
-    }
-
-    pub fn tag_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        GitObject::Tag
-    }
-
-    pub fn tree_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        GitObject::Tree
+        match self {
+            GitObject::Blob => self.blob_serialize(),
+            GitObject::Commit => self.commit_serialize(),
+            GitObject::Tag => self.tag_serialize(),
+            GitObject::Tree => self.tree_serialize(),
+        }
     }
 
     pub fn from_raw_data(raw: &[u8]) -> Result<GitObject, String> {
@@ -83,6 +77,62 @@ impl GitObject {
             b"tree" => Ok(Self::tree_from(raw_iter)),
             _ => Err(format!("Unknown format {format:?}")),
         }
+    }
+}
+
+// This is the implementation for GitObject::Blob
+impl GitObject {
+    pub fn blob_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
+        GitObject::Blob
+    }
+
+    fn blob_serialize(&self) -> Vec<u8> {
+        todo!()
+    }
+    fn blob_deserialize(&self, _data: &[u8]) {
+        todo!()
+    }
+}
+
+// This is the impl for GitObject::Commit
+impl GitObject {
+    pub fn commit_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
+        GitObject::Commit
+    }
+
+    fn commit_serialize(&self) -> Vec<u8> {
+        todo!()
+    }
+    fn commit_deserialize(&self, _data: &[u8]) {
+        todo!()
+    }
+}
+
+// This is the impl for GitObject::Tag
+impl GitObject {
+    pub fn tag_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
+        GitObject::Tag
+    }
+
+    fn tag_serialize(&self) -> Vec<u8> {
+        todo!()
+    }
+    fn tag_deserialize(&self, _data: &[u8]) {
+        todo!()
+    }
+}
+
+// This is the impl for GitObject::Tree
+impl GitObject {
+    pub fn tree_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
+        GitObject::Tree
+    }
+
+    fn tree_serialize(&self) -> Vec<u8> {
+        todo!()
+    }
+    fn tree_deserialize(&self, _data: &[u8]) {
+        todo!()
     }
 }
 
