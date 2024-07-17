@@ -280,4 +280,21 @@ mod tests {
             assert_eq!(expected_hash, actual_hash);
         }
     }
+
+    #[test]
+    fn test_blob_serialize() {
+        let data = &[0; 16];
+        let blob = Blob(BlobData::from(data));
+        let serialized = blob.blob_serialize();
+        assert_eq!(&serialized, data);
+    }
+
+    #[test]
+    fn test_blob_deserialize() {
+        let data = &[0; 16];
+        match GitObject::blob_deserialize(data) {
+            Blob(inner) => assert_eq!(inner, data),
+            _ => panic!("Deserialize did not return a blob"),
+        }
+    }
 }
