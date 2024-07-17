@@ -67,7 +67,7 @@ Arguments:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::test_utils::TempDir;
+    use crate::utils::test::TempDir;
 
     const WAIT_TIME: u64 = 5;
 

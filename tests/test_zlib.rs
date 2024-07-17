@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use mini_git::utils::test_utils::walkdir;
+    use mini_git::utils::test::walkdir;
     use mini_git::zlib::{compress, compress::Strategy, decompress};
     use std::{
         fs,

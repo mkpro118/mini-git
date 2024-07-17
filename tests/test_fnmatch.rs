@@ -2,7 +2,7 @@
 mod tests {
     use mini_git::utils::fnmatch::fnmatch;
     #[cfg(test)]
-    use mini_git::utils::test_utils::TempDir;
+    use mini_git::utils::test::TempDir;
     use std::fs::File;
     use std::io::Write;
     use std::path::Path;
