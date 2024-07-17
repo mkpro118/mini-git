@@ -4,6 +4,7 @@ use std::fs;
 
 use crate::core::GitRepository;
 use crate::utils::path::repo_file;
+use crate::utils::sha1::SHA1;
 use crate::zlib;
 
 static OBJECTS_DIR: &str = "objects";
@@ -37,6 +38,15 @@ impl GitObject {
             GitObject::Commit => self.commit_serialize(),
             GitObject::Tag => self.tag_serialize(),
             GitObject::Tree => self.tree_serialize(),
+        }
+    }
+
+    pub const fn format(&self) -> &'static [u8] {
+        match self {
+            GitObject::Blob => Self::blob_format(),
+            GitObject::Commit => Self::commit_format(),
+            GitObject::Tag => Self::tag_format(),
+            GitObject::Tree => Self::tree_format(),
         }
     }
 
@@ -86,6 +96,11 @@ impl GitObject {
         GitObject::Blob
     }
 
+    const fn blob_format() -> &'static [u8] {
+        const FORMAT: &[u8] = b"blob";
+        FORMAT
+    }
+
     fn blob_serialize(&self) -> Vec<u8> {
         todo!()
     }
@@ -98,6 +113,11 @@ impl GitObject {
 impl GitObject {
     pub fn commit_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
         GitObject::Commit
+    }
+
+    const fn commit_format() -> &'static [u8] {
+        const FORMAT: &[u8] = b"commit";
+        FORMAT
     }
 
     fn commit_serialize(&self) -> Vec<u8> {
@@ -114,6 +134,11 @@ impl GitObject {
         GitObject::Tag
     }
 
+    const fn tag_format() -> &'static [u8] {
+        const FORMAT: &[u8] = b"tag";
+        FORMAT
+    }
+
     fn tag_serialize(&self) -> Vec<u8> {
         todo!()
     }
@@ -126,6 +151,11 @@ impl GitObject {
 impl GitObject {
     pub fn tree_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
         GitObject::Tree
+    }
+
+    const fn tree_format() -> &'static [u8] {
+        const FORMAT: &[u8] = b"tree";
+        FORMAT
     }
 
     fn tree_serialize(&self) -> Vec<u8> {
@@ -163,6 +193,19 @@ pub fn read_object(
         }
     };
     Ok(res)
+}
+
+#[allow(clippy::module_name_repetitions)]
+pub fn hash_object(obj: &GitObject) -> SHA1 {
+    let data = obj.serialize();
+    let len = data.len().to_string();
+    let len = len.as_bytes();
+    let res = [obj.format(), &[SPACE_BYTE], len, &[NULL_BYTE], &data].concat();
+
+    let mut hash = SHA1::new();
+    let _ = hash.update(&res);
+
+    hash
 }
 
 #[cfg(test)]
