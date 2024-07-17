@@ -67,77 +67,9 @@ Arguments:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-    use std::fs;
-    use std::path::PathBuf;
-    use std::time;
+    use crate::utils::test_utils::TempDir;
 
     const WAIT_TIME: u64 = 5;
-
-    struct TempDir {
-        original_dir: PathBuf,
-        test_dir: PathBuf,
-    }
-
-    impl TempDir {
-        fn create(dirname: &str) -> Self {
-            let salt = time::SystemTime::now()
-                .duration_since(time::UNIX_EPOCH)
-                .expect("Should return time")
-                .as_nanos();
-            let original_dir =
-                Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
-
-            let dirname = format!("{dirname}{salt}");
-            let test_dir = env::temp_dir().join(&dirname);
-            fs::create_dir_all(&test_dir).unwrap();
-            env::set_current_dir(&test_dir).expect("Should chdir");
-
-            // Hidden by cargo test unless required
-            println!("Temp Dir is {test_dir:?}");
-
-            Self {
-                original_dir,
-                test_dir,
-            }
-        }
-
-        fn revert(&self) {
-            // This may not immediately delete, so we just ignore the retval
-            let _ = fs::remove_dir_all(&self.test_dir);
-            println!("TRYING TO REVERT TO {:?}", &self.original_dir);
-            env::set_current_dir(&self.original_dir).expect("Should revert");
-        }
-    }
-
-    fn walkdir(top: &Path) -> Vec<PathBuf> {
-        assert!(top.is_dir(), "Top is not a directory (top = {top:?})");
-        top.read_dir()
-            .expect("Should read the dir")
-            .flatten()
-            .map(|e| e.path())
-            .filter(|path| {
-                path.file_stem().is_some_and(|stem| {
-                    !stem.to_str().is_some_and(|x| x.starts_with('.'))
-                })
-            })
-            .fold(vec![], |mut paths, entry| {
-                if entry.is_file() {
-                    paths.push(entry);
-                } else {
-                    paths.extend_from_slice(&walkdir(&entry));
-                }
-                paths
-            })
-    }
-
-    impl Drop for TempDir {
-        fn drop(&mut self) {
-            let listing = walkdir(&self.test_dir);
-            println!("{listing:?}");
-            self.revert();
-        }
-    }
 
     #[test]
     fn test_cmd_init_help() {
@@ -152,74 +84,74 @@ mod tests {
 
     #[test]
     fn test_cmd_init_no_args() {
-        let test_dir = TempDir::create("cmd_init_no_args");
+        let tmp_dir = TempDir::create("cmd_init_no_args");
 
         let args: [&str; 0] = [];
         let res = cmd_init(args);
 
         // Allow a couple seconds FS changes to appear
-        std::thread::sleep(time::Duration::from_secs(WAIT_TIME));
+        std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
 
         assert!(res.is_ok());
         let res = res.unwrap();
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(&test_dir.test_dir);
+        check_expected_path(&tmp_dir.test_dir());
     }
 
     #[test]
     fn test_cmd_init_explicit_dot() {
-        let test_dir = TempDir::create("cmd_init_explicit_dot");
+        let tmp_dir = TempDir::create("cmd_init_explicit_dot");
 
         let args = ["."];
         let res = cmd_init(args);
 
         // Allow a couple seconds FS changes to appear
-        std::thread::sleep(time::Duration::from_secs(WAIT_TIME));
+        std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
 
         assert!(res.is_ok());
         let res = res.unwrap();
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(&test_dir.test_dir.join(args[0]));
+        check_expected_path(&tmp_dir.test_dir().join(args[0]));
     }
 
     #[test]
     fn test_cmd_init_path() {
-        let test_dir = TempDir::create("cmd_init_path");
+        let tmp_dir = TempDir::create("cmd_init_path");
 
         let args = ["new_dir"];
         let res = cmd_init(args);
 
         // Allow a couple seconds FS changes to appear
-        std::thread::sleep(time::Duration::from_secs(WAIT_TIME));
+        std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
 
         assert!(res.is_ok());
         let res = res.unwrap();
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(&test_dir.test_dir.join(args[0]));
+        check_expected_path(&tmp_dir.test_dir().join(args[0]));
     }
 
     #[test]
     fn test_cmd_init_extra_args() {
-        let test_dir = TempDir::create("cmd_init_extra_args");
+        let tmp_dir = TempDir::create("cmd_init_extra_args");
 
         let args = ["new_repo", "arg1", "arg2"];
         let res = cmd_init(args);
 
         // Allow a couple seconds FS changes to appear
-        std::thread::sleep(time::Duration::from_secs(WAIT_TIME));
+        std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
 
         assert!(res.is_ok());
         let res = res.unwrap();
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(&test_dir.test_dir.join(args[0]));
+        check_expected_path(&tmp_dir.test_dir().join(args[0]));
     }
 
     #[cfg(target_family = "windows")]
@@ -228,6 +160,8 @@ mod tests {
     #[cfg(target_family = "unix")]
     fn check_expected_path(root: &Path) {
         use crate::utils::path;
+        use std::path::PathBuf;
+
         assert!(root.exists(), "ROOT {root:?} does not exist");
         assert!(root.is_dir(), "ROOT {root:?} is not a directory");
 
