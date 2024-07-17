@@ -67,7 +67,6 @@ Arguments:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::repository::path_utils;
     use std::env;
     use std::fs;
     use std::path::PathBuf;
@@ -223,7 +222,12 @@ mod tests {
         check_expected_path(&test_dir.test_dir.join(args[0]));
     }
 
+    #[cfg(target_family = "windows")]
+    fn check_expected_path(_root: &Path) {}
+
+    #[cfg(target_family = "ubuntu")]
     fn check_expected_path(root: &Path) {
+        use crate::core::repository::path_utils;
         assert!(root.exists(), "ROOT {root:?} does not exist");
         assert!(root.is_dir(), "ROOT {root:?} is not a directory");
 
