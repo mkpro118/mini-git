@@ -227,7 +227,7 @@ mod tests {
 
     #[cfg(target_family = "unix")]
     fn check_expected_path(root: &Path) {
-        use crate::core::repository::path_utils;
+        use crate::utils::path;
         assert!(root.exists(), "ROOT {root:?} does not exist");
         assert!(root.is_dir(), "ROOT {root:?} is not a directory");
 
