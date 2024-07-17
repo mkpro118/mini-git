@@ -8,6 +8,7 @@ use crate::zlib;
 
 static OBJECTS_DIR: &str = "objects";
 static SPACE_BYTE: u8 = b' ';
+static NULL_BYTE: u8 = b'\0';
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
@@ -29,34 +30,34 @@ impl GitObject {
         todo!()
     }
 
-    pub fn blob_from(_iter: impl Iterator<Item = u8>) -> GitObject {
+    pub fn blob_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
         GitObject::Blob
     }
 
-    pub fn commit_from(_iter: impl Iterator<Item = u8>) -> GitObject {
+    pub fn commit_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
         GitObject::Commit
     }
 
-    pub fn tag_from(_iter: impl Iterator<Item = u8>) -> GitObject {
+    pub fn tag_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
         GitObject::Tag
     }
 
-    pub fn tree_from(_iter: impl Iterator<Item = u8>) -> GitObject {
+    pub fn tree_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
         GitObject::Tree
     }
 
     pub fn from_raw_data(raw: &[u8]) -> Result<GitObject, String> {
         let total_size = raw.len();
-        let mut raw_iter = raw.iter().map(|x| *x);
+        let mut raw_iter = raw.iter();
         // Read the object format
-        let Some(space_idx) = raw_iter.position(|byte| byte == SPACE_BYTE)
+        let Some(space_idx) = raw_iter.position(|byte| *byte == SPACE_BYTE)
         else {
             return Err("format not specified".to_owned());
         };
         let format = raw[..space_idx].to_vec();
 
         // Read the object size
-        let Some(null_idx) = raw_iter.position(|byte| byte == 0) else {
+        let Some(null_idx) = raw_iter.position(|byte| *byte == 0) else {
             return Err("size not specified".to_owned());
         };
         // Iterator position restarts from 0, add prev offset
