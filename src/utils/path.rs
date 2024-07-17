@@ -188,7 +188,7 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    use super::{repo_dir, repo_file, repo_path};
+    use super::*;
     use crate::utils::test::*;
 
     #[test]
@@ -297,5 +297,52 @@ mod tests {
 
         let result = repo_dir::<&str>(&base, &[], true).unwrap();
         assert_eq!(result, Some(base));
+    }
+
+    #[test]
+    fn test_repo_find_with_manifest() {
+        let top = env!("CARGO_MANIFEST_DIR");
+        let expected =
+            Path::new(top).canonicalize().expect("Should get abspath");
+        let repo_root = repo_find(&top).unwrap();
+        assert_eq!(repo_root, expected);
+    }
+
+    #[test]
+    fn test_repo_find_with_manifest_subdir_src() {
+        let manifest = env!("CARGO_MANIFEST_DIR");
+        let top = Path::new(manifest).join("src");
+        let expected = Path::new(&manifest)
+            .canonicalize()
+            .expect("Should get abspath");
+        let repo_root = repo_find(&top).unwrap();
+        assert_eq!(repo_root, expected);
+    }
+
+    #[test]
+    fn test_repo_find_with_manifest_subdir_tests() {
+        let manifest = env!("CARGO_MANIFEST_DIR");
+        let top = Path::new(manifest).join("tests");
+        let expected = Path::new(&manifest)
+            .canonicalize()
+            .expect("Should get abspath");
+        let repo_root = repo_find(&top).unwrap();
+        assert_eq!(repo_root, expected);
+    }
+
+    #[test]
+    fn test_repo_find_bad_dir() {
+        let manifest = env!("CARGO_MANIFEST_DIR");
+        let top = Path::new(manifest).join("bad_dir");
+        let res = repo_find(&top);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_repo_find_no_git() {
+        let tmp_dir = TempDir::create("test_repo_find_no_git");
+        let top = tmp_dir.test_dir();
+        let res = repo_find(&top);
+        assert!(res.is_err());
     }
 }
