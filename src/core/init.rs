@@ -67,7 +67,7 @@ Arguments:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::repository::path_utils;
+    use crate::utils::path;
     use std::env;
     use std::fs;
     use std::path::PathBuf;
@@ -252,7 +252,7 @@ mod tests {
 
         let expected_gitdir_subitems = [
             TestData(
-                &path_utils::repo_dir,
+                &path::repo_dir,
                 &Path::is_dir,
                 &[
                     &["branches"],
@@ -262,7 +262,7 @@ mod tests {
                 ],
             ),
             TestData(
-                &path_utils::repo_file,
+                &path::repo_file,
                 &Path::is_file,
                 &[&["description"], &["HEAD"], &["config"]],
             ),

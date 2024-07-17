@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::utils::configparser::ConfigParser;
+use crate::utils::path;
 
 /// A git repository
 #[allow(clippy::module_name_repetitions, dead_code)]
@@ -54,7 +55,7 @@ impl GitRepository {
         }
 
         let config;
-        let config_file = path_utils::repo_file(&gitdir, &["config"], false)?;
+        let config_file = path::repo_file(&gitdir, &["config"], false)?;
         if let Some(config_file) = config_file {
             config = ConfigParser::from(config_file.as_path());
         } else if not_forced {
@@ -107,13 +108,13 @@ impl GitRepository {
             return Err("error in making directories".to_string());
         }
 
-        path_utils::repo_dir(&repo.gitdir, &["branches"], true)?;
-        path_utils::repo_dir(&repo.gitdir, &["objects"], true)?;
-        path_utils::repo_dir(&repo.gitdir, &["refs", "tags"], true)?;
-        path_utils::repo_dir(&repo.gitdir, &["refs", "heads"], true)?;
+        path::repo_dir(&repo.gitdir, &["branches"], true)?;
+        path::repo_dir(&repo.gitdir, &["objects"], true)?;
+        path::repo_dir(&repo.gitdir, &["refs", "tags"], true)?;
+        path::repo_dir(&repo.gitdir, &["refs", "heads"], true)?;
 
         if let Some(file) =
-            path_utils::repo_file(&repo.gitdir, &["description"], false)?
+            path::repo_file(&repo.gitdir, &["description"], false)?
         {
             fs::write(
                 file,
@@ -123,16 +124,12 @@ impl GitRepository {
             .expect("Should write to file!");
         }
 
-        if let Some(file) =
-            path_utils::repo_file(&repo.gitdir, &["HEAD"], false)?
-        {
+        if let Some(file) = path::repo_file(&repo.gitdir, &["HEAD"], false)? {
             fs::write(file, "ref: refs/heads/main\n")
                 .expect("Should write to file!");
         }
 
-        if let Some(file) =
-            path_utils::repo_file(&repo.gitdir, &["config"], false)?
-        {
+        if let Some(file) = path::repo_file(&repo.gitdir, &["config"], false)? {
             let default_config = Self::default_config();
             if default_config.write_to_file(&file).is_err() {
                 return Err("error occurred while writing \
@@ -151,60 +148,5 @@ impl GitRepository {
         config["core"]["bare"] = String::from("false");
 
         config
-    }
-}
-
-pub mod path_utils {
-    use std::fs;
-    use std::path::{Path, PathBuf};
-
-    pub fn repo_path<P>(gitdir: &Path, paths: &[P]) -> PathBuf
-    where
-        P: AsRef<Path>,
-    {
-        paths
-            .iter()
-            .fold(gitdir.to_path_buf(), |dir, path| dir.join(path))
-    }
-
-    pub fn repo_file<P>(
-        gitdir: &Path,
-        paths: &[P],
-        create: bool,
-    ) -> Result<Option<PathBuf>, String>
-    where
-        P: AsRef<Path>,
-    {
-        let Some(_) = repo_dir(gitdir, &paths[..(paths.len() - 1)], create)?
-        else {
-            return Ok(None);
-        };
-        Ok(Some(repo_path(gitdir, paths)))
-    }
-
-    pub fn repo_dir<P>(
-        gitdir: &Path,
-        paths: &[P],
-        create: bool,
-    ) -> Result<Option<PathBuf>, String>
-    where
-        P: AsRef<Path>,
-    {
-        let path = repo_path(gitdir, paths);
-
-        if path.exists() {
-            if path.is_dir() {
-                Ok(Some(path))
-            } else {
-                Err(format!("not a directory {:?}", path.as_os_str()))
-            }
-        } else if create {
-            match fs::create_dir_all(&path) {
-                Ok(()) => Ok(Some(path)),
-                Err(_) => Err("error in making directories".to_string()),
-            }
-        } else {
-            Ok(None)
-        }
     }
 }
