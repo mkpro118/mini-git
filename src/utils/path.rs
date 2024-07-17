@@ -138,6 +138,51 @@ where
     }
 }
 
+/// Returns the path to the root of the repository, traversing from `top` to
+/// the root.
+///
+/// # Errors
+///
+/// If an I/O error occurs while resolving paths, or if no ancestor of `top`
+/// upto the root is a repository root.
+/// An error message describing the error is returned
+///
+/// # Example
+/// Note: This example will only work if the VCS is being used in the current
+/// crate
+///
+/// ```
+/// use mini_git::utils::path::repo_find;
+///
+/// let top = env!("CARGO_MANIFEST_DIR");
+/// let repo_root = repo_find(&top)?;
+/// println!("{:?}", repo_root.as_os_str());
+/// # Ok::<(), String>(())
+/// ```
+pub fn repo_find<P>(top: P) -> Result<PathBuf, String>
+where
+    P: AsRef<Path>,
+{
+    const GITDIR: &'static str = ".git";
+
+    let top = top.as_ref();
+    let path = Path::new(top);
+    let Ok(path) = path.canonicalize() else {
+        return Err(format!("Could not resolve path {:?}", path.as_os_str()));
+    };
+
+    for dir in path.ancestors() {
+        if dir.join(GITDIR).is_dir() {
+            return Ok(dir.to_path_buf());
+        }
+    }
+
+    Err(format!(
+        "neither {top:?} nor any of it's parent directories \
+                 is a repository."
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
