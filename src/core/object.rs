@@ -1,4 +1,9 @@
-#![allow(dead_code, clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#![allow(
+    dead_code,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::needless_pass_by_value
+)]
 
 use std::fs;
 
@@ -113,7 +118,7 @@ impl GitObject {
         let Blob(data) = self else {
             unreachable!();
         };
-        data.to_vec()
+        data.clone()
     }
 
     fn blob_deserialize(data: &[u8]) -> GitObject {
@@ -179,6 +184,7 @@ impl GitObject {
 }
 
 #[allow(clippy::module_name_repetitions)]
+#[must_use]
 pub fn find_object(
     _repo: &GitRepository,
     name: &str,
