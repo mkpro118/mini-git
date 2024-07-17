@@ -227,7 +227,7 @@ mod tests {
 
     #[cfg(target_family = "unix")]
     fn check_expected_path(root: &Path) {
-        use crate::core::repository::path_utils;
+        use crate::utils::path;
         assert!(root.exists(), "ROOT {root:?} does not exist");
         assert!(root.is_dir(), "ROOT {root:?} is not a directory");
 
@@ -256,7 +256,7 @@ mod tests {
 
         let expected_gitdir_subitems = [
             TestData(
-                &path_utils::repo_dir,
+                &path::repo_dir,
                 &Path::is_dir,
                 &[
                     &["branches"],
@@ -266,7 +266,7 @@ mod tests {
                 ],
             ),
             TestData(
-                &path_utils::repo_file,
+                &path::repo_file,
                 &Path::is_file,
                 &[&["description"], &["HEAD"], &["config"]],
             ),
