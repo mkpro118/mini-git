@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     #[ignore = "WIP"]
-    fn test_hash_object_blob() {
+    fn test_hash_object() {
         let objects = [Blob(BlobData::new()), Commit, Tag, Tree];
 
         for obj in objects {
@@ -312,6 +312,54 @@ mod tests {
 
             assert_eq!(expected_hash, actual_hash);
         }
+    }
+
+    #[test]
+    fn test_write_object_blob() {
+        let tmp_dir = TempDir::create("test_read_object_bad_path");
+
+        let repo = GitRepository::create(tmp_dir.test_dir())
+            .expect("Should create repo");
+
+        let blob_data = [0; 100];
+        let blob = Blob((&blob_data).to_vec());
+
+        let digest = write_object(&blob, &repo).expect("Should write object");
+
+        let file = repo_file(
+            repo.gitdir(),
+            &[OBJECTS_DIR, &digest[..2], &digest[2..]],
+            false,
+        )
+        .expect("Should have been created")
+        .expect("Should be a file");
+        let raw = fs::read(&file).expect("Should read file");
+        let decompressed =
+            zlib::decompress(&raw).expect("Should decompress correctly");
+
+        assert_eq!(&decompressed[..4], b"blob");
+        assert_eq!(decompressed[4], SPACE_BYTE);
+        assert_eq!(&decompressed[5..8], b"100");
+        assert_eq!(decompressed[8], NULL_BYTE);
+        assert_eq!(&decompressed[9..], &blob_data);
+    }
+
+    #[test]
+    #[ignore = "WIP"]
+    fn test_write_object_commit() {
+        unimplemented!()
+    }
+
+    #[test]
+    #[ignore = "WIP"]
+    fn test_write_object_tag() {
+        unimplemented!()
+    }
+
+    #[test]
+    #[ignore = "WIP"]
+    fn test_write_object_tree() {
+        unimplemented!()
     }
 
     #[test]
