@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 /// let head_path = repo_path(base, &["refs", "heads"]);
 /// assert_eq!(head_path, base.join("refs").join("heads"));
 /// ```
+#[allow(clippy::module_name_repetitions)]
 pub fn repo_path<P>(gitdir: &Path, paths: &[P]) -> PathBuf
 where
     P: AsRef<Path>,
