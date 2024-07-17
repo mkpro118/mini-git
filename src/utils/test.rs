@@ -121,15 +121,12 @@ impl TempDir {
     pub fn revert(&self) {
         // This may not immediately delete, so we just ignore the retval
         let _ = fs::remove_dir_all(&self.test_dir);
-        println!("TRYING TO REVERT TO {:?}", &self.original_dir);
         env::set_current_dir(&self.original_dir).expect("Should revert");
     }
 }
 
 impl Drop for TempDir {
     fn drop(&mut self) {
-        let listing = walkdir(&self.test_dir);
-        println!("{listing:?}");
         self.revert();
     }
 }
