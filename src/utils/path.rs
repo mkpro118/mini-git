@@ -113,3 +113,185 @@ where
         Ok(None)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    use super::{repo_dir, repo_file, repo_path};
+
+    struct TempDir {
+        original_dir: PathBuf,
+        test_dir: PathBuf,
+    }
+
+    impl TempDir {
+        fn create(dirname: &str) -> Self {
+            let salt = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("Should return time")
+                .as_nanos();
+            let original_dir =
+                Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
+
+            let dirname = format!("{dirname}{salt}");
+            let test_dir = env::temp_dir().join(&dirname);
+            fs::create_dir_all(&test_dir).unwrap();
+            env::set_current_dir(&test_dir).expect("Should chdir");
+
+            // Hidden by cargo test unless required
+            println!("Temp Dir is {test_dir:?}");
+
+            Self {
+                original_dir,
+                test_dir,
+            }
+        }
+
+        fn revert(&self) {
+            // This may not immediately delete, so we just ignore the retval
+            let _ = fs::remove_dir_all(&self.test_dir);
+            println!("TRYING TO REVERT TO {:?}", &self.original_dir);
+            env::set_current_dir(&self.original_dir).expect("Should revert");
+        }
+    }
+
+    fn walkdir(top: &Path) -> Vec<PathBuf> {
+        assert!(top.is_dir(), "Top is not a directory (top = {top:?})");
+        top.read_dir()
+            .expect("Should read the dir")
+            .flatten()
+            .map(|e| e.path())
+            .filter(|path| {
+                path.file_stem().is_some_and(|stem| {
+                    !stem.to_str().is_some_and(|x| x.starts_with('.'))
+                })
+            })
+            .fold(vec![], |mut paths, entry| {
+                if entry.is_file() {
+                    paths.push(entry);
+                } else {
+                    paths.extend_from_slice(&walkdir(&entry));
+                }
+                paths
+            })
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let listing = walkdir(&self.test_dir);
+            println!("{listing:?}");
+            self.revert();
+        }
+    }
+
+    #[test]
+    fn test_repo_path() {
+        let base = Path::new(".git");
+        let result = repo_path(base, &["refs", "heads"]);
+        assert_eq!(result, base.join("refs").join("heads"));
+
+        let result = repo_path(base, &["objects", "pack"]);
+        assert_eq!(result, base.join("objects").join("pack"));
+
+        // Test with empty paths
+        let result = repo_path::<&str>(base, &[]);
+        assert_eq!(result, base.to_path_buf());
+    }
+
+    #[test]
+    fn test_repo_file() {
+        let tmp_dir = TempDir::create("test_repo_file");
+        let base = tmp_dir.test_dir.join(".git");
+        fs::create_dir(&base).unwrap();
+
+        // Test without creating directories
+        let result =
+            repo_file(&base, &["refs", "heads", "master"], false).unwrap();
+        assert_eq!(result, None);
+
+        // Test with creating directories
+        let result =
+            repo_file(&base, &["refs", "heads", "master"], true).unwrap();
+        assert_eq!(
+            result,
+            Some(base.join("refs").join("heads").join("master"))
+        );
+        assert!(base.join("refs").join("heads").is_dir());
+
+        // Test with existing directories
+        let result =
+            repo_file(&base, &["refs", "heads", "develop"], true).unwrap();
+        assert_eq!(
+            result,
+            Some(base.join("refs").join("heads").join("develop"))
+        );
+
+        // Test with invalid path (existing file as directory)
+        fs::File::create(base.join("invalid")).unwrap();
+        let result = repo_file(&base, &["invalid", "file"], true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_repo_dir() {
+        let tmp_dir = TempDir::create("test_repo_dir");
+        let base = tmp_dir.test_dir.join(".git");
+        fs::create_dir(&base).unwrap();
+
+        // Test without creating directories
+        let result = repo_dir(&base, &["refs", "heads"], false).unwrap();
+        assert_eq!(result, None);
+
+        // Test with creating directories
+        let result = repo_dir(&base, &["refs", "heads"], true).unwrap();
+        assert_eq!(result, Some(base.join("refs").join("heads")));
+        assert!(base.join("refs").join("heads").is_dir());
+
+        // Test with existing directories
+        let result = repo_dir(&base, &["refs"], true).unwrap();
+        assert_eq!(result, Some(base.join("refs")));
+
+        // Test with invalid path (existing file as directory)
+        fs::File::create(base.join("invalid")).unwrap();
+        let result = repo_dir(&base, &["invalid"], true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_repo_dir_with_existing_file() {
+        let tmp_dir = TempDir::create("test_repo_dir_with_existing_file");
+        let base = tmp_dir.test_dir.join(".git");
+        fs::create_dir(&base).unwrap();
+
+        // Create a file instead of a directory
+        fs::File::create(base.join("file")).unwrap();
+
+        // Try to create a directory with the same name
+        let result = repo_dir(&base, &["file"], true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_repo_file_with_empty_paths() {
+        let tmp_dir = TempDir::create("test_repo_file_with_empty_paths");
+        let base = tmp_dir.test_dir.join(".git");
+        fs::create_dir(&base).unwrap();
+
+        let result = repo_file::<&str>(&base, &[], true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_repo_dir_with_empty_paths() {
+        let tmp_dir = TempDir::create("test_repo_dir_with_empty_paths");
+        let base = tmp_dir.test_dir.join(".git");
+        fs::create_dir(&base).unwrap();
+
+        let result = repo_dir::<&str>(&base, &[], true).unwrap();
+        assert_eq!(result, Some(base));
+    }
+}
