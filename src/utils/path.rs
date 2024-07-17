@@ -22,6 +22,31 @@ where
         .fold(gitdir.to_path_buf(), |dir, path| dir.join(path))
 }
 
+/// Returns the file after joining `gitdir` with the given `paths`.
+/// Optionally, if `create = true`, then it creates any missing directories
+/// in the path. It does NOT create the file itself.
+///
+/// Use [`repo_path`] directly if you are not interested in creating missing
+/// directories.
+///
+/// # Errors
+///
+/// If an I/O error occurs while creating missing intermediate directories
+/// or if the path is invalid (this may be OS dependent).
+/// Returns a [`String`] message describing the error.
+///
+/// # Example
+/// ```no_run
+/// use mini_git::utils::path::repo_file;
+/// use std::path::Path;
+///
+/// let base = Path::new(".git");
+/// let head_path = repo_file(base, &["hooks", "pre-commit"], true)?;
+/// assert!(base.join("hooks").exists());
+/// assert!(base.join("hooks").is_dir());
+/// assert_eq!(head_path, Some(base.join("hooks").join("pre-commit")));
+/// # Ok::<(), String>(())
+/// ```
 pub fn repo_file<P>(
     gitdir: &Path,
     paths: &[P],
