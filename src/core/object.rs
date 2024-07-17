@@ -20,33 +20,35 @@ pub enum GitObject {
     Tree,
 }
 
+use GitObject::{Blob, Commit, Tag, Tree};
+
 impl GitObject {
     #[must_use]
     pub fn deserialize(&self, data: &[u8]) {
         match self {
-            GitObject::Blob => self.blob_deserialize(data),
-            GitObject::Commit => self.commit_deserialize(data),
-            GitObject::Tag => self.tag_deserialize(data),
-            GitObject::Tree => self.tree_deserialize(data),
+            Blob => self.blob_deserialize(data),
+            Commit => self.commit_deserialize(data),
+            Tag => self.tag_deserialize(data),
+            Tree => self.tree_deserialize(data),
         }
     }
 
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         match self {
-            GitObject::Blob => self.blob_serialize(),
-            GitObject::Commit => self.commit_serialize(),
-            GitObject::Tag => self.tag_serialize(),
-            GitObject::Tree => self.tree_serialize(),
+            Blob => self.blob_serialize(),
+            Commit => self.commit_serialize(),
+            Tag => self.tag_serialize(),
+            Tree => self.tree_serialize(),
         }
     }
 
     pub const fn format(&self) -> &'static [u8] {
         match self {
-            GitObject::Blob => Self::blob_format(),
-            GitObject::Commit => Self::commit_format(),
-            GitObject::Tag => Self::tag_format(),
-            GitObject::Tree => Self::tree_format(),
+            Blob => Self::blob_format(),
+            Commit => Self::commit_format(),
+            Tag => Self::tag_format(),
+            Tree => Self::tree_format(),
         }
     }
 
@@ -93,7 +95,7 @@ impl GitObject {
 // This is the implementation for GitObject::Blob
 impl GitObject {
     pub fn blob_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        GitObject::Blob
+        Blob
     }
 
     const fn blob_format() -> &'static [u8] {
@@ -112,7 +114,7 @@ impl GitObject {
 // This is the impl for GitObject::Commit
 impl GitObject {
     pub fn commit_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        GitObject::Commit
+        Commit
     }
 
     const fn commit_format() -> &'static [u8] {
@@ -131,7 +133,7 @@ impl GitObject {
 // This is the impl for GitObject::Tag
 impl GitObject {
     pub fn tag_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        GitObject::Tag
+        Tag
     }
 
     const fn tag_format() -> &'static [u8] {
@@ -150,7 +152,7 @@ impl GitObject {
 // This is the impl for GitObject::Tree
 impl GitObject {
     pub fn tree_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        GitObject::Tree
+        Tree
     }
 
     const fn tree_format() -> &'static [u8] {
