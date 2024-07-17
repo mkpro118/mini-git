@@ -163,7 +163,7 @@ pub fn repo_find<P>(top: P) -> Result<PathBuf, String>
 where
     P: AsRef<Path>,
 {
-    const GITDIR: &'static str = ".git";
+    const GITDIR: &str = ".git";
 
     let top = top.as_ref();
     let path = Path::new(top);
