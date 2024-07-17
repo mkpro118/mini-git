@@ -11,7 +11,7 @@ static OBJECTS_DIR: &str = "objects";
 static SPACE_BYTE: u8 = b' ';
 static NULL_BYTE: u8 = b'\0';
 
-type BlobData = Vec<u8>;
+pub type BlobData = Vec<u8>;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
@@ -24,6 +24,9 @@ pub enum GitObject {
 
 use GitObject::{Blob, Commit, Tag, Tree};
 
+// This is the common implementation for GitObject
+// The functions defined here are basically dispatch functions that choose the
+// required implementation based on the enum variant
 impl GitObject {
     #[must_use]
     pub fn deserialize(&self, data: &[u8]) -> GitObject {
@@ -176,6 +179,16 @@ impl GitObject {
 }
 
 #[allow(clippy::module_name_repetitions)]
+pub fn find_object(
+    _repo: &GitRepository,
+    name: &str,
+    _format: Option<&str>,
+    _follow: bool,
+) -> String {
+    name.to_owned()
+}
+
+#[allow(clippy::module_name_repetitions)]
 pub fn read_object(
     repo: &GitRepository,
     sha: &str,
@@ -218,6 +231,7 @@ pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
     (res, hash)
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub fn write_object(
     obj: &GitObject,
     repo: &GitRepository,
