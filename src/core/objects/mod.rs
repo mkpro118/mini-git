@@ -3,6 +3,7 @@
 pub mod blob;
 pub mod commit;
 pub mod tag;
+pub mod traits;
 pub mod tree;
 
 use std::fs;
@@ -11,6 +12,7 @@ use crate::core::GitRepository;
 use crate::utils::path::repo_file;
 use crate::utils::sha1::SHA1;
 use crate::utils::zlib;
+use traits::*;
 
 static OBJECTS_DIR: &str = "objects";
 static SPACE_BYTE: u8 = b' ';
@@ -107,7 +109,7 @@ impl GitObject {
     /// assert_eq!(tag.format(), b"tag");
     /// ```
     #[must_use]
-    pub const fn format(&self) -> &'static [u8] {
+    pub fn format(&self) -> &'static [u8] {
         match self {
             Blob(_) => blob::Blob::format(),
             Commit(_) => commit::Commit::format(),
