@@ -1,3 +1,4 @@
+use crate::core::objects::traits;
 use crate::utils::collections::kvlm::KVLM;
 
 #[derive(Debug)]
@@ -9,20 +10,22 @@ impl Commit {
     pub fn new() -> Self {
         Self { kvlm: KVLM::new() }
     }
+}
 
-    pub const fn format() -> &'static [u8] {
+impl traits::Format for Commit {
+    fn format() -> &'static [u8] {
         const FORMAT: &[u8] = b"commit";
         FORMAT
     }
+}
 
-    pub fn serialize(&self) -> Vec<u8> {
-        self.kvlm.serialize()
+impl traits::KVLM for Commit {
+    fn with_kvlm(kvlm: crate::utils::collections::kvlm::KVLM) -> Self {
+        Self { kvlm }
     }
 
-    pub fn deserialize(data: &[u8]) -> Result<Self, String> {
-        Ok(Commit {
-            kvlm: KVLM::parse(data)?,
-        })
+    fn kvlm(&self) -> &crate::utils::collections::kvlm::KVLM {
+        &self.kvlm
     }
 }
 
