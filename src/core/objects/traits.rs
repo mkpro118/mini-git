@@ -1,27 +1,32 @@
-use crate::utils::collections::kvlm::KVLM;
+use crate::utils::collections::kvlm;
 
-trait Format {
-    pub const fn format() -> &'static [u8];
+pub trait Format {
+    fn format() -> &'static [u8];
 }
 
-trait Serialize {
-    pub fn serialize(&self) -> Vec<u8>;
+pub trait Serialize {
+    fn serialize(&self) -> Vec<u8>;
 }
 
-trait Deserialize {
-    pub fn deserialize() -> Result<Self, String>;
+pub trait Deserialize {
+    fn deserialize(data: &[u8]) -> Result<Self, String>
+    where
+        Self: Sized;
 }
 
-trait KVLM: Serialize + Deserialize {
-    pub fn with_kvlm(kvlm: KVLM) -> Self;
+pub trait KVLM: Serialize + Deserialize {
+    fn with_kvlm(kvlm: kvlm::KVLM) -> Self;
 
-    pub fn kvlm(&self) -> &KVLM;
+    fn kvlm(&self) -> &kvlm::KVLM;
 
-    pub fn serialize(&self) -> Vec<u8> {
+    fn serialize(&self) -> Vec<u8> {
         self.kvlm().serialize()
     }
 
-    pub fn deserialize(data: &[u8]) -> Result<Self, String> {
-        Ok(Self::with_kvlm(KVLM::parse(data)?))
+    fn deserialize(data: &[u8]) -> Result<Self, String>
+    where
+        Self: Sized,
+    {
+        Ok(Self::with_kvlm(kvlm::KVLM::parse(data)?))
     }
 }
