@@ -41,7 +41,7 @@ impl KVLM {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::core::kvlm::KVLM;
+    /// use mini_git::utils::collections::kvlm::KVLM;
     /// let kvlm = KVLM::new();
     /// ```
     #[must_use]
@@ -68,7 +68,7 @@ impl KVLM {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::core::kvlm::KVLM;
+    /// use mini_git::utils::collections::kvlm::KVLM;
     /// let data = b"key1 value1\nkey2 value2\n\nMessage content";
     /// let kvlm = KVLM::parse(data).expect("Failed to parse KVLM data");
     /// ```
@@ -148,7 +148,7 @@ impl KVLM {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::core::kvlm::KVLM;
+    /// use mini_git::utils::collections::kvlm::KVLM;
     /// let kvlm = KVLM::parse(b"key1 value1\nkey2 value2\n\nMessage content").unwrap();
     /// let serialized = kvlm.serialize();
     /// ```
@@ -202,7 +202,7 @@ impl KVLM {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::core::kvlm::KVLM;
+    /// use mini_git::utils::collections::kvlm::KVLM;
     /// let kvlm = KVLM::parse(b"key1 value1\nkey2 value2\n\nMessage content").unwrap();
     /// if let Some(values) = kvlm.get_key(b"key1") {
     ///     println!("Values for key1: {:?}", values);
@@ -226,7 +226,7 @@ impl KVLM {
     /// # Examples
     ///
     /// ```
-    /// use mini_git::core::kvlm::KVLM;
+    /// use mini_git::utils::collections::kvlm::KVLM;
     /// let kvlm = KVLM::parse(b"key1 value1\nkey2 value2\n\nMessage content").unwrap();
     /// if let Some(message) = kvlm.get_msg() {
     ///     println!("Message: {:?}", String::from_utf8_lossy(message));

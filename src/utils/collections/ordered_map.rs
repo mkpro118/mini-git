@@ -8,7 +8,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use mini_git::utils::collections::OrderedMap;
+//! use mini_git::utils::collections::ordered_map::OrderedMap;
 //!
 //! let mut map = OrderedMap::new();
 //! map.insert("first", 1);
@@ -42,7 +42,7 @@ use std::hash::Hash;
 /// # Examples
 ///
 /// ```
-/// use mini_git::utils::collections::OrderedMap;
+/// use mini_git::utils::collections::ordered_map::OrderedMap;
 ///
 /// let mut map = OrderedMap::new();
 /// map.insert("a", 1);
@@ -80,7 +80,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use mini_git::utils::collections::OrderedMap;
+    /// use mini_git::utils::collections::ordered_map::OrderedMap;
     ///
     /// let map: OrderedMap<String, i32> = OrderedMap::default();
     /// assert!(map.iter().next().is_none());
@@ -100,7 +100,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use mini_git::utils::collections::OrderedMap;
+    /// use mini_git::utils::collections::ordered_map::OrderedMap;
     ///
     /// let map: OrderedMap<&str, i32> = OrderedMap::new();
     /// ```
@@ -117,7 +117,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use mini_git::utils::collections::OrderedMap;
+    /// use mini_git::utils::collections::ordered_map::OrderedMap;
     ///
     /// let mut map: OrderedMap<i32, i32> = OrderedMap::new();
     /// map.insert(1, 2);
@@ -142,7 +142,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use mini_git::utils::collections::OrderedMap;
+    /// use mini_git::utils::collections::ordered_map::OrderedMap;
     ///
     /// let mut map = OrderedMap::new();
     /// map.insert("a", 1);
@@ -168,7 +168,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use mini_git::utils::collections::OrderedMap;
+    /// use mini_git::utils::collections::ordered_map::OrderedMap;
     ///
     /// let mut map = OrderedMap::new();
     /// map.insert("a", 1);
@@ -187,7 +187,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use mini_git::utils::collections::OrderedMap;
+    /// use mini_git::utils::collections::ordered_map::OrderedMap;
     ///
     /// let mut map = OrderedMap::new();
     /// map.insert("a", 1);
@@ -205,7 +205,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use mini_git::utils::collections::OrderedMap;
+    /// use mini_git::utils::collections::ordered_map::OrderedMap;
     ///
     /// let mut map = OrderedMap::new();
     /// map.insert("a", 1);
