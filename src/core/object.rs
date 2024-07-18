@@ -10,7 +10,7 @@ use std::fs;
 use crate::core::GitRepository;
 use crate::utils::path::repo_file;
 use crate::utils::sha1::SHA1;
-use crate::zlib;
+use crate::utils::zlib;
 
 static OBJECTS_DIR: &str = "objects";
 static SPACE_BYTE: u8 = b' ';
