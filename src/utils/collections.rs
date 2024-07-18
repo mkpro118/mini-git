@@ -52,8 +52,9 @@ where
         self.map.get(key)
     }
 
+    #[must_use]
     pub fn iter(&self) -> OrderedMapIter<K, V> {
-        OrderedMapIter { map: &self, idx: 0 }
+        OrderedMapIter { map: self, idx: 0 }
     }
 }
 
@@ -73,5 +74,16 @@ where
 
         let key = &self.map.list[idx];
         Some((key, &self.map.map[key]))
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a OrderedMap<K, V>
+where
+    K: Hash + Eq + Clone,
+{
+    type IntoIter = OrderedMapIter<'a, K, V>;
+    type Item = (&'a K, &'a V);
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
