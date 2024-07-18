@@ -1,9 +1,4 @@
-#![allow(
-    dead_code,
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::needless_pass_by_value
-)]
+#![allow(clippy::needless_pass_by_value)]
 
 use std::fs;
 
@@ -114,7 +109,7 @@ impl GitObject {
         }
     }
 
-    /// Builds a GitObject from raw data, typically used with the
+    /// Builds a `GitObject` from raw data, typically used with the
     /// decompressed contents from `".git/objects/.."`
     ///
     /// Unlike [`GitObject::deserialize`], which deserializes based on a given
@@ -360,6 +355,11 @@ pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
 /// ## Note
 /// This function will **never** overwrite the contents of the
 /// file if it already exists.
+///
+/// # Errors
+/// This function may fail if,
+/// - Repository does not exist
+/// - I/O errors occur while writing object files
 ///
 /// Example
 /// ```no_run
