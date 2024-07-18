@@ -1,11 +1,11 @@
 #[derive(Debug)]
 pub struct Blob {
-    pub(crate) data: Vec<u8>
+    pub(crate) data: Vec<u8>,
 }
 
 impl<'a> Blob {
     pub fn new() -> Self {
-        Self {data: Vec::new()}
+        Self { data: Vec::new() }
     }
 
     pub const fn format() -> &'static [u8] {
@@ -18,7 +18,9 @@ impl<'a> Blob {
     }
 
     pub fn deserialize(data: &[u8]) -> Result<Self, String> {
-        Ok(Blob {data: Vec::from(data)})
+        Ok(Blob {
+            data: Vec::from(data),
+        })
     }
 }
 

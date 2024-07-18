@@ -7,7 +7,7 @@ pub struct Commit {
 
 impl Commit {
     pub fn new() -> Self {
-        Self {kvlm: KVLM::new()}
+        Self { kvlm: KVLM::new() }
     }
 
     pub const fn format() -> &'static [u8] {
@@ -20,7 +20,9 @@ impl Commit {
     }
 
     pub fn deserialize(data: &[u8]) -> Result<Self, String> {
-        Ok(Commit {kvlm: KVLM::parse(data)?})
+        Ok(Commit {
+            kvlm: KVLM::parse(data)?,
+        })
     }
 }
 

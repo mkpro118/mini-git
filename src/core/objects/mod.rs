@@ -169,7 +169,7 @@ impl GitObject {
             return Err("size mismatch!".to_owned());
         }
 
-        let raw = &raw[(null_idx+1)..];
+        let raw = &raw[(null_idx + 1)..];
 
         // Create object from data
         match format.as_slice() {
@@ -413,7 +413,9 @@ mod tests {
             .expect("Should create repo");
 
         let blob_data = [0; 100];
-        let blob = Blob(blob::Blob { data: (&blob_data).to_vec() });
+        let blob = Blob(blob::Blob {
+            data: (&blob_data).to_vec(),
+        });
 
         let digest = write_object(&blob, &repo).expect("Should write object");
 
@@ -456,7 +458,9 @@ mod tests {
     #[test]
     fn test_blob_serialize() {
         let data = &[0; 16];
-        let blob = blob::Blob { data: Vec::from(data) };
+        let blob = blob::Blob {
+            data: Vec::from(data),
+        };
         let blob = Blob(blob);
         let serialized = blob.serialize();
         assert_eq!(&serialized, data);
