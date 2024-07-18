@@ -100,4 +100,40 @@ impl<'a> KVLM<'a> {
             start = end + 1;
         }
     }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut res = vec![];
+
+        let items = self.store.iter().filter_map(|(ref k, v)| match (k, v) {
+            (Keys::Key(key), Values::Value(values)) => Some((*key, values)),
+            _ => None,
+        });
+
+        // Fields
+        for (key, values) in items {
+            let values = values
+                .into_iter()
+                .map(|vec: &Vec<u8>| String::from_utf8(vec.to_vec()))
+                .flatten() // Straight up ignore non-utf stuff
+                .map(|s| s.replace("\n", "\n "))
+                .map(|s| s.into_bytes());
+            for value in values {
+                res.extend_from_slice(key);
+                res.push(SPACE_BYTE);
+                res.extend_from_slice(&value);
+                res.push(NEWLINE_BYTE);
+            }
+        }
+
+        // Message
+        let Some(Values::Message(msg)) = self.store.get(&Keys::Message) else {
+            unreachable!();
+        };
+
+        res.push(NEWLINE_BYTE);
+        res.extend_from_slice(msg);
+        res.push(NEWLINE_BYTE);
+
+        res
+    }
 }
