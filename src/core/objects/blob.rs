@@ -29,3 +29,27 @@ impl Default for Blob {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_blob_serialize() {
+        let data = &[0; 16];
+        let blob = Blob {
+            data: Vec::from(data),
+        };
+        let serialized = blob.serialize();
+        assert_eq!(&serialized, data);
+    }
+
+    #[test]
+    fn test_blob_deserialize() {
+        let data = &[0; 16];
+        match Blob::deserialize(data) {
+            Ok(Blob { data: inner }) => assert_eq!(inner, data),
+            _ => panic!("Deserialize did not return a blob"),
+        }
+    }
+}
