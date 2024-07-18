@@ -12,13 +12,13 @@ pub const NEWLINE_BYTE: u8 = b'\n';
 
 /// Represents a Key Value List with Messages structure
 #[derive(Debug)]
-pub struct KVLM<'a> {
-    store: OrderedMap<Keys<'a>, Values>,
+pub struct KVLM {
+    store: OrderedMap<Keys, Values>,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-enum Keys<'a> {
-    Key(&'a [u8]),
+enum Keys {
+    Key(Vec<u8>),
     Message,
 }
 
@@ -29,13 +29,13 @@ enum Values {
     Message(Vec<u8>),
 }
 
-impl<'a> Default for KVLM<'a> {
+impl Default for KVLM {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> KVLM<'a> {
+impl KVLM {
     /// Creates a new, empty KVLM instance
     ///
     /// # Examples
@@ -72,7 +72,7 @@ impl<'a> KVLM<'a> {
     /// let data = b"key1 value1\nkey2 value2\n\nMessage content";
     /// let kvlm = KVLM::parse(data).expect("Failed to parse KVLM data");
     /// ```
-    pub fn parse(data: &'a [u8]) -> Result<Self, String> {
+    pub fn parse(data: &[u8]) -> Result<Self, String> {
         let mut kvlm = Self::new();
         let mut start: usize = 0;
 
@@ -100,7 +100,7 @@ impl<'a> KVLM<'a> {
 
             let space_idx = space_idx + start;
 
-            let key = Keys::Key(&data[start..space_idx]);
+            let key = Keys::Key(data[start..space_idx].to_vec());
             let mut end = start;
             loop {
                 let newline_idx =
@@ -157,7 +157,7 @@ impl<'a> KVLM<'a> {
         let mut res = vec![];
 
         let items = self.store.iter().filter_map(|(k, v)| match (&k, v) {
-            (Keys::Key(key), Values::Value(values)) => Some((*key, values)),
+            (Keys::Key(key), Values::Value(values)) => Some((key, values)),
             _ => None,
         });
 
@@ -169,7 +169,7 @@ impl<'a> KVLM<'a> {
                 .map(|s| s.replace('\n', "\n "))
                 .map(String::into_bytes);
             for value in values {
-                res.extend_from_slice(key);
+                res.extend_from_slice(&key);
                 res.push(SPACE_BYTE);
                 res.extend_from_slice(&value);
                 res.push(NEWLINE_BYTE);
@@ -209,11 +209,8 @@ impl<'a> KVLM<'a> {
     /// }
     /// ```
     #[must_use]
-    pub fn get_key<'b>(&'a self, key: &'b [u8]) -> Option<&'a Vec<Vec<u8>>>
-    where
-        'b: 'a,
-    {
-        match self.store.get(&Keys::Key(key)) {
+    pub fn get_key(&self, key: &[u8]) -> Option<&Vec<Vec<u8>>> {
+        match self.store.get(&Keys::Key(key.to_vec())) {
             Some(Values::Value(ref msg)) => Some(msg),
             _ => None,
         }
@@ -236,10 +233,7 @@ impl<'a> KVLM<'a> {
     /// }
     /// ```
     #[must_use]
-    pub fn get_msg<'b>(&'a self) -> Option<&'a Vec<u8>>
-    where
-        'b: 'a,
-    {
+    pub fn get_msg(&self) -> Option<&Vec<u8>> {
         match self.store.get(&Keys::Message) {
             Some(Values::Message(ref msg)) => Some(msg),
             _ => None,
@@ -344,23 +338,25 @@ mod tests {
         let mut kvlm = KVLM::new();
 
         // Manually create the test data
-        kvlm.store
-            .insert(Keys::Key(b"tree"), Values::Value(test_data_get(&Tree)));
+        kvlm.store.insert(
+            Keys::Key(b"tree".to_vec()),
+            Values::Value(test_data_get(&Tree)),
+        );
 
         kvlm.store.insert(
-            Keys::Key(b"parent"),
+            Keys::Key(b"parent".to_vec()),
             Values::Value(test_data_get(&Parent)),
         );
         kvlm.store.insert(
-            Keys::Key(b"author"),
+            Keys::Key(b"author".to_vec()),
             Values::Value(test_data_get(&Author)),
         );
         kvlm.store.insert(
-            Keys::Key(b"committer"),
+            Keys::Key(b"committer".to_vec()),
             Values::Value(test_data_get(&Committer)),
         );
         kvlm.store.insert(
-            Keys::Key(b"gpgsig"),
+            Keys::Key(b"gpgsig".to_vec()),
             Values::Value(test_data_get(&GPGSig)),
         );
 
