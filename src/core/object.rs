@@ -18,6 +18,11 @@ static NULL_BYTE: u8 = b'\0';
 
 pub type BlobData = Vec<u8>;
 
+/// Represents one of the four types of objects git uses
+/// - blobs
+/// - commits
+/// - tags
+/// - trees
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub enum GitObject {
@@ -33,6 +38,26 @@ use GitObject::{Blob, Commit, Tag, Tree};
 // The functions defined here are basically dispatch functions that choose the
 // required implementation based on the enum variant
 impl GitObject {
+    /// Deserializes raw data to create a `GitObject`.
+    ///
+    /// This method is a dispatches the deserialzer based on the current variant,
+    /// it needs to be called on the variant that the expected object is.
+    ///
+    /// # Panics
+    ///
+    /// Deserialization may fails if,
+    /// - Raw data was malformed
+    /// - It was attempted on an object of the wrong kind
+    ///
+    /// # Example
+    /// ```
+    /// use mini_git::core::object::{GitObject::*, BlobData};
+    /// let data = b"Hello world!";
+    ///
+    /// // This call to deserialize will create a blob
+    /// let blob = Blob(BlobData::new()).deserialize(data);
+    /// println!("{blob:?}");
+    /// ```
     #[must_use]
     pub fn deserialize(&self, data: &[u8]) -> GitObject {
         match self {
@@ -43,6 +68,20 @@ impl GitObject {
         }
     }
 
+    /// Serializes the `GitObject` to create a raw data object representation
+    /// for the object.
+    ///
+    /// # Example
+    /// ```
+    /// use mini_git::core::object::{GitObject::*, BlobData};
+    /// let data = b"Hello world!";
+    ///
+    /// // This call to deserialize will create a blob
+    /// let blob = Blob(BlobData::from(data));
+    ///
+    /// let serialized = blob.serialize();
+    /// println!("{serialized:?}");
+    /// ```
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         match self {
@@ -53,6 +92,18 @@ impl GitObject {
         }
     }
 
+    /// Returns the object format for the current `GitObject`
+    ///
+    /// # Example
+    /// ```
+    /// use mini_git::core::object::GitObject;
+    ///
+    /// let commit = GitObject::Commit;
+    /// assert_eq!(commit.format(), b"commit");
+    ///
+    /// let tag = GitObject::Tag;
+    /// assert_eq!(tag.format(), b"tag");
+    /// ```
     #[must_use]
     pub const fn format(&self) -> &'static [u8] {
         match self {
@@ -63,6 +114,30 @@ impl GitObject {
         }
     }
 
+    /// Builds a GitObject from raw data, typically used with the
+    /// decompressed contents from `".git/objects/.."`
+    ///
+    /// Unlike [`GitObject::deserialize`], which deserializes based on a given
+    /// object variant, this method can determine the type of the object
+    /// from the contents of the raw data.
+    ///
+    /// # Errors
+    /// This method may fail if the raw data was malformed. A error message
+    /// describing the failure is returned
+    ///
+    /// # Example
+    /// ```no_run
+    /// use mini_git::core::object::{GitObject, BlobData};
+    /// use GitObject::*;
+    ///
+    /// let data = b"blob 5\0hello";
+    ///
+    /// let blob = GitObject::from_raw_data(data)?;
+    /// let Blob(blob_data) = blob else {panic!("uh oh, unexpected object")};
+    /// assert_eq!(blob_data, data);
+    ///
+    /// # Ok::<(), String>(())
+    /// ```
     pub fn from_raw_data(raw: &[u8]) -> Result<GitObject, String> {
         let total_size = raw.len();
         let mut raw_iter = raw.iter();
@@ -194,6 +269,29 @@ pub fn find_object(
     name.to_owned()
 }
 
+/// Reads an object from the given repository with the given SHA digest
+///
+/// # Errors
+/// This function may fail if,
+/// - Request object does not exist
+/// - I/O errors occur while reading object files
+/// - Object files are corrupted/malformed
+///
+/// Example
+/// ```no_run
+/// use std::path::Path;
+/// use mini_git::core::GitRepository;
+/// use mini_git::core::object::read_object;
+///
+/// // This is an example digest (highly unlikely digest)
+/// let digest = "deadbeefdecadedefacecafec0ffeedadfacade8";
+/// // Get current repository
+/// let repo = GitRepository::new(Path::new("."))?;
+///
+/// let obj = read_object(&repo, &digest)?;
+/// println!("{obj:?}");
+/// # Ok::<(), String>(())
+/// ```
 #[allow(clippy::module_name_repetitions)]
 pub fn read_object(
     repo: &GitRepository,
@@ -223,6 +321,23 @@ pub fn read_object(
     Ok(res)
 }
 
+/// Creates a object Hash from an object
+///
+/// This function returns a tuple of two values
+/// - The contents over which the hash was built
+/// - The SHA1 object built from the contents
+///
+/// Example
+/// ```
+/// use mini_git::core::object::{hash_object, GitObject};
+/// use GitObject::*;
+///
+/// let obj = Blob(vec![]);
+/// let (contents, mut hash) = hash_object(&obj);
+/// assert_eq!(contents, b"blob 0\0");
+/// let digest = hash.hex_digest();
+/// assert_eq!(digest, "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+/// ```
 #[allow(clippy::module_name_repetitions)]
 #[must_use]
 pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
@@ -237,6 +352,28 @@ pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
     (res, hash)
 }
 
+/// Writes an object to the repository files
+///
+/// # Returns
+/// The sha1 hex-digest of the object written.
+///
+/// ## Note
+/// This function will **never** overwrite the contents of the
+/// file if it already exists.
+///
+/// Example
+/// ```no_run
+/// use std::path::Path;
+/// use mini_git::core::GitRepository;
+/// use mini_git::core::object::{write_object, GitObject};
+/// use GitObject::*;
+///
+/// let obj = Blob(vec![]);
+/// let repo = GitRepository::new(Path::new("."))?;
+/// let digest = write_object(&obj, &repo)?;
+/// assert_eq!(digest, "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+/// Ok::<(), String>(())
+/// ```
 #[allow(clippy::module_name_repetitions)]
 pub fn write_object(
     obj: &GitObject,
@@ -291,7 +428,7 @@ mod tests {
     #[test]
     fn test_read_object_good_path() {
         let tmp_dir = TempDir::create("test_read_object_bad_path");
-        let sha = "abcdef09123456789abc";
+        let sha = "deadbeefdecadedefacecafec0ffeedadfacade8";
 
         let repo = GitRepository::create(tmp_dir.test_dir())
             .expect("Should create repo");
