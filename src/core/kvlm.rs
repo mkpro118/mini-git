@@ -196,37 +196,95 @@ mod tests {
 ",
     ];
 
+    enum TestDataKeys {
+        Tree,
+        Parent,
+        Author,
+        Committer,
+        GPGSig,
+        Message,
+    }
+
+    use TestDataKeys::*;
+
+    fn test_data_get(key: &TestDataKeys) -> Vec<Vec<u8>> {
+        match key {
+            Tree => vec![TEST_DATA[1].to_vec()],
+            Parent => vec![TEST_DATA[3].to_vec()],
+            Author => vec![TEST_DATA[5].to_vec()],
+            Committer => vec![TEST_DATA[7].to_vec()],
+            Message => vec![TEST_DATA[11].to_vec()],
+            GPGSig => vec![
+                TEST_DATA[9]
+                    .iter()
+                    .fold((0, vec![]), |(prev, mut acc), &byte| {
+                        if !(prev == NEWLINE_BYTE && byte == SPACE_BYTE) {
+                            acc.push(byte);
+                        }
+                        (byte, acc)
+                    })
+                    .1,
+            ],
+        }
+    }
+
     #[test]
     fn test_kvlm_parse() {
         let data = TEST_DATA.concat();
         let kvlm = KVLM::parse(&data).expect("Should parse");
 
-        let exp_tree = vec![TEST_DATA[1].to_vec()];
+        let exp_tree = test_data_get(&Tree);
         assert_eq!(kvlm.get_key(b"tree"), Some(exp_tree).as_ref());
 
-        let exp_parent = vec![TEST_DATA[3].to_vec()];
+        let exp_parent = test_data_get(&Parent);
         assert_eq!(kvlm.get_key(b"parent"), Some(exp_parent).as_ref());
 
-        let exp_author = vec![TEST_DATA[5].to_vec()];
+        let exp_author = test_data_get(&Author);
         assert_eq!(kvlm.get_key(b"author"), Some(exp_author).as_ref());
 
-        let exp_committer = vec![TEST_DATA[7].to_vec()];
+        let exp_committer = test_data_get(&Committer);
         assert_eq!(kvlm.get_key(b"committer"), Some(exp_committer).as_ref());
 
-        let exp_gpgsig = vec![
-            TEST_DATA[9]
-                .iter()
-                .fold((0, vec![]), |(prev, mut acc), &byte| {
-                    if !(prev == NEWLINE_BYTE && byte == SPACE_BYTE) {
-                        acc.push(byte);
-                    }
-                    (byte, acc)
-                })
-                .1,
-        ];
+        let exp_gpgsig = test_data_get(&GPGSig);
         assert_eq!(kvlm.get_key(b"gpgsig"), Some(exp_gpgsig).as_ref());
 
-        let exp_msg = TEST_DATA[11].to_vec();
-        assert_eq!(kvlm.get_msg(), Some(exp_msg).as_ref());
+        let exp_msg = &test_data_get(&Message)[0];
+        assert_eq!(kvlm.get_msg(), Some(exp_msg));
+    }
+
+    #[test]
+    fn test_kvlm_serialize() {
+        let mut kvlm = KVLM::new();
+
+        // Manually create the test data
+        kvlm.store
+            .insert(Keys::Key(b"tree"), Values::Value(test_data_get(&Tree)));
+
+        kvlm.store.insert(
+            Keys::Key(b"parent"),
+            Values::Value(test_data_get(&Parent)),
+        );
+        kvlm.store.insert(
+            Keys::Key(b"author"),
+            Values::Value(test_data_get(&Author)),
+        );
+        kvlm.store.insert(
+            Keys::Key(b"committer"),
+            Values::Value(test_data_get(&Committer)),
+        );
+        kvlm.store.insert(
+            Keys::Key(b"gpgsig"),
+            Values::Value(test_data_get(&GPGSig)),
+        );
+
+        let msg = test_data_get(&Message).into_iter().next().unwrap();
+        kvlm.store.insert(Keys::Message, Values::Message(msg));
+
+        let serialized = kvlm.serialize();
+        let len = serialized.len();
+
+        let combined = TEST_DATA.concat();
+
+        assert_eq!(combined[..len], serialized[..len]);
     }
 }
