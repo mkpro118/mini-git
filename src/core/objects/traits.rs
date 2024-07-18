@@ -14,7 +14,7 @@ pub trait Deserialize {
         Self: Sized;
 }
 
-pub trait KVLM: Serialize + Deserialize {
+pub trait KVLM {
     fn with_kvlm(kvlm: kvlm::KVLM) -> Self;
 
     fn kvlm(&self) -> &kvlm::KVLM;
