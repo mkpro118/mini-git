@@ -4,6 +4,7 @@ const SPACE_BYTE: u8 = b' ';
 const NULL_BYTE: u8 = b'\0';
 const MODE_SIZE: usize = 6;
 
+#[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Debug)]
 struct Leaf {
     mode: [u8; MODE_SIZE],
@@ -112,5 +113,73 @@ impl traits::Deserialize for Tree {
 impl Default for Tree {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use self::traits::Deserialize;
+
+    use super::*;
+
+    fn concat_leaf(leaf: &Leaf) -> Vec<u8> {
+        vec![
+            match leaf.mode[0] {
+                SPACE_BYTE => leaf.mode[1..].to_vec(),
+                _ => leaf.mode.to_vec(),
+            },
+            vec![SPACE_BYTE],
+            leaf.path.clone(),
+            vec![NULL_BYTE],
+            leaf.sha.as_bytes().to_vec(),
+        ]
+        .concat()
+    }
+
+    #[test]
+    fn test_leaf_deserializer_good() {
+        let mut leaves = [
+            Leaf {
+                mode: *b"100644",
+                path: b"test0".to_vec(),
+                sha: "1".repeat(20),
+                len: 0,
+            },
+            Leaf {
+                mode: *b" 10644",
+                path: b"test1".to_vec(),
+                sha: "2".repeat(20),
+                len: 0,
+            },
+            Leaf {
+                mode: *b"100644",
+                path: b"test2".to_vec(),
+                sha: "3".repeat(20),
+                len: 0,
+            },
+        ];
+
+        for test_leaf in &mut leaves {
+            let data = concat_leaf(test_leaf);
+            test_leaf.len = data.len();
+
+            let leaf = Leaf::deserialize(&data).expect("Should deserialize");
+
+            assert_eq!(leaf, *test_leaf);
+        }
+    }
+
+    #[test]
+    fn test_leaf_deserializer_no_space() {
+        let data = [0; 32];
+        let res = Leaf::deserialize(&data);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_leaf_deserializer_no_null() {
+        let data = [1, 2, 3, 4, 5, SPACE_BYTE, 10, 20];
+        let res = Leaf::deserialize(&data);
+        assert!(res.is_err());
     }
 }
