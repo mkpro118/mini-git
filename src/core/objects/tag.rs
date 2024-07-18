@@ -1,22 +1,31 @@
+use crate::core::objects::traits;
+use crate::utils::collections::kvlm::KVLM;
+
 #[derive(Debug)]
-pub struct Tag;
+pub struct Tag {
+    pub(crate) kvlm: KVLM,
+}
 
 impl Tag {
     pub fn new() -> Self {
-        todo!();
+        Self { kvlm: KVLM::new() }
     }
+}
 
-    pub const fn format() -> &'static [u8] {
+impl traits::Format for Tag {
+    fn format() -> &'static [u8] {
         const FORMAT: &[u8] = b"tag";
         FORMAT
     }
+}
 
-    pub fn serialize(&self) -> Vec<u8> {
-        todo!()
+impl traits::KVLM for Tag {
+    fn with_kvlm(kvlm: crate::utils::collections::kvlm::KVLM) -> Self {
+        Self { kvlm }
     }
 
-    pub fn deserialize(_data: &[u8]) -> Result<Self, String> {
-        todo!()
+    fn kvlm(&self) -> &crate::utils::collections::kvlm::KVLM {
+        &self.kvlm
     }
 }
 
