@@ -1,10 +1,16 @@
 //! Key Value List with Messages
+//!
+//! This module provides functionality for parsing and serializing
+//! Key Value List with Messages (KVLM) data format.
 
 use crate::utils::collections::OrderedMap;
 
+/// Represents a space byte
 pub const SPACE_BYTE: u8 = b' ';
+/// Represents a newline byte
 pub const NEWLINE_BYTE: u8 = b'\n';
 
+/// Represents a Key Value List with Messages structure
 pub struct KVLM<'a> {
     store: OrderedMap<Keys<'a>, Values>,
 }
@@ -29,12 +35,38 @@ impl<'a> Default for KVLM<'a> {
 }
 
 impl<'a> KVLM<'a> {
+    /// Creates a new, empty KVLM instance
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::core::kvlm::KVLM;
+    /// let kvlm = KVLM::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             store: OrderedMap::new(),
         }
     }
 
+    /// Parses the given byte slice into a KVLM instance
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A byte slice containing KVLM formatted data
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(KVLM)` if parsing is successful
+    /// * `Err(String)` if parsing fails
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::core::kvlm::KVLM;
+    /// let data = b"key1 value1\nkey2 value2\n\nMessage content";
+    /// let kvlm = KVLM::parse(data).expect("Failed to parse KVLM data");
+    /// ```
     pub fn parse(data: &'a [u8]) -> Result<Self, String> {
         let mut kvlm = Self::new();
         let mut start: usize = 0;
@@ -103,6 +135,19 @@ impl<'a> KVLM<'a> {
         }
     }
 
+    /// Serializes the KVLM instance into a byte vector
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<u8>` containing the serialized KVLM data
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::core::kvlm::KVLM;
+    /// let kvlm = KVLM::parse(b"key1 value1\nkey2 value2\n\nMessage content").unwrap();
+    /// let serialized = kvlm.serialize();
+    /// ```
     pub fn serialize(&self) -> Vec<u8> {
         let mut res = vec![];
 
@@ -139,6 +184,26 @@ impl<'a> KVLM<'a> {
         res
     }
 
+    /// Retrieves the values associated with the given key
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - A byte slice representing the key to look up
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a reference to a vector of byte vectors if the key exists,
+    /// or `None` if the key doesn't exist
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::core::kvlm::KVLM;
+    /// let kvlm = KVLM::parse(b"key1 value1\nkey2 value2\n\nMessage content").unwrap();
+    /// if let Some(values) = kvlm.get_key(b"key1") {
+    ///     println!("Values for key1: {:?}", values);
+    /// }
+    /// ```
     pub fn get_key<'b>(&'a self, key: &'b [u8]) -> Option<&'a Vec<Vec<u8>>>
     where
         'b: 'a,
@@ -149,6 +214,22 @@ impl<'a> KVLM<'a> {
         }
     }
 
+    /// Retrieves the message content of the KVLM instance
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a reference to the message as a byte vector if it exists,
+    /// or `None` if there's no message
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::core::kvlm::KVLM;
+    /// let kvlm = KVLM::parse(b"key1 value1\nkey2 value2\n\nMessage content").unwrap();
+    /// if let Some(message) = kvlm.get_msg() {
+    ///     println!("Message: {:?}", String::from_utf8_lossy(message));
+    /// }
+    /// ```
     pub fn get_msg<'b>(&'a self) -> Option<&'a Vec<u8>>
     where
         'b: 'a,
