@@ -1,3 +1,4 @@
+pub mod collections;
 pub mod configparser;
 pub mod datetime;
 pub mod fnmatch;
