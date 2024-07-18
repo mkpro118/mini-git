@@ -50,7 +50,7 @@ impl<'a> KVLM<'a> {
                 .unwrap_or(usize::MAX);
 
             if space_idx == usize::MAX || newline_idx < space_idx {
-                assert_eq!(newline_idx, start);
+                assert_eq!(newline_idx, 0);
 
                 kvlm.store.insert(
                     Keys::Message,
@@ -58,6 +58,8 @@ impl<'a> KVLM<'a> {
                 );
                 return Ok(kvlm);
             }
+
+            let space_idx = space_idx + start;
 
             let key = Keys::Key(&data[start..space_idx]);
             let mut end = start;
@@ -132,7 +134,7 @@ impl<'a> KVLM<'a> {
 
         res.push(NEWLINE_BYTE);
         res.extend_from_slice(msg);
-        res.push(NEWLINE_BYTE);
+        // res.push(NEWLINE_BYTE);
 
         res
     }
@@ -190,8 +192,8 @@ mod tests {
         b"
 
 ",
-        b"Test data for KVLM",
-        b"\n",
+        b"Test data for KVLM
+",
     ];
 
     #[test]
@@ -211,11 +213,17 @@ mod tests {
         let exp_committer = vec![TEST_DATA[7].to_vec()];
         assert_eq!(kvlm.get_key(b"committer"), Some(exp_committer).as_ref());
 
-        let exp_gpgsig = vec![TEST_DATA[9]
-            .iter()
-            .filter(|&&x| x != SPACE_BYTE)
-            .copied()
-            .collect::<Vec<u8>>()];
+        let exp_gpgsig = vec![
+            TEST_DATA[9]
+                .iter()
+                .fold((0, vec![]), |(prev, mut acc), &byte| {
+                    if !(prev == NEWLINE_BYTE && byte == SPACE_BYTE) {
+                        acc.push(byte);
+                    }
+                    (byte, acc)
+                })
+                .1,
+        ];
         assert_eq!(kvlm.get_key(b"gpgsig"), Some(exp_gpgsig).as_ref());
 
         let exp_msg = TEST_DATA[11].to_vec();
