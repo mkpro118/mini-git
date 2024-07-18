@@ -136,4 +136,89 @@ impl<'a> KVLM<'a> {
 
         res
     }
+
+    pub fn get_key<'b>(&'a self, key: &'b [u8]) -> Option<&'a Vec<Vec<u8>>>
+    where
+        'b: 'a,
+    {
+        match self.store.get(&Keys::Key(key)) {
+            Some(Values::Value(ref msg)) => Some(msg),
+            _ => None,
+        }
+    }
+
+    pub fn get_msg<'b>(&'a self) -> Option<&'a Vec<u8>>
+    where
+        'b: 'a,
+    {
+        match self.store.get(&Keys::Message) {
+            Some(Values::Message(ref msg)) => Some(msg),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static TEST_DATA: &[&[u8]] = &[
+        b"tree ",
+        b"c14e2652b22f8b78b29ff16c9b08a5a07930c147",
+        b"\nparent ",
+        b"aea388a7ae24d49a0206941306e8a8af65b66eaa",
+        b"\nauthor ",
+        b"John Doe <john@doe.com> 1845675023 +0200",
+        b"\ncommitter ",
+        b"John Doe <john@doe.com> 1845675044 +0200",
+        b"\ngpgsig ",
+        b"-----BEGIN PGP SIGNATURE-----
+ iQIzBAABCAAdFiEExwXquOM8bWb4Q2zVGxM2FxoLkGQFAlsEjZQACgkQGxM2FxoL
+ /obspcvace4wy8uO0bdVhc4nJ+Rla4InVSJaUaBeiHTW8kReSFYyMmDCzLjGIu1q
+ kGQdcBAAqPP+ln4nGDd2gETXjvOpOxLzIMEw4A9gU6CzWzm+oB8mEIKyaH0UFIPh
+ V75R/7FjSuPLS8NaZF4wfi52btXMSxO/u7GuoJkzJscP3p4qtwe6Rl9dc1XC8P7k
+ NIbGZ5Yg5cEPcfmhgXFOhQZkD0yxcJqBUcoFpnp2vu5XJl2E5I/quIyVxUXi6O6c
+ 3eYgTUKz34cB6tAq9YwHnZpyPx8UJCZGkshpJmgtZ3mCbtQaO17LoihnqPn4UOMr
+ Q52UWybBzpaP9HEd4XnR+HuQ4k2K0ns2KgNImsNvIyFwbpMUyUWLMPimaV1DWUXo
+ rNUZ1j7/ZGFNeBDtT55LPdPIQw4KKlcf6kC8MPWP3qSu3xHqx12C5zyai2duFZUU
+ doU61OM3Zv1ptsLu3gUE6GU27iWYj2RWN3e3HE4Sbd89IFwLXNdSuM0ifDLZk7AQ
+ wqOt9iCFCscFQYqKs3xsHI+ncQb+PGjVZA8+jPw7nrPIkeSXQV2aZb1E68wa2YIL
+ WBhRhipCCgZhkj9g2NEk7jRVslti1NdN5zoQLaJNqSwO1MtxTmJ15Ksk3QP6kfLB
+ 5SBjDB/V/W2JBFR+XKHFJeFwYhj7DD/ocsGr4ZMx/lgc8rjIBkI=
+ =lgTX
+ -----END PGP SIGNATURE-----",
+        b"
+
+",
+        b"Test data for KVLM",
+        b"\n",
+    ];
+
+    #[test]
+    fn test_kvlm_parse() {
+        let data = TEST_DATA.concat();
+        let kvlm = KVLM::parse(&data).expect("Should parse");
+
+        let exp_tree = vec![TEST_DATA[1].to_vec()];
+        assert_eq!(kvlm.get_key(b"tree"), Some(exp_tree).as_ref());
+
+        let exp_parent = vec![TEST_DATA[3].to_vec()];
+        assert_eq!(kvlm.get_key(b"parent"), Some(exp_parent).as_ref());
+
+        let exp_author = vec![TEST_DATA[5].to_vec()];
+        assert_eq!(kvlm.get_key(b"author"), Some(exp_author).as_ref());
+
+        let exp_committer = vec![TEST_DATA[7].to_vec()];
+        assert_eq!(kvlm.get_key(b"committer"), Some(exp_committer).as_ref());
+
+        let exp_gpgsig = vec![TEST_DATA[9]
+            .iter()
+            .filter(|&&x| x != SPACE_BYTE)
+            .copied()
+            .collect::<Vec<u8>>()];
+        assert_eq!(kvlm.get_key(b"gpgsig"), Some(exp_gpgsig).as_ref());
+
+        let exp_msg = TEST_DATA[11].to_vec();
+        assert_eq!(kvlm.get_msg(), Some(exp_msg).as_ref());
+    }
 }
