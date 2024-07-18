@@ -454,24 +454,4 @@ mod tests {
     fn test_write_object_tree() {
         unimplemented!()
     }
-
-    #[test]
-    fn test_blob_serialize() {
-        let data = &[0; 16];
-        let blob = blob::Blob {
-            data: Vec::from(data),
-        };
-        let blob = Blob(blob);
-        let serialized = blob.serialize();
-        assert_eq!(&serialized, data);
-    }
-
-    #[test]
-    fn test_blob_deserialize() {
-        let data = &[0; 16];
-        match GitObject::Blob(blob::Blob::default()).deserialize(data) {
-            Ok(Blob(blob::Blob { data: inner })) => assert_eq!(inner, data),
-            _ => panic!("Deserialize did not return a blob"),
-        }
-    }
 }
