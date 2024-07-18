@@ -1,4 +1,5 @@
 pub mod init;
+pub mod kvlm;
 pub mod object;
 pub mod repository;
 
