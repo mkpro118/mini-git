@@ -1,6 +1,62 @@
+//! # Utility Collections
+//!
+//! This module provides the `OrderedMap` data structure, which combines the properties
+//! of a `HashMap` and a `Vec` to offer a map that maintains insertion order.
+//!
+//! ## Features
+//!
+//! - Fast key-value lookups (average O(1))
+//! - Ordered iteration based on insertion sequence
+//! - Implements `Default` and `Debug` traits
+//!
+//! ## Example
+//!
+//! ```rust
+//! use mini_git::utils::collections::OrderedMap;
+//!
+//! let mut map = OrderedMap::new();
+//! map.insert("first", 1);
+//! map.insert("second", 2);
+//! map.insert("third", 3);
+//!
+//! assert_eq!(map.get(&"second"), Some(&2));
+//!
+//! for (key, value) in &map {
+//!     println!("{}: {}", key, value);
+//! }
+//! // Output:
+//! // first: 1
+//! // second: 2
+//! // third: 3
+//! ```
+
 use std::collections::HashMap;
 use std::hash::Hash;
 
+/// A map that preserves insertion order of its keys.
+///
+/// `OrderedMap<K, V>` allows fast lookups via a hash map while maintaining
+/// the order of key insertions for ordered iteration.
+///
+/// # Type Parameters
+///
+/// - `K`: The key type. Must implement `Hash`, `Eq`, and `Clone`.
+/// - `V`: The value type.
+///
+/// # Examples
+///
+/// ```
+/// use mini_git::utils::collections::OrderedMap;
+///
+/// let mut map = OrderedMap::new();
+/// map.insert("a", 1);
+/// map.insert("b", 2);
+///
+/// assert_eq!(map.get(&"b"), Some(&2));
+///
+/// let keys: Vec<_> = map.iter().map(|(k, _)| k).collect();
+/// assert_eq!(keys, vec![&"a", &"b"]);
+/// ```
 #[derive(Debug)]
 pub struct OrderedMap<K, V>
 where
@@ -10,6 +66,7 @@ where
     list: Vec<K>,
 }
 
+/// An iterator over the entries of an `OrderedMap`.
 pub struct OrderedMapIter<'a, K, V>
 where
     K: Hash + Eq + Clone,
@@ -22,6 +79,16 @@ impl<K, V> Default for OrderedMap<K, V>
 where
     K: Hash + Eq + Clone,
 {
+    /// Creates an empty `OrderedMap`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::collections::OrderedMap;
+    ///
+    /// let map: OrderedMap<String, i32> = OrderedMap::default();
+    /// assert!(map.iter().next().is_none());
+    /// ```
     #[must_use]
     fn default() -> Self {
         Self::new()
@@ -32,6 +99,15 @@ impl<K, V> OrderedMap<K, V>
 where
     K: Hash + Eq + Clone,
 {
+    /// Creates a new, empty `OrderedMap`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::collections::OrderedMap;
+    ///
+    /// let map: OrderedMap<&str, i32> = OrderedMap::new();
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -40,6 +116,24 @@ where
         }
     }
 
+    /// Inserts a key-value pair into the map.
+    ///
+    /// If the key already exists, the value is updated, but the order remains unchanged.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::collections::OrderedMap;
+    ///
+    /// let mut map = OrderedMap::new();
+    /// map.insert("a", 1);
+    /// map.insert("b", 2);
+    /// map.insert("a", 3);  // Updates value, doesn't change order
+    ///
+    /// let keys: Vec<_> = map.iter().map(|(k, _)| *k).collect();
+    /// assert_eq!(keys, vec!["a", "b"]);
+    /// assert_eq!(map.get(&"a"), Some(&3));
+    /// ```
     pub fn insert(&mut self, key: K, value: V) {
         if !self.map.contains_key(&key) {
             self.list.push(key.clone());
@@ -48,10 +142,39 @@ where
         self.map.insert(key, value);
     }
 
+    /// Retrieves a reference to the value associated with the given key.
+    ///
+    /// Returns `None` if the key is not present in the map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::collections::OrderedMap;
+    ///
+    /// let mut map = OrderedMap::new();
+    /// map.insert("a", 1);
+    ///
+    /// assert_eq!(map.get(&"a"), Some(&1));
+    /// assert_eq!(map.get(&"b"), None);
+    /// ```
     pub fn get(&self, key: &K) -> Option<&V> {
         self.map.get(key)
     }
 
+    /// Returns an iterator over the key-value pairs in the map, in order of insertion.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::collections::OrderedMap;
+    ///
+    /// let mut map = OrderedMap::new();
+    /// map.insert("a", 1);
+    /// map.insert("b", 2);
+    ///
+    /// let pairs: Vec<_> = map.iter().collect();
+    /// assert_eq!(pairs, vec![(&"a", &1), (&"b", &2)]);
+    /// ```
     #[must_use]
     pub fn iter(&self) -> OrderedMapIter<K, V> {
         OrderedMapIter { map: self, idx: 0 }
