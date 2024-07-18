@@ -53,11 +53,11 @@ impl GitObject {
     ///
     /// # Example
     /// ```
-    /// use mini_git::core::object::{GitObject::*, BlobData};
+    /// use mini_git::core::objects::{GitObject::*, blob};
     /// let data = b"Hello world!";
     ///
     /// // This call to deserialize will create a blob
-    /// let blob = Blob(BlobData::new());
+    /// let blob = Blob(blob::Blob::default());
     /// let blob = blob.deserialize(data);
     /// println!("{blob:?}");
     /// ```
@@ -76,11 +76,12 @@ impl GitObject {
     ///
     /// # Example
     /// ```
-    /// use mini_git::core::object::{GitObject::*, BlobData};
+    /// use mini_git::core::objects::{GitObject::*, blob};
+    /// use mini_git::core::objects::traits::Serialize;
     /// let data = b"Hello world!";
     ///
     /// // This call to deserialize will create a blob
-    /// let blob = Blob(BlobData::from(data));
+    /// let blob = Blob(blob::Blob::from(data.as_slice()));
     ///
     /// let serialized = blob.serialize();
     /// println!("{serialized:?}");
@@ -99,14 +100,13 @@ impl GitObject {
     ///
     /// # Example
     /// ```
-    /// use mini_git::core::object::GitObject;
-    /// use mini_git::core::kvlm::KVLM;
+    /// use mini_git::core::objects::{GitObject, blob, commit};
     ///
-    /// let commit = GitObject::Commit(KVLM::new());
+    /// let blob = GitObject::Blob(blob::Blob::default());
+    /// assert_eq!(blob.format(), b"blob");
+    ///
+    /// let commit = GitObject::Commit(commit::Commit::default());
     /// assert_eq!(commit.format(), b"commit");
-    ///
-    /// let tag = GitObject::Tag;
-    /// assert_eq!(tag.format(), b"tag");
     /// ```
     #[must_use]
     pub fn format(&self) -> &'static [u8] {
@@ -131,14 +131,14 @@ impl GitObject {
     ///
     /// # Example
     /// ```no_run
-    /// use mini_git::core::object::{GitObject, BlobData};
+    /// use mini_git::core::objects::{GitObject, BlobData};
     /// use GitObject::*;
     ///
     /// let data = b"blob 5\0hello";
     ///
-    /// let blob = GitObject::from_raw_data(data.to_vec())?;
-    /// let Blob(blob_data) = blob else {panic!("uh oh, unexpected object")};
-    /// assert_eq!(blob_data, data);
+    /// let blob = GitObject::from_raw_data(data)?;
+    /// let Blob(blob) = blob else {panic!("uh oh, unexpected object")};
+    /// assert_eq!(blob.data(), data);
     ///
     /// # Ok::<(), String>(())
     /// ```
@@ -207,7 +207,7 @@ pub fn find_object(
 /// ```no_run
 /// use std::path::Path;
 /// use mini_git::core::GitRepository;
-/// use mini_git::core::object::read_object;
+/// use mini_git::core::objects::read_object;
 ///
 /// // This is an example digest (highly unlikely digest)
 /// let digest = "deadbeefdecadedefacecafec0ffeedadfacade8";
@@ -255,10 +255,10 @@ pub fn read_object<'a, 'b>(
 ///
 /// Example
 /// ```
-/// use mini_git::core::object::{hash_object, GitObject};
+/// use mini_git::core::objects::{hash_object, GitObject, blob};
 /// use GitObject::*;
 ///
-/// let obj = Blob(vec![]);
+/// let obj = Blob(blob::Blob::default());
 /// let (contents, mut hash) = hash_object(&obj);
 /// assert_eq!(contents, b"blob 0\0");
 /// let digest = hash.hex_digest();
@@ -296,10 +296,10 @@ pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
 /// ```no_run
 /// use std::path::Path;
 /// use mini_git::core::GitRepository;
-/// use mini_git::core::object::{write_object, GitObject};
+/// use mini_git::core::objects::{write_object, GitObject, blob};
 /// use GitObject::*;
 ///
-/// let obj = Blob(vec![]);
+/// let obj = Blob(blob::Blob::default());
 /// let repo = GitRepository::new(Path::new("."))?;
 /// let digest = write_object(&obj, &repo)?;
 /// assert_eq!(digest, "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
