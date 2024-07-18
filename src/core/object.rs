@@ -56,7 +56,7 @@ impl<'a> GitObject<'a> {
     /// println!("{blob:?}");
     /// ```
     #[must_use]
-    pub fn deserialize(&'a self, data: &'a [u8]) -> GitObject {
+    pub fn deserialize(&'a self, data: &'a [u8]) -> Result<GitObject, String> {
         match self {
             Blob(_) => Self::blob_deserialize(data),
             Commit(_) => Self::commit_deserialize(data),
@@ -194,8 +194,8 @@ impl<'a> GitObject<'a> {
         data.clone()
     }
 
-    fn blob_deserialize(data: &[u8]) -> GitObject {
-        Blob(BlobData::from(data))
+    fn blob_deserialize(data: &[u8]) -> Result<GitObject, String> {
+        Ok(Blob(BlobData::from(data)))
     }
 }
 
@@ -213,10 +213,15 @@ impl<'a> GitObject<'a> {
     }
 
     fn commit_serialize(&self) -> Vec<u8> {
-        todo!()
+        let Commit(data) = &self else {
+            unreachable!();
+        };
+
+        data.serialize()
     }
-    fn commit_deserialize(_data: &[u8]) -> GitObject {
-        todo!()
+    fn commit_deserialize(data: &[u8]) -> Result<GitObject, String> {
+        let kvlm = KVLM::parse(data)?;
+        Ok(Commit(kvlm))
     }
 }
 
@@ -234,7 +239,7 @@ impl<'a> GitObject<'a> {
     fn tag_serialize(&self) -> Vec<u8> {
         todo!()
     }
-    fn tag_deserialize(_data: &[u8]) -> GitObject {
+    fn tag_deserialize(_data: &[u8]) -> Result<GitObject, String> {
         todo!()
     }
 }
@@ -253,7 +258,7 @@ impl<'a> GitObject<'a> {
     fn tree_serialize(&self) -> Vec<u8> {
         todo!()
     }
-    fn tree_deserialize(_data: &[u8]) -> GitObject {
+    fn tree_deserialize(_data: &[u8]) -> Result<GitObject, String> {
         todo!()
     }
 }
@@ -536,7 +541,7 @@ mod tests {
     fn test_blob_deserialize() {
         let data = &[0; 16];
         match GitObject::blob_deserialize(data) {
-            Blob(inner) => assert_eq!(inner, data),
+            Ok(Blob(inner)) => assert_eq!(inner, data),
             _ => panic!("Deserialize did not return a blob"),
         }
     }
