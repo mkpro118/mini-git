@@ -3,7 +3,7 @@
 //! This module provides functionality for parsing and serializing
 //! Key Value List with Messages (KVLM) data format.
 
-use crate::utils::collections::OrderedMap;
+use crate::utils::collections::ordered_map::OrderedMap;
 
 /// Represents a space byte
 pub const SPACE_BYTE: u8 = b' ';

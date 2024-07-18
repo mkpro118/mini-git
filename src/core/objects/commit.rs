@@ -1,4 +1,4 @@
-use crate::core::kvlm::KVLM;
+use crate::utils::collections::kvlm::KVLM;
 
 #[derive(Debug)]
 pub struct Commit {
