@@ -10,6 +10,14 @@ where
     list: Vec<K>,
 }
 
+pub struct OrderedMapIter<'a, K, V>
+where
+    K: Hash + Eq + Clone,
+{
+    map: &'a OrderedMap<K, V>,
+    idx: usize,
+}
+
 impl<K, V> Default for OrderedMap<K, V>
 where
     K: Hash + Eq + Clone,
@@ -42,5 +50,28 @@ where
 
     pub fn get(&self, key: &K) -> Option<&V> {
         self.map.get(key)
+    }
+
+    pub fn iter(&self) -> OrderedMapIter<K, V> {
+        OrderedMapIter { map: &self, idx: 0 }
+    }
+}
+
+impl<'a, K, V> Iterator for OrderedMapIter<'a, K, V>
+where
+    K: Hash + Eq + Clone,
+{
+    type Item = (&'a K, &'a V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx >= self.map.list.len() {
+            return None;
+        }
+
+        let idx = self.idx;
+        self.idx += 1;
+
+        let key = &self.map.list[idx];
+        Some((key, &self.map.map[key]))
     }
 }
