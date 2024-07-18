@@ -37,7 +37,7 @@ impl traits::Deserialize for Leaf {
             return err("mode is too long");
         }
 
-        let mode = data[..space_idx].iter().enumerate().fold(
+        let mode = data[..space_idx].iter().rev().enumerate().fold(
             [SPACE_BYTE; 6],
             |mut acc, (i, byte)| {
                 acc[MODE_SIZE - i - 1] = *byte;
