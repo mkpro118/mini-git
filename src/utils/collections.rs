@@ -116,6 +116,29 @@ where
         }
     }
 
+    /// Checks whether the key exists in the map
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::collections::OrderedMap;
+    ///
+    /// let mut map: OrderedMap<i32, i32> = OrderedMap::new();
+    /// map.insert(1, 2);
+    /// map.insert(2, 4);
+    ///
+    /// assert!(map.contains_key(&1));
+    /// assert!(map.contains_key(&2));
+    /// assert!(!map.contains_key(&3));
+    /// ```
+    pub fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        K: core::borrow::Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.map.contains_key(key)
+    }
+
     /// Inserts a key-value pair into the map.
     ///
     /// If the key already exists, the value is updated, but the order remains unchanged.
