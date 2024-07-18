@@ -1,13 +1,9 @@
-//! # Utility Collections
-//!
-//! This module provides the `OrderedMap` data structure, which combines the properties
-//! of a `HashMap` and a `Vec` to offer a map that maintains insertion order.
+//! A hashmap wrapper that maintains insertion order.
 //!
 //! ## Features
 //!
 //! - Fast key-value lookups (average O(1))
 //! - Ordered iteration based on insertion sequence
-//! - Implements `Default` and `Debug` traits
 //!
 //! ## Example
 //!
