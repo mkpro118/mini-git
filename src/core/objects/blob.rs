@@ -9,6 +9,10 @@ impl<'a> Blob {
     pub fn new() -> Self {
         Self { data: Vec::new() }
     }
+
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
 }
 
 impl traits::Format for Blob {
@@ -35,6 +39,14 @@ impl traits::Deserialize for Blob {
 impl Default for Blob {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl From<&[u8]> for Blob {
+    fn from(data: &[u8]) -> Self {
+        Self {
+            data: data.to_vec(),
+        }
     }
 }
 
