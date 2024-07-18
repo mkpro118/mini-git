@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use mini_git::zlib::{compress, compress::Strategy, decompress};
+    use mini_git::utils::zlib::{compress, compress::Strategy, decompress};
     use std::{
         fs,
         path::{Path, PathBuf},

@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use crate::zlib::adler::adler32;
-use crate::zlib::bitwriter::BitWriter;
-use crate::zlib::huffman::{
+use crate::utils::zlib::adler::adler32;
+use crate::utils::zlib::bitwriter::BitWriter;
+use crate::utils::zlib::huffman::{
     get_distance_code, get_length_code, HuffmanTree, CODE_LENGTH_CODES_ORDER,
     DISTANCE_BASE, DISTANCE_EXTRA_BITS, LENGTH_BASE, LENGTH_EXTRA_BITS,
     ZLIB_MAX_STRING_LENGTH, ZLIB_MIN_STRING_LENGTH, ZLIB_WINDOW_SIZE,
 };
-use crate::zlib::lz77::{LZ77Compressor, LZ77Unit};
+use crate::utils::zlib::lz77::{LZ77Compressor, LZ77Unit};
 use LZ77Unit::{Literal, Marker};
 
 const ONE_KB: usize = 1024;
@@ -574,7 +574,7 @@ mod tests {
 
     #[test]
     fn test_write_dynamic_header() {
-        use crate::zlib::bitreader::BitReader;
+        use crate::utils::zlib::bitreader::BitReader;
         let (mut tree1, mut tree2) = (HuffmanTree::new(), HuffmanTree::new());
 
         tree1.insert(0b11, 2, 'A');
