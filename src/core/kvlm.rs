@@ -11,6 +11,7 @@ pub const SPACE_BYTE: u8 = b' ';
 pub const NEWLINE_BYTE: u8 = b'\n';
 
 /// Represents a Key Value List with Messages structure
+#[derive(Debug)]
 pub struct KVLM<'a> {
     store: OrderedMap<Keys<'a>, Values>,
 }
