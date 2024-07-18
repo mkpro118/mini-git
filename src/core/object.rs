@@ -2,6 +2,7 @@
 
 use std::fs;
 
+use crate::core::kvlm::KVLM;
 use crate::core::GitRepository;
 use crate::utils::path::repo_file;
 use crate::utils::sha1::SHA1;
@@ -20,9 +21,9 @@ pub type BlobData = Vec<u8>;
 /// - trees
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
-pub enum GitObject {
+pub enum GitObject<'a> {
     Blob(BlobData),
-    Commit,
+    Commit(KVLM<'a>),
     Tag,
     Tree,
 }
@@ -32,7 +33,7 @@ use GitObject::{Blob, Commit, Tag, Tree};
 // This is the common implementation for GitObject
 // The functions defined here are basically dispatch functions that choose the
 // required implementation based on the enum variant
-impl GitObject {
+impl<'a> GitObject<'a> {
     /// Deserializes raw data to create a `GitObject`.
     ///
     /// This method is a dispatches the deserialzer based on the current variant,
@@ -50,14 +51,15 @@ impl GitObject {
     /// let data = b"Hello world!";
     ///
     /// // This call to deserialize will create a blob
-    /// let blob = Blob(BlobData::new()).deserialize(data);
+    /// let blob = Blob(BlobData::new());
+    /// let blob = blob.deserialize(data);
     /// println!("{blob:?}");
     /// ```
     #[must_use]
-    pub fn deserialize(&self, data: &[u8]) -> GitObject {
+    pub fn deserialize(&'a self, data: &'a [u8]) -> GitObject {
         match self {
             Blob(_) => Self::blob_deserialize(data),
-            Commit => Self::commit_deserialize(data),
+            Commit(_) => Self::commit_deserialize(data),
             Tag => Self::tag_deserialize(data),
             Tree => Self::tree_deserialize(data),
         }
@@ -81,7 +83,7 @@ impl GitObject {
     pub fn serialize(&self) -> Vec<u8> {
         match self {
             Blob(_) => self.blob_serialize(),
-            Commit => self.commit_serialize(),
+            Commit(_) => self.commit_serialize(),
             Tag => self.tag_serialize(),
             Tree => self.tree_serialize(),
         }
@@ -92,8 +94,9 @@ impl GitObject {
     /// # Example
     /// ```
     /// use mini_git::core::object::GitObject;
+    /// use mini_git::core::kvlm::KVLM;
     ///
-    /// let commit = GitObject::Commit;
+    /// let commit = GitObject::Commit(KVLM::new());
     /// assert_eq!(commit.format(), b"commit");
     ///
     /// let tag = GitObject::Tag;
@@ -103,7 +106,7 @@ impl GitObject {
     pub const fn format(&self) -> &'static [u8] {
         match self {
             Blob(_) => Self::blob_format(),
-            Commit => Self::commit_format(),
+            Commit(_) => Self::commit_format(),
             Tag => Self::tag_format(),
             Tree => Self::tree_format(),
         }
@@ -127,13 +130,13 @@ impl GitObject {
     ///
     /// let data = b"blob 5\0hello";
     ///
-    /// let blob = GitObject::from_raw_data(data)?;
+    /// let blob = GitObject::from_raw_data(data.to_vec())?;
     /// let Blob(blob_data) = blob else {panic!("uh oh, unexpected object")};
     /// assert_eq!(blob_data, data);
     ///
     /// # Ok::<(), String>(())
     /// ```
-    pub fn from_raw_data(raw: &[u8]) -> Result<GitObject, String> {
+    pub fn from_raw_data(raw: Vec<u8>) -> Result<GitObject<'a>, String> {
         let total_size = raw.len();
         let mut raw_iter = raw.iter();
         // Read the object format
@@ -174,8 +177,8 @@ impl GitObject {
 }
 
 // This is the implementation for GitObject::Blob
-impl GitObject {
-    pub fn blob_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
+impl<'a> GitObject<'a> {
+    pub fn blob_from<'b>(_iter: impl Iterator<Item = &'b u8>) -> GitObject<'a> {
         Blob(Vec::new())
     }
 
@@ -197,9 +200,11 @@ impl GitObject {
 }
 
 // This is the impl for GitObject::Commit
-impl GitObject {
-    pub fn commit_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
-        Commit
+impl<'a> GitObject<'a> {
+    pub fn commit_from<'b>(
+        _iter: impl Iterator<Item = &'b u8>,
+    ) -> GitObject<'a> {
+        Commit(KVLM::new())
     }
 
     const fn commit_format() -> &'static [u8] {
@@ -216,8 +221,8 @@ impl GitObject {
 }
 
 // This is the impl for GitObject::Tag
-impl GitObject {
-    pub fn tag_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
+impl<'a> GitObject<'a> {
+    pub fn tag_from<'b>(_iter: impl Iterator<Item = &'b u8>) -> GitObject<'a> {
         Tag
     }
 
@@ -235,8 +240,8 @@ impl GitObject {
 }
 
 // This is the impl for GitObject::Tree
-impl GitObject {
-    pub fn tree_from<'a>(_iter: impl Iterator<Item = &'a u8>) -> GitObject {
+impl<'a> GitObject<'a> {
+    pub fn tree_from<'b>(_iter: impl Iterator<Item = &'b u8>) -> GitObject<'a> {
         Tree
     }
 
@@ -288,10 +293,10 @@ pub fn find_object(
 /// # Ok::<(), String>(())
 /// ```
 #[allow(clippy::module_name_repetitions)]
-pub fn read_object(
-    repo: &GitRepository,
-    sha: &str,
-) -> Result<GitObject, String> {
+pub fn read_object<'a, 'b, 'c>(
+    repo: &'b GitRepository,
+    sha: &'c str,
+) -> Result<GitObject<'a>, String> {
     // Calculate the path to the object
     let path =
         repo_file(repo.gitdir(), &[OBJECTS_DIR, &sha[..2], &sha[2..]], false)?;
@@ -307,7 +312,7 @@ pub fn read_object(
         return Err(format!("failed to read object with digest {sha}"));
     };
     let raw = zlib::decompress(&raw)?;
-    let res = match GitObject::from_raw_data(&raw) {
+    let res = match GitObject::from_raw_data(raw) {
         Ok(obj) => obj,
         Err(msg) => {
             return Err(format!("malformed object with digest {sha}, {msg}"))
@@ -452,7 +457,7 @@ mod tests {
     #[test]
     #[ignore = "WIP"]
     fn test_hash_object() {
-        let objects = [Blob(BlobData::new()), Commit, Tag, Tree];
+        let objects = [Blob(BlobData::new()), Commit(KVLM::new()), Tag, Tree];
 
         for obj in objects {
             let mut expected_hash = SHA1::new();
