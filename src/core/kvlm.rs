@@ -43,6 +43,7 @@ impl<'a> KVLM<'a> {
     /// use mini_git::core::kvlm::KVLM;
     /// let kvlm = KVLM::new();
     /// ```
+    #[must_use]
     pub fn new() -> Self {
         Self {
             store: OrderedMap::new(),
@@ -53,12 +54,15 @@ impl<'a> KVLM<'a> {
     ///
     /// # Arguments
     ///
-    /// * `data` - A byte slice containing KVLM formatted data
+    /// - `data` - A byte slice containing KVLM formatted data
     ///
     /// # Returns
     ///
-    /// * `Ok(KVLM)` if parsing is successful
-    /// * `Err(String)` if parsing fails
+    /// - `Ok(KVLM)` if parsing is successful
+    /// - `Err(String)` if parsing fails
+    ///
+    /// # Errors
+    /// If the input is not a valid KVLM data.
     ///
     /// # Examples
     ///
@@ -82,7 +86,9 @@ impl<'a> KVLM<'a> {
                 .unwrap_or(usize::MAX);
 
             if space_idx == usize::MAX || newline_idx < space_idx {
-                assert_eq!(newline_idx, 0);
+                if newline_idx != 0 {
+                    return Err("malformed KVLM data".to_owned());
+                }
 
                 kvlm.store.insert(
                     Keys::Message,
@@ -119,16 +125,13 @@ impl<'a> KVLM<'a> {
                 .replace("\n ", "\n") // Drop leading spaces on lines
                 .into_bytes();
 
-            match kvlm.store.get_mut(&key) {
-                Some(v) => match v {
-                    Values::Value(ref mut list) => list.push(value),
-                    _ => unreachable!(),
-                },
-                None => {
-                    let mut list = Vec::new();
-                    list.push(value);
-                    kvlm.store.insert(key, Values::Value(list));
-                }
+            if let Some(v) = kvlm.store.get_mut(&key) {
+                let Values::Value(ref mut list) = v else {
+                    unreachable!();
+                };
+                list.push(value);
+            } else {
+                kvlm.store.insert(key, Values::Value(vec![value]));
             }
 
             start = end + 1;
@@ -148,10 +151,11 @@ impl<'a> KVLM<'a> {
     /// let kvlm = KVLM::parse(b"key1 value1\nkey2 value2\n\nMessage content").unwrap();
     /// let serialized = kvlm.serialize();
     /// ```
+    #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut res = vec![];
 
-        let items = self.store.iter().filter_map(|(ref k, v)| match (k, v) {
+        let items = self.store.iter().filter_map(|(k, v)| match (&k, v) {
             (Keys::Key(key), Values::Value(values)) => Some((*key, values)),
             _ => None,
         });
@@ -159,11 +163,10 @@ impl<'a> KVLM<'a> {
         // Fields
         for (key, values) in items {
             let values = values
-                .into_iter()
-                .map(|vec: &Vec<u8>| String::from_utf8(vec.to_vec()))
-                .flatten() // Straight up ignore non-utf stuff
-                .map(|s| s.replace("\n", "\n "))
-                .map(|s| s.into_bytes());
+                .iter()
+                .flat_map(|vec: &Vec<u8>| String::from_utf8(vec.clone()))
+                .map(|s| s.replace('\n', "\n "))
+                .map(String::into_bytes);
             for value in values {
                 res.extend_from_slice(key);
                 res.push(SPACE_BYTE);
@@ -188,7 +191,7 @@ impl<'a> KVLM<'a> {
     ///
     /// # Arguments
     ///
-    /// * `key` - A byte slice representing the key to look up
+    /// - `key` - A byte slice representing the key to look up
     ///
     /// # Returns
     ///
@@ -204,6 +207,7 @@ impl<'a> KVLM<'a> {
     ///     println!("Values for key1: {:?}", values);
     /// }
     /// ```
+    #[must_use]
     pub fn get_key<'b>(&'a self, key: &'b [u8]) -> Option<&'a Vec<Vec<u8>>>
     where
         'b: 'a,
@@ -230,6 +234,7 @@ impl<'a> KVLM<'a> {
     ///     println!("Message: {:?}", String::from_utf8_lossy(message));
     /// }
     /// ```
+    #[must_use]
     pub fn get_msg<'b>(&'a self) -> Option<&'a Vec<u8>>
     where
         'b: 'a,
