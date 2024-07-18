@@ -184,6 +184,26 @@ where
         self.map.get(key)
     }
 
+    /// Retrieves a mutable reference to the value associated with the given key.
+    ///
+    /// Returns `None` if the key is not present in the map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::collections::OrderedMap;
+    ///
+    /// let mut map = OrderedMap::new();
+    /// map.insert("a", 1);
+    ///
+    /// assert_eq!(map.get(&"a"), Some(&1));
+    /// *map.get_mut(&"a").unwrap() = 42;
+    /// assert_eq!(map.get(&"a"), Some(&42));
+    /// ```
+    pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
+        self.map.get_mut(key)
+    }
+
     /// Returns an iterator over the key-value pairs in the map, in order of insertion.
     ///
     /// # Examples
