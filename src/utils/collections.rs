@@ -210,3 +210,86 @@ where
         self.iter()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let map: OrderedMap<&str, i32> = OrderedMap::new();
+        assert!(map.iter().next().is_none());
+    }
+
+    #[test]
+    fn test_default() {
+        let map: OrderedMap<&str, i32> = OrderedMap::default();
+        assert!(map.iter().next().is_none());
+    }
+
+    #[test]
+    fn test_insert_and_get() {
+        let mut map = OrderedMap::new();
+        map.insert("a", 1);
+        map.insert("b", 2);
+
+        assert_eq!(map.get(&"a"), Some(&1));
+        assert_eq!(map.get(&"b"), Some(&2));
+        assert_eq!(map.get(&"c"), None);
+    }
+
+    #[test]
+    fn test_insert_overwrite() {
+        let mut map = OrderedMap::new();
+        map.insert("a", 1);
+        map.insert("b", 2);
+        map.insert("a", 3);
+
+        assert_eq!(map.get(&"a"), Some(&3));
+
+        let keys: Vec<_> = map.iter().map(|(k, _)| *k).collect();
+        assert_eq!(keys, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn test_iteration_order() {
+        let mut map = OrderedMap::new();
+        map.insert("c", 3);
+        map.insert("a", 1);
+        map.insert("b", 2);
+
+        let pairs: Vec<_> = map.iter().map(|(&k, &v)| (k, v)).collect();
+        assert_eq!(pairs, vec![("c", 3), ("a", 1), ("b", 2)]);
+    }
+
+    #[test]
+    fn test_into_iterator() {
+        let mut map = OrderedMap::new();
+        map.insert("a", 1);
+        map.insert("b", 2);
+
+        let pairs: Vec<_> = (&map).into_iter().map(|(&k, &v)| (k, v)).collect();
+        assert_eq!(pairs, vec![("a", 1), ("b", 2)]);
+    }
+
+    #[test]
+    fn test_large_insert() {
+        let mut map = OrderedMap::new();
+        for i in 0..1000 {
+            map.insert(i, i * 2);
+        }
+
+        assert_eq!(map.get(&500), Some(&1000));
+        assert_eq!(map.iter().count(), 1000);
+    }
+
+    #[test]
+    fn test_with_string_keys() {
+        let mut map = OrderedMap::new();
+        map.insert("hello".to_string(), 1);
+        map.insert("world".to_string(), 2);
+
+        assert_eq!(map.get(&"hello".to_string()), Some(&1));
+        assert_eq!(map.get(&"world".to_string()), Some(&2));
+    }
+}
