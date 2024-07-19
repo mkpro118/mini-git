@@ -1,5 +1,6 @@
 use std::num::ParseIntError;
 
+#[derive(Debug)]
 pub enum DecodeHexError {
     OddLength,
     ParseInt(ParseIntError),
