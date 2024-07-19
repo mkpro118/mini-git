@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::core::objects::traits;
 
 const SPACE_BYTE: u8 = b' ';
@@ -37,13 +38,19 @@ impl traits::Deserialize for Leaf {
             return err("mode is too long");
         }
 
-        let mode = data[..space_idx].iter().rev().enumerate().fold(
-            [SPACE_BYTE; 6],
+        let Some(mode) = data[..space_idx].iter().rev().enumerate().fold(
+            Some([SPACE_BYTE; 6]),
             |mut acc, (i, byte)| {
-                acc[MODE_SIZE - i - 1] = *byte;
+                if !byte.is_ascii_digit() {
+                    return None;
+                } else if let Some(ref mut mode) = acc {
+                    mode[MODE_SIZE - i - 1] = *byte;
+                }
                 acc
             },
-        );
+        ) else {
+            return err("invalid mode");
+        };
 
         let path_start_idx = space_idx + 1;
 
@@ -58,14 +65,27 @@ impl traits::Deserialize for Leaf {
         let null_idx = null_idx + path_start_idx;
 
         let path = data[path_start_idx..null_idx].to_vec();
+        if path.len() == 0 {
+            return err("empty path");
+        }
 
         if data.len() < null_idx + 21 {
             return err("sha not found");
         }
 
-        let sha = data[(null_idx + 1)..(null_idx + 21)].to_vec();
-        let Ok(sha) = String::from_utf8(sha) else {
-            return err("could not parse sha");
+        let Some(sha) = data[(null_idx + 1)..(null_idx + 21)].iter().fold(
+            Some(String::with_capacity(20)),
+            |mut acc, byte| {
+                if !byte.is_ascii_hexdigit() {
+                    return None;
+                }
+                if let Some(ref mut s) = acc {
+                    s.push(char::from(*byte));
+                }
+                acc
+            },
+        ) else {
+            return err("invalid SHA");
         };
 
         Ok(Self {
@@ -207,6 +227,36 @@ mod tests {
         };
 
         let data = concat_leaf(&leaf);
+        let res = Leaf::deserialize(&data);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_leaf_deserializer_bad_mode() {
+        let leaf = Leaf {
+            mode: *b"abcdef",
+            path: b"test".to_vec(),
+            sha: "t".repeat(20),
+            len: 0,
+        };
+
+        let data = concat_leaf(&leaf);
+
+        let res = Leaf::deserialize(&data);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_leaf_deserializer_empty_path() {
+        let leaf = Leaf {
+            mode: *b"100644",
+            path: b"".to_vec(),
+            sha: "a".repeat(20),
+            len: 0,
+        };
+
+        let data = concat_leaf(&leaf);
+
         let res = Leaf::deserialize(&data);
         assert!(res.is_err());
     }
