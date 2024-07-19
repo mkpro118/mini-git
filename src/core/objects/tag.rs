@@ -7,6 +7,7 @@ pub struct Tag {
 }
 
 impl Tag {
+    #[must_use]
     pub fn new() -> Self {
         Self { kvlm: KVLM::new() }
     }

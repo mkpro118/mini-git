@@ -7,6 +7,7 @@ pub struct Commit {
 }
 
 impl Commit {
+    #[must_use]
     pub fn new() -> Self {
         Self { kvlm: KVLM::new() }
     }

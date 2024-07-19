@@ -65,7 +65,7 @@ impl traits::Deserialize for Leaf {
         let null_idx = null_idx + path_start_idx;
 
         let path = data[path_start_idx..null_idx].to_vec();
-        if path.len() == 0 {
+        if path.is_empty() {
             return err("empty path");
         }
 
@@ -98,6 +98,7 @@ impl traits::Deserialize for Leaf {
 }
 
 impl Tree {
+    #[must_use]
     pub fn new() -> Self {
         Self { leaves: Vec::new() }
     }

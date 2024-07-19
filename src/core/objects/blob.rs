@@ -6,10 +6,12 @@ pub struct Blob {
 }
 
 impl<'a> Blob {
+    #[must_use]
     pub fn new() -> Self {
         Self { data: Vec::new() }
     }
 
+    #[must_use]
     pub fn data(&self) -> &[u8] {
         &self.data
     }
