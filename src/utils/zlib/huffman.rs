@@ -1029,13 +1029,13 @@ mod tests {
     #[test]
     #[allow(clippy::unusual_byte_groupings)]
     fn test_huffman_tree_decode_good() {
+        struct TestData(usize, usize, &'static [char]);
+
         let mut tree = HuffmanTree::new();
         tree.insert(0b1, 1, 'B');
         tree.insert(0b01, 2, 'A');
         tree.insert(0b000, 3, 'C');
         tree.insert(0b001, 3, 'D');
-
-        struct TestData(usize, usize, &'static [char]);
 
         // The underscored are placed to separate the bits as their
         // encoded characters
@@ -1072,13 +1072,13 @@ mod tests {
     #[test]
     #[allow(clippy::unusual_byte_groupings)]
     fn test_huffman_tree_decode_bad() {
+        struct TestData(usize, usize, usize);
+
         let mut tree = HuffmanTree::new();
         tree.insert(0b1, 1, 'B');
         tree.insert(0b01, 2, 'A');
         tree.insert(0b000, 3, 'C');
         tree.insert(0b001, 3, 'D');
-
-        struct TestData(usize, usize, usize);
 
         // The underscored are placed to separate the bits as their
         // encoded characters
@@ -1110,6 +1110,8 @@ mod tests {
     #[test]
     #[allow(clippy::unusual_byte_groupings)]
     fn test_huffman_tree_from_bitlen_list() {
+        struct TestData(usize, usize, &'static [char]);
+
         let tree =
             HuffmanTree::from_bitlen_list(&[2, 1, 3, 3], &['A', 'B', 'C', 'D']);
 
@@ -1118,8 +1120,6 @@ mod tests {
             TestData(0b0_10_0_110_111_0, 11, &['B', 'A', 'B', 'C', 'D', 'B']),
             TestData(0b10_0_110_111, 9, &['A', 'B', 'C', 'D']),
         ];
-
-        struct TestData(usize, usize, &'static [char]);
 
         for TestData(code, length, expected_symbols) in data {
             let bytes = code_to_bytes(code, length);
