@@ -277,7 +277,7 @@ mod tests {
             vec![SPACE_BYTE],
             leaf.path.clone(),
             vec![NULL_BYTE],
-            hex::decode(&leaf.sha).unwrap_or(vec![]),
+            hex::decode(&leaf.sha).unwrap_or_default(),
         ]
         .concat()
     }
@@ -412,7 +412,7 @@ mod tests {
         let leaves = good_data
             .iter_mut()
             .map(|leaf| {
-                let res = concat_leaf(&leaf);
+                let res = concat_leaf(leaf);
                 leaf.len = res.len();
                 res
             })
@@ -434,7 +434,7 @@ mod tests {
         let leaves = good_data
             .iter_mut()
             .map(|leaf| {
-                let res = concat_leaf(&leaf);
+                let res = concat_leaf(leaf);
                 leaf.len = res.len();
                 res
             })
