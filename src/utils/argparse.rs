@@ -39,6 +39,24 @@ pub struct Namespace {
     subcommand: Option<(String, Box<Namespace>)>,
 }
 
+impl Argument {
+    pub fn new(
+        name: &str,
+        short: Option<char>,
+        arg_type: ArgumentType,
+        required: bool,
+        help: &str,
+    ) -> Self {
+        Argument {
+            name: name.to_string(),
+            short,
+            arg_type,
+            required,
+            help: help.to_string(),
+        }
+    }
+}
+
 impl Namespace {
     pub fn new() -> Self {
         Self {
@@ -49,5 +67,11 @@ impl Namespace {
 
     pub fn set_subcommand(&mut self, name: &str, namespace: Namespace) {
         self.subcommand = Some((name.to_owned(), Box::new(namespace)))
+    }
+}
+
+impl Default for Namespace {
+    fn default() -> Self {
+        Self::new()
     }
 }
