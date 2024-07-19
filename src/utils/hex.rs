@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use std::num::ParseIntError;
 
 #[derive(Debug)]
@@ -12,7 +14,7 @@ impl From<ParseIntError> for DecodeHexError {
     }
 }
 
-pub fn decode_hex(s: &str) -> Result<Vec<u8>, DecodeHexError> {
+pub fn decode(s: &str) -> Result<Vec<u8>, DecodeHexError> {
     if s.len() & 1 != 0 {
         return Err(DecodeHexError::OddLength);
     }
@@ -22,7 +24,8 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, DecodeHexError> {
         .collect()
 }
 
-pub fn encode_hex(bytes: &[u8]) -> String {
+#[must_use]
+pub fn encode(bytes: &[u8]) -> String {
     bytes
         .iter()
         .fold(String::with_capacity(bytes.len() * 2), |mut s, &byte| {
