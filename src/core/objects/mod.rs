@@ -12,7 +12,7 @@ use crate::core::GitRepository;
 use crate::utils::path::repo_file;
 use crate::utils::sha1::SHA1;
 use crate::utils::zlib;
-use traits::*;
+use traits::{Deserialize, Format, Serialize, KVLM};
 
 static OBJECTS_DIR: &str = "objects";
 static SPACE_BYTE: u8 = b' ';
@@ -144,7 +144,7 @@ impl GitObject {
     /// ```
     pub fn from_raw_data(raw: &[u8]) -> Result<GitObject, String> {
         let total_size = raw.len();
-        let mut raw_iter = raw.into_iter();
+        let mut raw_iter = raw.iter();
         // Read the object format
         let Some(space_idx) = raw_iter.position(|byte| *byte == SPACE_BYTE)
         else {
@@ -219,9 +219,9 @@ pub fn find_object(
 /// # Ok::<(), String>(())
 /// ```
 #[allow(clippy::module_name_repetitions)]
-pub fn read_object<'a, 'b>(
-    repo: &'a GitRepository,
-    sha: &'b str,
+pub fn read_object(
+    repo: &GitRepository,
+    sha: &str,
 ) -> Result<GitObject, String> {
     // Calculate the path to the object
     let path =

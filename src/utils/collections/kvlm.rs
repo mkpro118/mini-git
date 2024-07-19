@@ -169,7 +169,7 @@ impl KVLM {
                 .map(|s| s.replace('\n', "\n "))
                 .map(String::into_bytes);
             for value in values {
-                res.extend_from_slice(&key);
+                res.extend_from_slice(key);
                 res.push(SPACE_BYTE);
                 res.extend_from_slice(&value);
                 res.push(NEWLINE_BYTE);
