@@ -372,13 +372,12 @@ mod tests {
         let contents = b"blob 0\0";
         let compressed = zlib::compress(contents, &zlib::Strategy::Fixed);
 
-        fs::write(path.join(&sha[2..]), &compressed)
+        fs::write(path.join(&sha[2..]), compressed)
             .expect("Should write contents");
 
-        assert!(read_object(&repo, sha).is_ok_and(|obj| match obj {
-            Blob(..) => true,
-            _ => false,
-        }));
+        assert!(
+            read_object(&repo, sha).is_ok_and(|obj| matches!(obj, Blob(..)))
+        );
     }
 
     #[test]
@@ -417,7 +416,7 @@ mod tests {
 
         let blob_data = [0; 100];
         let blob = Blob(blob::Blob {
-            data: (&blob_data).to_vec(),
+            data: blob_data.to_vec(),
         });
 
         let digest = write_object(&blob, &repo).expect("Should write object");
@@ -429,7 +428,7 @@ mod tests {
         )
         .expect("Should have been created")
         .expect("Should be a file");
-        let raw = fs::read(&file).expect("Should read file");
+        let raw = fs::read(file).expect("Should read file");
         let decompressed =
             zlib::decompress(&raw).expect("Should decompress correctly");
 
