@@ -61,7 +61,6 @@ impl GitObject {
     /// let blob = blob.deserialize(data);
     /// println!("{blob:?}");
     /// ```
-    #[must_use]
     pub fn deserialize(&self, data: &[u8]) -> Result<GitObject, String> {
         Ok(match self {
             Blob(..) => Blob(blob::Blob::deserialize(data)?),
