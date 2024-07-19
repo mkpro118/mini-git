@@ -160,6 +160,31 @@ impl traits::Deserialize for Leaf {
     }
 }
 
+impl traits::Serialize for Leaf {
+    /// Serializes the leaf's data.
+    ///
+    /// # Returns
+    /// A `Vec<u8>` containing the serialized leaf.
+    fn serialize(&self) -> Vec<u8> {
+        vec![
+            match self.mode[0] {
+                SPACE_BYTE => self.mode[1..].to_vec(),
+                _ => self.mode.to_vec(),
+            },
+            vec![SPACE_BYTE],
+            self.path.clone(),
+            vec![NULL_BYTE],
+            match hex::decode_hex(&self.sha) {
+                Ok(res) => res,
+                _ => unreachable!(
+                    "Invariant: Leaf with invalid sha cannot be created"
+                ),
+            },
+        ]
+        .concat()
+    }
+}
+
 impl Tree {
     /// Creates a new, empty Tree object.
     ///
