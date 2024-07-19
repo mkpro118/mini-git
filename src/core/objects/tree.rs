@@ -23,6 +23,7 @@ const NULL_BYTE: u8 = b'\0';
 const MODE_SIZE: usize = 6;
 
 /// Represents a single entry (leaf) in a Git tree object.
+#[cfg_attr(test, derive(Clone))]
 #[derive(Debug)]
 struct Leaf {
     /// The mode of the entry (file permissions).
@@ -57,15 +58,11 @@ impl Leaf {
     // So a directory named `foo` would be treated as `foo/`, and would be
     // sorted before a file name `foo`.
     pub fn cmp_path(&self) -> Vec<u8> {
-        match self.mode[0] {
-            b'1' => self.path.to_vec(),
-            SPACE_BYTE => {
-                let mut vec = self.path.to_vec();
-                vec.push(b'/');
-                vec
-            }
-            _ => unreachable!(),
+        let mut path = self.path.to_vec();
+        if SPACE_BYTE == self.mode[0] {
+            path.push(b'/');
         }
+        path
     }
 }
 
@@ -288,12 +285,6 @@ mod tests {
     fn good_data() -> [Leaf; 3] {
         [
             Leaf {
-                mode: *b"100644",
-                path: b"test0".to_vec(),
-                sha: "1".repeat(40),
-                len: 0,
-            },
-            Leaf {
                 mode: *b" 10644",
                 path: b"test".to_vec(),
                 sha: "2".repeat(40),
@@ -303,6 +294,12 @@ mod tests {
                 mode: *b"100644",
                 path: b"test".to_vec(),
                 sha: "3".repeat(40),
+                len: 0,
+            },
+            Leaf {
+                mode: *b"100644",
+                path: b"test0".to_vec(),
+                sha: "1".repeat(40),
                 len: 0,
             },
         ]
@@ -478,5 +475,23 @@ mod tests {
 
             assert_eq!(test_serialize, leaf_serialize);
         }
+    }
+
+    #[test]
+    fn test_tree_serialize_good() {
+        let leaves = good_data();
+        let tree = Tree {
+            leaves: leaves.to_vec(),
+        };
+
+        let expected_serialized = [
+            leaves[1].serialize(),
+            leaves[0].serialize(),
+            leaves[2].serialize(),
+        ]
+        .concat();
+
+        let serialized = tree.serialize();
+        assert_eq!(expected_serialized, serialized);
     }
 }
