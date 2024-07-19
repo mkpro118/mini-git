@@ -163,6 +163,52 @@ impl ArgumentParser {
                 );
                 break;
             }
+
+            // Parse arguments
+            // Optional arguments
+            if arg.starts_with('-') {
+                let (find_strategy, err) = if arg.starts_with("--") {
+                    let name = &arg[2..];
+                    (
+                        Box::new(move |a: &&Argument| a.name == name)
+                            as Box<dyn Fn(&&Argument) -> bool>,
+                        Err(format!("Missing value for argument: {name}")),
+                    )
+                } else {
+                    let short = arg.chars().nth(1).unwrap();
+                    (
+                        Box::new(move |a: &&Argument| a.short == Some(short))
+                            as Box<dyn Fn(&&Argument) -> bool>,
+                        Err(format!("Missing value for argument: -{short}")),
+                    )
+                };
+
+                if let Some(argument) =
+                    self.arguments.iter().find(find_strategy)
+                {
+                    if matches!(argument.arg_type, ArgumentType::Boolean) {
+                        parsed
+                            .values
+                            .insert(argument.name.clone(), "true".to_string());
+                    } else {
+                        let Some(val) = args.next() else {
+                            return err;
+                        };
+                        parsed.values.insert(argument.name.clone(), val);
+                    }
+                } else {
+                    return Err(format!("Unknown argument: {}", arg));
+                }
+            } else {
+                // Positional argument
+                if let Some(argument) = self.arguments.iter().find(|a| {
+                    a.required && !parsed.values.contains_key(&a.name)
+                }) {
+                    parsed.values.insert(argument.name.clone(), arg.clone());
+                } else {
+                    return Err(format!("Unexpected argument: {}", arg));
+                }
+            }
         }
 
         Ok(parsed)
