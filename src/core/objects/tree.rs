@@ -38,15 +38,15 @@ impl traits::Deserialize for Leaf {
             return err("mode is too long");
         }
 
-        let Some(mode) = data[..space_idx].iter().rev().enumerate().fold(
-            Some([SPACE_BYTE; 6]),
+        let Some(mode) = data[..space_idx].iter().rev().enumerate().try_fold(
+            [SPACE_BYTE; 6],
             |mut acc, (i, byte)| {
                 if !byte.is_ascii_digit() {
                     return None;
-                } else if let Some(ref mut mode) = acc {
-                    mode[MODE_SIZE - i - 1] = *byte;
                 }
-                acc
+
+                acc[MODE_SIZE - i - 1] = *byte;
+                Some(acc)
             },
         ) else {
             return err("invalid mode");
@@ -73,16 +73,14 @@ impl traits::Deserialize for Leaf {
             return err("sha not found");
         }
 
-        let Some(sha) = data[(null_idx + 1)..(null_idx + 21)].iter().fold(
-            Some(String::with_capacity(20)),
+        let Some(sha) = data[(null_idx + 1)..(null_idx + 21)].iter().try_fold(
+            String::with_capacity(20),
             |mut acc, byte| {
                 if !byte.is_ascii_hexdigit() {
                     return None;
                 }
-                if let Some(ref mut s) = acc {
-                    s.push(char::from(*byte));
-                }
-                acc
+                acc.push(char::from(*byte));
+                Some(acc)
             },
         ) else {
             return err("invalid SHA");
