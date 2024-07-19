@@ -146,7 +146,7 @@ impl traits::Deserialize for Leaf {
             return err("sha not found");
         }
 
-        let sha = hex::encode_hex(&data[(null_idx + 1)..(null_idx + 21)]);
+        let sha = hex::encode(&data[(null_idx + 1)..(null_idx + 21)]);
 
         Ok(Self {
             mode,
@@ -171,7 +171,7 @@ impl traits::Serialize for Leaf {
             vec![SPACE_BYTE],
             self.path.clone(),
             vec![NULL_BYTE],
-            match hex::decode_hex(&self.sha) {
+            match hex::decode(&self.sha) {
                 Ok(res) => res,
                 _ => unreachable!(
                     "Invariant: Leaf with invalid sha cannot be created"
@@ -277,7 +277,7 @@ mod tests {
             vec![SPACE_BYTE],
             leaf.path.clone(),
             vec![NULL_BYTE],
-            hex::decode_hex(&leaf.sha).unwrap_or(vec![]),
+            hex::decode(&leaf.sha).unwrap_or(vec![]),
         ]
         .concat()
     }
