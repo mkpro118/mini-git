@@ -11,9 +11,9 @@
 //! and format identification.
 
 #![allow(dead_code)]
-use std::cmp::Ordering;
 
 use crate::core::objects::traits;
+use crate::utils::hex;
 
 /// The byte representation of a space character.
 const SPACE_BYTE: u8 = b' ';
@@ -71,10 +71,7 @@ impl Leaf {
 
 impl PartialEq for Leaf {
     fn eq(&self, other: &Self) -> bool {
-        match self.partial_cmp(other) {
-            Some(Ordering::Equal) => true,
-            _ => false,
-        }
+        self.sha == other.sha
     }
 }
 
@@ -152,18 +149,7 @@ impl traits::Deserialize for Leaf {
             return err("sha not found");
         }
 
-        let Some(sha) = data[(null_idx + 1)..(null_idx + 21)].iter().try_fold(
-            String::with_capacity(20),
-            |mut acc, byte| {
-                if !byte.is_ascii_hexdigit() {
-                    return None;
-                }
-                acc.push(char::from(*byte));
-                Some(acc)
-            },
-        ) else {
-            return err("invalid SHA");
-        };
+        let sha = hex::encode_hex(&data[(null_idx + 1)..(null_idx + 21)]);
 
         Ok(Self {
             mode,
@@ -260,7 +246,7 @@ mod tests {
             vec![SPACE_BYTE],
             leaf.path.clone(),
             vec![NULL_BYTE],
-            leaf.sha.as_bytes().to_vec(),
+            hex::decode_hex(&leaf.sha).unwrap_or(vec![]),
         ]
         .concat()
     }
@@ -270,19 +256,19 @@ mod tests {
             Leaf {
                 mode: *b"100644",
                 path: b"test0".to_vec(),
-                sha: "1".repeat(20),
+                sha: "1".repeat(40),
                 len: 0,
             },
             Leaf {
                 mode: *b" 10644",
                 path: b"test1".to_vec(),
-                sha: "2".repeat(20),
+                sha: "2".repeat(40),
                 len: 0,
             },
             Leaf {
                 mode: *b"100644",
                 path: b"test2".to_vec(),
-                sha: "3".repeat(20),
+                sha: "3".repeat(40),
                 len: 0,
             },
         ]
