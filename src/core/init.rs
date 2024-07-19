@@ -162,19 +162,6 @@ mod tests {
         use crate::utils::path;
         use std::path::PathBuf;
 
-        assert!(root.exists(), "ROOT {root:?} does not exist");
-        assert!(root.is_dir(), "ROOT {root:?} is not a directory");
-
-        let expected_git_dir = root.join(".git");
-        assert!(
-            expected_git_dir.exists(),
-            "GITDIR {expected_git_dir:?} does not exist"
-        );
-        assert!(
-            expected_git_dir.is_dir(),
-            "GITDIR {expected_git_dir:?} is not a directory"
-        );
-
         // Really complicated struct for abstraction and code reduction
         // Basically contains
         // (function to get path, function to test path, items to test)
@@ -186,6 +173,19 @@ mod tests {
             ) -> Result<Option<PathBuf>, String>,
             &'e dyn Fn(&Path) -> bool,
             &'f [&'g [&'static str]],
+        );
+
+        assert!(root.exists(), "ROOT {root:?} does not exist");
+        assert!(root.is_dir(), "ROOT {root:?} is not a directory");
+
+        let expected_git_dir = root.join(".git");
+        assert!(
+            expected_git_dir.exists(),
+            "GITDIR {expected_git_dir:?} does not exist"
+        );
+        assert!(
+            expected_git_dir.is_dir(),
+            "GITDIR {expected_git_dir:?} is not a directory"
         );
 
         let expected_gitdir_subitems = [
@@ -208,7 +208,7 @@ mod tests {
 
         for TestData(path_fn, test_fn, subdirs) in expected_gitdir_subitems {
             for subdir in subdirs {
-                let dir = path_fn(&expected_git_dir, &subdir, false);
+                let dir = path_fn(&expected_git_dir, subdir, false);
                 assert!(
                     dir.as_ref()
                         .is_ok_and(|p| p.as_ref().is_some_and(|p| p.exists())),
