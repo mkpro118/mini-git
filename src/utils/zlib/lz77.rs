@@ -243,8 +243,10 @@ mod tests {
                 .zip(compressed.iter())
                 .for_each(|(r, c)| match c {
                     LZ77Unit::Literal(b) => assert_eq!(r, b),
-                    _ => panic!("Encounter non-literal data"),
-                })
+                    LZ77Unit::Marker(..) => {
+                        panic!("Encounter non-literal data")
+                    }
+                });
         }
     }
 
