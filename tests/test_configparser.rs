@@ -66,7 +66,7 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
+        #[should_panic(expected = "ParseIntError")]
         fn test_get_int_from_float() {
             let section = setup_config_section();
 
@@ -185,14 +185,14 @@ mod tests {
 
         #[test]
         fn test_from_str_ini_content() {
-            let ini_content = r#"
+            let ini_content = r"
 [Section1]
 key1 = value1
 key2 = value2
 
 [Section2]
 key3 = value3
-"#;
+";
             let parser = ConfigParser::from(ini_content);
 
             assert_eq!(parser["Section1"]["key1"], "value1");
@@ -231,7 +231,7 @@ key3 = value3
         #[test]
         fn test_from_iter_string() {
             let lines = vec![
-                "".to_string(),
+                String::new(),
                 "; This is a comment".to_string(),
                 "[Section1]".to_string(),
                 "key1 = value1".to_string(),
@@ -268,11 +268,11 @@ key3 = value3
 
         #[test]
         fn test_global_section() {
-            let ini_content = r#"
+            let ini_content = r"
 global_key = global_value
 [Section1]
 key1 = value1
-"#;
+";
             let parser = ConfigParser::from(ini_content);
 
             assert_eq!(parser[""]["global_key"], "global_value");
@@ -281,11 +281,11 @@ key1 = value1
 
         #[test]
         fn test_empty_value() {
-            let ini_content = r#"
+            let ini_content = r"
 [Section1]
 key1 =
 key2 = value2
-"#;
+";
             let parser = ConfigParser::from(ini_content);
 
             assert_eq!(parser["Section1"]["key1"], "");
