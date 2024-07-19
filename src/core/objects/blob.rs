@@ -5,7 +5,7 @@ pub struct Blob {
     pub(crate) data: Vec<u8>,
 }
 
-impl<'a> Blob {
+impl Blob {
     #[must_use]
     pub fn new() -> Self {
         Self { data: Vec::new() }
