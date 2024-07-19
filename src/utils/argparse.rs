@@ -38,3 +38,16 @@ pub struct Namespace {
     values: HashMap<String, String>,
     subcommand: Option<(String, Box<Namespace>)>,
 }
+
+impl Namespace {
+    pub fn new() -> Self {
+        Self {
+            values: HashMap::new(),
+            subcommand: None,
+        }
+    }
+
+    pub fn set_subcommand(&mut self, name: &str, namespace: Namespace) {
+        self.subcommand = Some((name.to_owned(), Box::new(namespace)))
+    }
+}
