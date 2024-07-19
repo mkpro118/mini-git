@@ -156,9 +156,8 @@ mod tests {
         .concat()
     }
 
-    #[test]
-    fn test_leaf_deserializer_good() {
-        let mut leaves = [
+    fn good_data() -> [Leaf; 3] {
+        [
             Leaf {
                 mode: *b"100644",
                 path: b"test0".to_vec(),
@@ -177,7 +176,12 @@ mod tests {
                 sha: "3".repeat(20),
                 len: 0,
             },
-        ];
+        ]
+    }
+
+    #[test]
+    fn test_leaf_deserializer_good() {
+        let mut leaves = good_data();
 
         for test_leaf in &mut leaves {
             let data = concat_leaf(test_leaf);
@@ -274,5 +278,47 @@ mod tests {
 
         let res = Leaf::deserialize(&data);
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_tree_deserialize_good() {
+        let mut good_data = good_data();
+        let leaves = good_data
+            .iter_mut()
+            .map(|leaf| {
+                let res = concat_leaf(&leaf);
+                leaf.len = res.len();
+                res
+            })
+            .fold(vec![], |mut acc, leaf| {
+                acc.extend_from_slice(&leaf);
+                acc
+            });
+
+        let tree = Tree::deserialize(&leaves).expect("Should deserialize");
+
+        for (leaf, known_leaf) in tree.leaves.iter().zip(good_data.iter()) {
+            assert_eq!(leaf, known_leaf);
+        }
+    }
+
+    #[test]
+    fn test_tree_deserialize_bad() {
+        let mut good_data = good_data();
+        let leaves = good_data
+            .iter_mut()
+            .map(|leaf| {
+                let res = concat_leaf(&leaf);
+                leaf.len = res.len();
+                res
+            })
+            .fold(vec![], |mut acc, leaf| {
+                acc.extend_from_slice(&leaf);
+                acc.extend_from_slice(b"extra!");
+                acc
+            });
+
+        let tree = Tree::deserialize(&leaves);
+        assert!(tree.is_err());
     }
 }
