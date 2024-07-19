@@ -220,4 +220,45 @@ impl ArgumentParser {
 
         Ok(parsed)
     }
+
+    pub fn help(&self) -> String {
+        let name = std::env::args()
+            .into_iter()
+            .next()
+            .expect("executable name");
+        let mut help_text = format!(
+            "{name}\n{}\n\nUsage: {name} {} [OPTIONS]",
+            self.description,
+            self.cmd_chain.as_ref().map_or("", |x| x.as_str())
+        );
+
+        if !self.subcommands.is_empty() {
+            help_text.push_str(" [SUBCOMMAND]");
+        }
+
+        help_text.push_str("\n\nOptions:\n");
+
+        for arg in &self.arguments {
+            let short = arg
+                .short
+                .map_or_else(|| " ".repeat(4), |c| format!("-{}, ", c));
+            let required = if arg.required { " (required)" } else { "" };
+            help_text.push_str(&format!(
+                "  {}--{:<20}{} {}\n",
+                short, arg.name, arg.help, required
+            ));
+        }
+
+        if !self.subcommands.is_empty() {
+            help_text.push_str("\nSubcommands:\n");
+            for subcommand in &self.subcommands {
+                help_text.push_str(&format!(
+                    "  {:<20} {}\n",
+                    subcommand.name, subcommand.parser.description
+                ));
+            }
+        }
+
+        help_text
+    }
 }
