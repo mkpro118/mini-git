@@ -1,7 +1,7 @@
 //! This module contains trait definitions for Git object types.
 //!
 //! These traits define common operations for formatting, serialization,
-//! deserialization, and key-value list manipulation (KVLM) that are essential
+//! deserialization, and key-value list with message (KVLM) that are essential
 //! for working with Git objects.
 //!
 //! The traits in this module provide a unified interface for different Git
