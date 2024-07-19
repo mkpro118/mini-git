@@ -75,3 +75,40 @@ impl Default for Namespace {
         Self::new()
     }
 }
+
+impl Default for ArgumentParser {
+    fn default() -> Self {
+        Self::new("No description")
+    }
+}
+
+impl ArgumentParser {
+    pub fn new(description: &str) -> Self {
+        let mut parser = ArgumentParser {
+            description: description.to_string(),
+            arguments: Vec::new(),
+            subcommands: Vec::new(),
+            cmd_chain: None,
+        };
+        parser.add_argument(
+            "help",
+            Some('h'),
+            ArgumentType::Boolean,
+            false,
+            "Display this help message",
+        );
+        parser
+    }
+
+    pub fn add_argument(
+        &mut self,
+        name: &str,
+        short: Option<char>,
+        arg_type: ArgumentType,
+        required: bool,
+        help: &str,
+    ) {
+        self.arguments
+            .push(Argument::new(name, short, arg_type, required, help));
+    }
+}
