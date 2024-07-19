@@ -11,6 +11,8 @@
 //! and format identification.
 
 #![allow(dead_code)]
+use std::cmp::Ordering;
+
 use crate::core::objects::traits;
 
 /// The byte representation of a space character.
@@ -21,7 +23,6 @@ const NULL_BYTE: u8 = b'\0';
 const MODE_SIZE: usize = 6;
 
 /// Represents a single entry (leaf) in a Git tree object.
-#[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Debug)]
 struct Leaf {
     /// The mode of the entry (file permissions).
@@ -48,6 +49,46 @@ impl Leaf {
     /// The length of the leaf in bytes.
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    // This is the key for comparing two leaves.
+    // Basically git treats directory names with a trailing forward slash.
+    //
+    // So a directory named `foo` would be treated as `foo/`, and would be
+    // sorted before a file name `foo`.
+    pub fn cmp_path(&self) -> Vec<u8> {
+        match self.mode[0] {
+            b'1' => self.path.to_vec(),
+            SPACE_BYTE => {
+                let mut vec = self.path.to_vec();
+                vec.push(b'/');
+                vec
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl PartialEq for Leaf {
+    fn eq(&self, other: &Self) -> bool {
+        match self.partial_cmp(other) {
+            Some(Ordering::Equal) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Leaf {}
+
+impl PartialOrd for Leaf {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp_path().cmp(&other.cmp_path()))
+    }
+}
+
+impl Ord for Leaf {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }
 
