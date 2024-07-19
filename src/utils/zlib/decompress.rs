@@ -312,7 +312,7 @@ mod tests {
             // First 4 bytes are metadata, rest is the decompressed string
             let decompressed = match std::str::from_utf8(&compressed[4..]) {
                 Ok(v) => v,
-                Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                Err(e) => panic!("Invalid UTF-8 sequence: {e}"),
             };
 
             let mut reader = BitReader::new(compressed);
@@ -322,7 +322,7 @@ mod tests {
 
             let s = match std::str::from_utf8(&buffer) {
                 Ok(v) => v,
-                Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                Err(e) => panic!("Invalid UTF-8 sequence: {e}"),
             };
 
             assert_eq!(decompressed, s);
@@ -401,6 +401,8 @@ mod tests {
     #[test]
     #[allow(clippy::unusual_byte_groupings)]
     fn test_inflate_block_data_distance() {
+        struct TestData(usize, usize, usize, &'static [u8]);
+
         let mut literal_tree = HuffmanTree::new();
         let mut distance_tree = HuffmanTree::new();
 
@@ -417,8 +419,6 @@ mod tests {
         distance_tree.insert(0b10, 2, 0 as char);
         distance_tree.insert(0b0, 1, 1 as char);
         distance_tree.insert(0b110, 3, 2 as char);
-
-        struct TestData(usize, usize, usize, &'static [u8]);
 
         let data = [
             // A B A 257 0 *END*
