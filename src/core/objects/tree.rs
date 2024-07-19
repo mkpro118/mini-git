@@ -269,7 +269,7 @@ mod tests {
     use super::*;
 
     fn concat_leaf(leaf: &Leaf) -> Vec<u8> {
-        vec![
+        [
             match leaf.mode[0] {
                 SPACE_BYTE => leaf.mode[1..].to_vec(),
                 _ => leaf.mode.to_vec(),
