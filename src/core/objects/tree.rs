@@ -58,7 +58,7 @@ impl Leaf {
     // So a directory named `foo` would be treated as `foo/`, and would be
     // sorted before a file name `foo`.
     pub fn cmp_path(&self) -> Vec<u8> {
-        let mut path = self.path.to_vec();
+        let mut path = self.path.clone();
         if SPACE_BYTE == self.mode[0] {
             path.push(b'/');
         }
@@ -163,7 +163,7 @@ impl traits::Serialize for Leaf {
     /// # Returns
     /// A `Vec<u8>` containing the serialized leaf.
     fn serialize(&self) -> Vec<u8> {
-        vec![
+        [
             match self.mode[0] {
                 SPACE_BYTE => self.mode[1..].to_vec(),
                 _ => self.mode.to_vec(),
