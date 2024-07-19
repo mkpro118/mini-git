@@ -1,31 +1,69 @@
+//! Git Tree Object Implementation
+//!
+//! This module provides the implementation of the Git tree object, one of the
+//! four main types of Git objects (alongside blob, commit, and tag).
+//!
+//! Tree objects in Git represent directories and are used to track the
+//! hierarchical structure of a repository's file system.
+//!
+//! It implements several traits from the [`traits`] module to support
+//! Git-compatible operations such as serialization, deserialization,
+//! and format identification.
+
 #![allow(dead_code)]
 use crate::core::objects::traits;
 
+/// The byte representation of a space character.
 const SPACE_BYTE: u8 = b' ';
+/// The byte representation of a null character.
 const NULL_BYTE: u8 = b'\0';
+/// The size of the mode field in a tree leaf.
 const MODE_SIZE: usize = 6;
 
+/// Represents a single entry (leaf) in a Git tree object.
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Debug)]
 struct Leaf {
+    /// The mode of the entry (file permissions).
     mode: [u8; MODE_SIZE],
+    /// The path (name) of the entry.
     path: Vec<u8>,
+    /// The SHA-1 hash of the object this entry points to.
     sha: String,
+    /// The total length of this leaf entry when serialized.
     len: usize,
 }
 
+/// Represents a Git tree object, containing multiple leaf entries.
 #[derive(Debug)]
 pub struct Tree {
+    /// The collection of leaf entries in this tree.
     leaves: Vec<Leaf>,
 }
 
 impl Leaf {
+    /// Returns the length of the leaf entry when serialized.
+    ///
+    /// # Returns
+    /// The length of the leaf in bytes.
     pub fn len(&self) -> usize {
         self.len
     }
 }
 
 impl traits::Deserialize for Leaf {
+    /// Deserializes a byte slice into a Leaf object.
+    ///
+    /// # Arguments
+    /// - `data` - A byte slice containing the serialized leaf data.
+    ///
+    /// # Returns
+    /// A `Result` containing either the deserialized `Leaf` instance or an
+    /// error message.
+    ///
+    /// # Errors
+    /// Returns a [`String`] with a descriptive error message if deserialization
+    /// fails.
     fn deserialize(data: &[u8]) -> Result<Self, String> {
         let err = |x| Err(format!("invalid tree leaf: {x}"));
         let Some(space_idx) = data.iter().position(|x| *x == SPACE_BYTE) else {
@@ -96,6 +134,10 @@ impl traits::Deserialize for Leaf {
 }
 
 impl Tree {
+    /// Creates a new, empty Tree object.
+    ///
+    /// # Returns
+    /// A new `Tree` instance with no leaves.
     #[must_use]
     pub fn new() -> Self {
         Self { leaves: Vec::new() }
@@ -103,6 +145,10 @@ impl Tree {
 }
 
 impl traits::Format for Tree {
+    /// Returns the format identifier for Git tree objects.
+    ///
+    /// # Returns
+    /// A static byte slice containing the ASCII representation of "tree".
     fn format() -> &'static [u8] {
         const FORMAT: &[u8] = b"tree";
         FORMAT
@@ -110,12 +156,31 @@ impl traits::Format for Tree {
 }
 
 impl traits::Serialize for Tree {
+    /// Serializes the Tree object into a byte vector.
+    ///
+    /// # Returns
+    /// A `Vec<u8>` containing the serialized tree data.
+    ///
+    /// # Note
+    /// This method is currently unimplemented.
     fn serialize(&self) -> Vec<u8> {
         todo!()
     }
 }
 
 impl traits::Deserialize for Tree {
+    /// Deserializes a byte slice into a Tree object.
+    ///
+    /// # Arguments
+    /// - `data` - A byte slice containing the serialized tree data.
+    ///
+    /// # Returns
+    /// A `Result` containing either the deserialized `Tree` instance or an
+    /// error message.
+    ///
+    /// # Errors
+    /// Returns an `Err` with a descriptive error message if deserialization of
+    /// any leaf fails.
     fn deserialize(data: &[u8]) -> Result<Self, String> {
         let mut pos = 0;
         let mut leaves = vec![];
@@ -130,6 +195,10 @@ impl traits::Deserialize for Tree {
 }
 
 impl Default for Tree {
+    /// Creates a default (empty) Tree object.
+    ///
+    /// # Returns
+    /// A new, empty `Tree` instance.
     fn default() -> Self {
         Self::new()
     }
