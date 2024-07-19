@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_leaf_deserializer_no_space() {
-        let data = [0; 32];
+        let data = [b'0'; 32];
         let res = Leaf::deserialize(&data);
         assert!(res.is_err());
     }
@@ -179,6 +179,49 @@ mod tests {
     #[test]
     fn test_leaf_deserializer_no_null() {
         let data = [1, 2, 3, 4, 5, SPACE_BYTE, 10, 20];
+        let res = Leaf::deserialize(&data);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_leaf_deserializer_mode_too_short() {
+        let data = [1, 2, 3, 4, SPACE_BYTE, 10, 20, NULL_BYTE, 1, 2];
+        let res = Leaf::deserialize(&data);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_leaf_deserializer_mode_too_long() {
+        let data = [1, 2, 3, 4, 5, 6, 7, SPACE_BYTE, 10, 20, NULL_BYTE, 1, 2];
+        let res = Leaf::deserialize(&data);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_leaf_deserializer_hex_too_short() {
+        let leaf = Leaf {
+            mode: *b"100644",
+            path: b"test".to_vec(),
+            sha: "t".repeat(19),
+            len: 0,
+        };
+
+        let data = concat_leaf(&leaf);
+        let res = Leaf::deserialize(&data);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_leaf_deserializer_bad_hex() {
+        let leaf = Leaf {
+            mode: *b"100644",
+            path: b"test".to_vec(),
+            sha: "t".repeat(20),
+            len: 0,
+        };
+
+        let data = concat_leaf(&leaf);
+
         let res = Leaf::deserialize(&data);
         assert!(res.is_err());
     }
