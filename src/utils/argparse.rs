@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::slice::Iter;
 
 #[derive(Debug, Clone)]
 pub enum ArgumentType {
@@ -130,15 +131,40 @@ impl ArgumentParser {
     }
 
     pub fn parse_cli(&self) -> Result<Namespace, String> {
-        let args = std::env::args().skip(1).collect::<Vec<String>>();
-        self.parse(&args, true)
+        let args = std::env::args().skip(1); //.collect::<Vec<String>>();
+        self.parse(args, true)
     }
 
-    pub fn parse_args(&self, args: &[String]) -> Result<Namespace, String> {
-        self.parse(args, false)
+    pub fn parse_args<'a, 'b>(
+        &self,
+        args: &'a [&'b str],
+    ) -> Result<Namespace, String> {
+        self.parse(args.into_iter().map(|&x| x.to_owned()), false)
     }
 
-    fn parse(&self, _args: &[String], _cli: bool) -> Result<Namespace, String> {
-        todo!()
+    fn parse<I>(&self, mut args: I, cli: bool) -> Result<Namespace, String>
+    where
+        I: Iterator<Item = String>,
+    {
+        let mut parsed = Namespace::new();
+
+        loop {
+            let Some(arg) = args.next() else {
+                return Ok(parsed);
+            };
+
+            // Check for subcommand
+            if let Some(subcommand) =
+                self.subcommands.iter().find(|s| s.name == *arg)
+            {
+                parsed.set_subcommand(
+                    &subcommand.name,
+                    subcommand.parser.parse(args, cli)?,
+                );
+                break;
+            }
+        }
+
+        Ok(parsed)
     }
 }
