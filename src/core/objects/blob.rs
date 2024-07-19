@@ -65,7 +65,7 @@ impl traits::Deserialize for Blob {
     /// Deserializes a byte slice into a Blob.
     ///
     /// # Arguments
-    /// * `data` - A byte slice containing the data to be deserialized.
+    /// - `data` - A byte slice containing the data to be deserialized.
     ///
     /// # Returns
     /// A `Result` containing either the deserialized `Blob` instance or an error message.
@@ -93,7 +93,7 @@ impl From<&[u8]> for Blob {
     /// Creates a Blob from a byte slice.
     ///
     /// # Arguments
-    /// * `data` - A byte slice containing the data for the new Blob.
+    /// - `data` - A byte slice containing the data for the new Blob.
     ///
     /// # Returns
     /// A new `Blob` instance containing the provided data.

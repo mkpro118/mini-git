@@ -49,7 +49,7 @@ impl traits::KVLM for Tag {
     /// Creates a new Tag instance from a given KVLM structure.
     ///
     /// # Arguments
-    /// * `kvlm` - A KVLM structure containing tag metadata.
+    /// - `kvlm` - A KVLM structure containing tag metadata.
     ///
     /// # Returns
     /// A new `Tag` instance initialized with the provided KVLM data.
