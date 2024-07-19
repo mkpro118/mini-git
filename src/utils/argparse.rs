@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::slice::Iter;
 
 #[derive(Debug, Clone)]
 pub enum ArgumentType {
@@ -186,6 +185,17 @@ impl ArgumentParser {
                 if let Some(argument) =
                     self.arguments.iter().find(find_strategy)
                 {
+                    if argument.name == "help" {
+                        if cli {
+                            println!("{}", self.help());
+                            std::process::exit(0);
+                        } else {
+                            parsed.values.clear();
+                            parsed.values.insert(argument.name.clone(), arg);
+                            return Ok(parsed);
+                        }
+                    }
+
                     if matches!(argument.arg_type, ArgumentType::Boolean) {
                         parsed
                             .values
