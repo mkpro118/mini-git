@@ -8,8 +8,8 @@
 //! creating, accessing, and manipulating blob data.
 //!
 //! It implements several traits from the [`traits`] module to support
-//! Git-compatible operations such as serialization, deserialization, and format
-//! identification.
+//! Git-compatible operations such as serialization, deserialization,
+//! and format identification.
 
 use crate::core::objects::traits;
 

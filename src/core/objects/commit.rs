@@ -9,9 +9,9 @@
 //! using a KVLM structure to store commit metadata such as author, committer,
 //! timestamp, and commit message.
 //!
-//! It implements several traits from the [`traits`](core::objects::traits)
-//! module to support Git-compatible operations such as serialization,
-//! deserialization, and format identification.
+//! It implements several traits from the [`traits`] module to support
+//! Git-compatible operations such as serialization, deserialization,
+//! and format identification.
 
 use crate::core::objects::traits;
 use crate::utils::collections::kvlm::KVLM;
