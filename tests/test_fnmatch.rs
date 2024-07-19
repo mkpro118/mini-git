@@ -21,9 +21,9 @@ mod tests {
         fn test_fnmatch_with_existing_files() {
             let tmp_dir = TempDir::create("existing_files");
             let test_dir = tmp_dir.test_dir();
-            create_test_file(&test_dir, "test1.txt");
-            create_test_file(&test_dir, "test2.txt");
-            create_test_file(&test_dir, "other.log");
+            create_test_file(test_dir, "test1.txt");
+            create_test_file(test_dir, "test2.txt");
+            create_test_file(test_dir, "other.log");
 
             let pattern = format!("{}/*.txt", test_dir.to_str().unwrap());
             let result = fnmatch(&pattern).unwrap();
@@ -43,7 +43,7 @@ mod tests {
         fn test_fnmatch_with_no_matches() {
             let tmp_dir = TempDir::create("no_matches");
             let test_dir = tmp_dir.test_dir();
-            create_test_file(&test_dir, "test.log");
+            create_test_file(test_dir, "test.log");
 
             let pattern = format!("{}/*.txt", test_dir.to_str().unwrap());
             let result = fnmatch(&pattern);
