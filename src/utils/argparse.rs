@@ -211,6 +211,13 @@ impl ArgumentParser {
             }
         }
 
+        // Check for missing required arguments
+        for arg in &self.arguments {
+            if arg.required && !parsed.values.contains_key(&arg.name) {
+                return Err(format!("Missing required argument: {}", arg.name));
+            }
+        }
+
         Ok(parsed)
     }
 }
