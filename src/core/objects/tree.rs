@@ -216,7 +216,16 @@ impl traits::Serialize for Tree {
     /// # Note
     /// This method is currently unimplemented.
     fn serialize(&self) -> Vec<u8> {
-        todo!()
+        let mut leaves = self.leaves.iter().collect::<Vec<_>>();
+        leaves.sort();
+
+        leaves.iter().map(|leaf| leaf.serialize()).fold(
+            vec![],
+            |mut acc, ser| {
+                acc.extend_from_slice(&ser);
+                acc
+            },
+        )
     }
 }
 
@@ -286,13 +295,13 @@ mod tests {
             },
             Leaf {
                 mode: *b" 10644",
-                path: b"test1".to_vec(),
+                path: b"test".to_vec(),
                 sha: "2".repeat(40),
                 len: 0,
             },
             Leaf {
                 mode: *b"100644",
-                path: b"test2".to_vec(),
+                path: b"test".to_vec(),
                 sha: "3".repeat(40),
                 len: 0,
             },
