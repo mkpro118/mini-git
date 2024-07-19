@@ -49,7 +49,7 @@ impl traits::KVLM for Commit {
     /// Creates a new Commit instance from a given KVLM structure.
     ///
     /// # Arguments
-    /// * `kvlm` - A KVLM structure containing commit metadata.
+    /// - `kvlm` - A KVLM structure containing commit metadata.
     ///
     /// # Returns
     /// A new `Commit` instance initialized with the provided KVLM data.
