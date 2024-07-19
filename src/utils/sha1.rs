@@ -29,7 +29,7 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_panics_doc)]
 
-use std::fmt::Write;
+use crate::utils::hex;
 
 /// Initial state constants for the SHA-1 algorithm.
 const INITIAL_STATE: [u32; 5] = [
@@ -151,10 +151,7 @@ impl SHA1 {
     /// assert_eq!(result, "2aae6c35c94fcfb415dbe95f408b9ce91ee846ed");
     /// ```
     pub fn hex_digest(&mut self) -> String {
-        self.finalize().iter().fold(String::new(), |mut output, b| {
-            let _ = write!(output, "{b:02x}");
-            output
-        })
+        hex::encode(&self.finalize())
     }
 }
 
