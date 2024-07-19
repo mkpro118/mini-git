@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -129,5 +127,18 @@ impl ArgumentParser {
 
     pub fn add_subcommand(&mut self, name: &str, parser: ArgumentParser) {
         self.subcommands.push(SubCommand::new(name, parser));
+    }
+
+    pub fn parse_cli(&self) -> Result<Namespace, String> {
+        let args = std::env::args().skip(1).collect::<Vec<String>>();
+        self.parse(&args, true)
+    }
+
+    pub fn parse_args(&self, args: &[String]) -> Result<Namespace, String> {
+        self.parse(args, false)
+    }
+
+    fn parse(&self, _args: &[String], _cli: bool) -> Result<Namespace, String> {
+        todo!()
     }
 }
