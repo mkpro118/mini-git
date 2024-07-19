@@ -258,6 +258,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_wrap)]
     fn test_datetime_now() {
         let now = DateTime::now();
         let system_time = SystemTime::now();
@@ -276,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_datetime_from_timestamp() {
-        let timestamp = 1609459200; // January 1, 2021 00:00:00 UTC
+        let timestamp = 1_609_459_200; // January 1, 2021 00:00:00 UTC
         let dt = DateTime::from_timestamp(timestamp);
         assert_eq!(dt.time.as_secs(), timestamp);
     }
@@ -288,7 +289,7 @@ mod tests {
             minutes: 30,
             ahead: true,
         };
-        let debug_str = format!("{:?}", tz);
+        let debug_str = format!("{tz:?}");
         assert!(debug_str.contains("hours: 2"));
         assert!(debug_str.contains("minutes: 30"));
         assert!(debug_str.contains("ahead: true"));
