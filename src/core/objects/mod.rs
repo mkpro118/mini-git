@@ -45,11 +45,13 @@ impl GitObject {
     /// This method is a dispatches the deserialzer based on the current variant,
     /// it needs to be called on the variant that the expected object is.
     ///
-    /// # Panics
+    /// # Errors
     ///
     /// Deserialization may fails if,
     /// - Raw data was malformed
     /// - It was attempted on an object of the wrong kind
+    ///
+    /// A [`String`] describing the error message is returned.
     ///
     /// # Example
     /// ```
