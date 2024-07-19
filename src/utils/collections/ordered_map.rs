@@ -26,6 +26,8 @@
 //! // third: 3
 //! ```
 
+#![allow(clippy::module_name_repetitions)]
+
 use std::collections::HashMap;
 use std::hash::Hash;
 
