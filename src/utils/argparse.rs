@@ -57,6 +57,21 @@ impl Argument {
     }
 }
 
+impl SubCommand {
+    pub fn new(name: &str, mut parser: ArgumentParser) -> Self {
+        parser.cmd_chain = if let Some(prev) = parser.cmd_chain {
+            Some(format!("{prev} {name}"))
+        } else {
+            Some(name.to_owned())
+        };
+
+        SubCommand {
+            name: name.to_string(),
+            parser,
+        }
+    }
+}
+
 impl Namespace {
     pub fn new() -> Self {
         Self {
@@ -110,5 +125,9 @@ impl ArgumentParser {
     ) {
         self.arguments
             .push(Argument::new(name, short, arg_type, required, help));
+    }
+
+    pub fn add_subcommand(&mut self, name: &str, parser: ArgumentParser) {
+        self.subcommands.push(SubCommand::new(name, parser));
     }
 }
