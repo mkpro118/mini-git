@@ -279,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "subtract with overflow")]
     fn test_repo_file_with_empty_paths() {
         let tmp_dir = TempDir::create("test_repo_file_with_empty_paths");
         let base = tmp_dir.test_dir().join(".git");
@@ -304,7 +304,7 @@ mod tests {
         let top = env!("CARGO_MANIFEST_DIR");
         let expected =
             Path::new(top).canonicalize().expect("Should get abspath");
-        let repo_root = repo_find(&top).unwrap();
+        let repo_root = repo_find(top).unwrap();
         assert_eq!(repo_root, expected);
     }
 
@@ -315,7 +315,7 @@ mod tests {
         let expected = Path::new(&manifest)
             .canonicalize()
             .expect("Should get abspath");
-        let repo_root = repo_find(&top).unwrap();
+        let repo_root = repo_find(top).unwrap();
         assert_eq!(repo_root, expected);
     }
 
@@ -326,7 +326,7 @@ mod tests {
         let expected = Path::new(&manifest)
             .canonicalize()
             .expect("Should get abspath");
-        let repo_root = repo_find(&top).unwrap();
+        let repo_root = repo_find(top).unwrap();
         assert_eq!(repo_root, expected);
     }
 
@@ -334,7 +334,7 @@ mod tests {
     fn test_repo_find_bad_dir() {
         let manifest = env!("CARGO_MANIFEST_DIR");
         let top = Path::new(manifest).join("bad_dir");
-        let res = repo_find(&top);
+        let res = repo_find(top);
         assert!(res.is_err());
     }
 
@@ -342,7 +342,7 @@ mod tests {
     fn test_repo_find_no_git() {
         let tmp_dir = TempDir::create("test_repo_find_no_git");
         let top = tmp_dir.test_dir();
-        let res = repo_find(&top);
+        let res = repo_find(top);
         assert!(res.is_err());
     }
 }
