@@ -258,7 +258,7 @@ impl Default for Tree {
 
 #[cfg(test)]
 mod tests {
-    use self::traits::Deserialize;
+    use self::traits::{Deserialize, Serialize};
 
     use super::*;
 
@@ -440,5 +440,34 @@ mod tests {
 
         let tree = Tree::deserialize(&leaves);
         assert!(tree.is_err());
+    }
+
+    #[test]
+    fn test_leaf_serialize_good_manual() {
+        let leaf = Leaf {
+            mode: *b" 00644",
+            path: b"leaf".to_vec(),
+            sha: "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391".to_owned(),
+            len: 0,
+        };
+
+        let expected = b"00644 leaf\x00\xe6\x9d\xe2\x9b\xb2\xd1\xd6CK\x8b\
+        )\xaewZ\xd8\xc2\xe4\x8cS\x91";
+
+        let serialized = leaf.serialize();
+
+        assert_eq!(serialized, *expected);
+    }
+
+    #[test]
+    fn test_leaf_serialize_good() {
+        let data = good_data();
+
+        for leaf in data {
+            let test_serialize = concat_leaf(&leaf);
+            let leaf_serialize = leaf.serialize();
+
+            assert_eq!(test_serialize, leaf_serialize);
+        }
     }
 }
