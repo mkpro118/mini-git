@@ -9,9 +9,9 @@
 //! Key Value List with Message (KVLM) structure to store tag metadata such as
 //! the tagger, date, and tag message.
 //!
-//! It implements several traits from the [`traits`](core::objects::traits)
-//! module to support Git-compatible operations such as serialization,
-//! deserialization, and format identification.
+//! It implements several traits from the [`traits`] module to support
+//! Git-compatible operations such as serialization, deserialization,
+//! and format identification.
 
 use crate::core::objects::traits;
 use crate::utils::collections::kvlm::KVLM;
