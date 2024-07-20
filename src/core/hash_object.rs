@@ -1,8 +1,41 @@
-use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
+use crate::utils::{
+    argparse::{ArgumentParser, ArgumentType, Namespace},
+    path,
+};
+
+use crate::core::objects::traits::{Deserialize, KVLM};
+use crate::core::objects::{blob::Blob, commit::Commit, tag::Tag, tree::Tree};
+use crate::core::objects::{hash_object, write_object, GitObject};
+use crate::core::GitRepository;
 
 #[allow(clippy::module_name_repetitions)]
-pub fn cmd_hash_object(_args: &Namespace) -> Result<String, String> {
-    todo!();
+pub fn cmd_hash_object(args: &Namespace) -> Result<String, String> {
+    let Ok(data) = std::fs::read(&args["path"]) else {
+        return Err(format!("failed to read file at {}", args["path"]));
+    };
+
+    let obj = make_object(&args["type"].to_lowercase(), &data)?;
+
+    let sha = if matches!(args.get("write"), Some(..)) {
+        let repo = path::repo_find(".")?;
+        let repo = GitRepository::new(&repo)?;
+        write_object(&obj, &repo)?
+    } else {
+        let (_, mut sha) = hash_object(&obj);
+        sha.hex_digest()
+    };
+
+    Ok(sha)
+}
+
+fn make_object(obj_type: &str, data: &[u8]) -> Result<GitObject, String> {
+    Ok(match obj_type {
+        "blob" => GitObject::Blob(Blob::deserialize(&data)?),
+        "commit" => GitObject::Commit(Commit::deserialize(&data)?),
+        "tag" => GitObject::Tag(Tag::deserialize(&data)?),
+        "tree" => GitObject::Tree(Tree::deserialize(&data)?),
+        _ => return Err(format!("{} is not a known object type", obj_type)),
+    })
 }
 
 /// Make `hash-object` parser
@@ -11,6 +44,12 @@ pub fn make_parser() -> ArgumentParser {
     let mut parser = ArgumentParser::new(
         "Compute object ID and optionally creates a blob from a file",
     );
+
+    parser
+        .add_argument("path", ArgumentType::String)
+        .required()
+        .add_help("Read object from <file>");
+
     parser
         .add_argument("type", ArgumentType::String)
         .required()
@@ -22,11 +61,6 @@ pub fn make_parser() -> ArgumentParser {
         .optional()
         .short('w')
         .add_help("Actually write the object into the database");
-
-    parser
-        .add_argument("path", ArgumentType::String)
-        .required()
-        .add_help("Read object from <file>");
 
     parser
 }
