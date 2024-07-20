@@ -115,7 +115,7 @@ mod tests {
             };
         }
 
-        assert!(res.is_ok());
+        assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
 
         assert!(res.contains("initialized"));
