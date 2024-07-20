@@ -1,14 +1,53 @@
+//! # Argparse Module
+//!
+//! This module provides a flexible and easy-to-use command-line argument parsing library.
+//! It supports various argument types, subcommands, and generates help messages automatically.
+//!
+//! ## Features
+//!
+//! - Support for different argument types (String, Integer, Float, Boolean)
+//! - Short and long option formats
+//! - Required and optional arguments
+//! - Subcommand support
+//! - Automatic help message generation
+//!
+//! ## Example
+//!
+//! ```
+//! use argparse::{ArgumentParser, ArgumentType};
+//!
+//! let mut parser = ArgumentParser::new("My CLI App");
+//! parser.add_argument("name", ArgumentType::String)
+//!     .required()
+//!     .help("Your name");
+//! parser.add_argument("age", ArgumentType::Integer)
+//!     .short('a')
+//!     .help("Your age");
+//!
+//! let args = parser.parse_cli().expect("Failed to parse arguments");
+//! println!("Name: {}", args["name"]);
+//! if let Some(age) = args.get("age") {
+//!     println!("Age: {}", age);
+//! }
+//! ```
+
 use std::collections::HashMap;
 use std::ops::Index;
 
+/// Represents the type of an argument.
 #[derive(Debug, Clone)]
 pub enum ArgumentType {
+    /// A string argument.
     String,
+    /// An integer argument.
     Integer,
+    /// A floating-point argument.
     Float,
+    /// A boolean flag.
     Boolean,
 }
 
+/// Represents a single command-line argument.
 #[derive(Debug)]
 pub struct Argument {
     name: String,
@@ -19,20 +58,25 @@ pub struct Argument {
     default: Option<String>,
 }
 
+/// Represents a subcommand in the argument parser.
 #[derive(Debug)]
 struct SubCommand {
     name: String,
     parser: ArgumentParser,
 }
 
+/// The main argument parser struct.
 #[derive(Debug)]
 pub struct ArgumentParser {
     description: String,
     arguments: Vec<Argument>,
     subcommands: Vec<SubCommand>,
     cmd_chain: Option<String>,
+    auto_exit: bool,
+    exit_code: i32,
 }
 
+/// Represents the parsed arguments.
 #[derive(Debug)]
 pub struct Namespace {
     values: HashMap<String, String>,
@@ -53,6 +97,7 @@ impl Default for Argument {
 }
 
 impl Argument {
+    /// Creates a new `Argument` with the given name and type.
     #[must_use]
     pub fn new(name: &str, arg_type: ArgumentType) -> Self {
         Argument {
@@ -62,31 +107,41 @@ impl Argument {
         }
     }
 
+    /// Sets the name of the argument.
     pub fn name(&mut self, name: &str) -> &mut Self {
         name.clone_into(&mut self.name);
         self
     }
 
+    /// Sets the short option character for the argument.
     pub fn short(&mut self, short: char) -> &mut Self {
         self.short = Some(short);
         self
     }
 
+    /// Makes the argument required.
     pub fn required(&mut self) -> &mut Self {
         self.required = true;
         self
     }
 
-    pub fn not_required(&mut self) -> &mut Self {
+    /// Makes the argument optional.
+    pub fn optional(&mut self) -> &mut Self {
         self.required = false;
         self
     }
 
+    /// Sets the help message for the argument.
     pub fn help(&mut self, help: &str) -> &mut Self {
         help.clone_into(&mut self.help);
         self
     }
 
+    /// Sets the default value for the argument.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called on a required argument.
     pub fn default(&mut self, default: &str) -> &mut Self {
         assert!(
             !self.required,
@@ -98,6 +153,7 @@ impl Argument {
 }
 
 impl SubCommand {
+    /// Creates a new `SubCommand` with the given name and parser.
     pub fn new(name: &str, mut parser: ArgumentParser) -> Self {
         parser.cmd_chain = if let Some(prev) = parser.cmd_chain {
             Some(format!("{prev} {name}"))
@@ -119,6 +175,7 @@ impl Default for Namespace {
 }
 
 impl Namespace {
+    /// Creates a new empty `Namespace`.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -127,15 +184,18 @@ impl Namespace {
         }
     }
 
+    /// Sets a subcommand in the namespace.
     pub fn set_subcommand(&mut self, name: &str, namespace: Namespace) {
         self.subcommand = Some((name.to_owned(), Box::new(namespace)));
     }
 
+    /// Gets the value of an argument by its name.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&String> {
         self.values.get(key)
     }
 
+    /// Gets the subcommand, if any.
     #[must_use]
     pub fn subcommand(&self) -> Option<(&String, &Namespace)> {
         if let Some((ref cmd, ref namespace)) = &self.subcommand {
@@ -149,6 +209,7 @@ impl Namespace {
 impl Index<&str> for Namespace {
     type Output = String;
 
+    /// Allows indexing into the `Namespace` to retrieve arguments
     fn index(&self, index: &str) -> &Self::Output {
         &self.values[index]
     }
@@ -156,27 +217,51 @@ impl Index<&str> for Namespace {
 
 impl Default for ArgumentParser {
     fn default() -> Self {
-        Self::new("No description")
+        Self {
+            description: String::from("No description"),
+            arguments: Vec::new(),
+            subcommands: Vec::new(),
+            cmd_chain: None,
+            auto_exit: true,
+            exit_code: 0,
+        }
     }
 }
 
 impl ArgumentParser {
+    /// Creates a new `ArgumentParser` with the given description.
     #[must_use]
     pub fn new(description: &str) -> Self {
         let mut parser = ArgumentParser {
             description: description.to_string(),
-            arguments: Vec::new(),
-            subcommands: Vec::new(),
-            cmd_chain: None,
+            ..Default::default()
         };
         parser
             .add_argument("help", ArgumentType::Boolean)
             .short('h')
-            .not_required()
+            .optional()
             .help("Display this help message");
         parser
     }
 
+    /// Whether or not to exit the program if there are errors in
+    /// parsing the arguments.
+    ///
+    /// This is only relevant if [`parse_cli`] is used.
+    /// The exit code can be set using [`exit_code`], defaults to 0.
+    pub fn auto_exit(&mut self, auto_exit: bool) -> &mut Self {
+        auto_exit.clone_into(&mut self.auto_exit);
+        self
+    }
+
+    /// Sets the exit code
+    pub fn exit_code(&mut self, exit_code: i32) -> &mut Self {
+        exit_code.clone_into(&mut self.exit_code);
+        self
+    }
+
+    /// Adds a new argument to the parser, and returns a mutable reference
+    /// to the added [`Argument`]
     pub fn add_argument(
         &mut self,
         name: &str,
@@ -186,15 +271,49 @@ impl ArgumentParser {
         self.arguments.last_mut().unwrap()
     }
 
+    /// Adds a subcommand to the parser.
     pub fn add_subcommand(&mut self, name: &str, parser: ArgumentParser) {
         self.subcommands.push(SubCommand::new(name, parser));
     }
 
+    /// Parses command-line arguments.
+    ///
+    /// This is essentially a wrapper over [`parse_args`], where the arguments
+    /// are obtained from [`std::env::args`].
+    ///
+    /// # Errors
+    ///
+    /// This function may fail if,
+    /// - Not all required arguments were found.
+    /// - Non-boolean arguments are missing values.
+    ///
+    /// This function will automatically exit the program unless
+    /// [`ArgumentParser::auto_exit(false)`] is called. If auto exit is disabled,
+    /// a [`String`] describing the error is returned.
+    ///
+    /// The default exit code is 0, but can be set using
+    /// [`ArgumentParser::exit_code`]
     pub fn parse_cli(&self) -> Result<Namespace, String> {
-        let args = std::env::args().skip(1); //.collect::<Vec<String>>();
-        self.parse(args, true)
+        let args = std::env::args().skip(1);
+        match self.parse(args, true) {
+            Ok(res) => Ok(res),
+            Err(msg) if self.auto_exit => {
+                println!("{msg}");
+                std::process::exit(0);
+            }
+            Err(msg) => Err(msg),
+        }
     }
 
+    /// Parses the given array of argument strings.
+    ///
+    /// # Errors
+    ///
+    /// This function may fail if,
+    /// - Not all required arguments were found.
+    /// - Non-boolean arguments are missing values.
+    ///
+    /// A [`String`] describing the error is returned.
     pub fn parse_args(&self, args: &[&str]) -> Result<Namespace, String> {
         self.parse(args.iter().map(|&x| x.to_owned()), false)
     }
@@ -290,9 +409,16 @@ impl ArgumentParser {
         Ok(parsed)
     }
 
+    /// Generates a help message for the parser.
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn help(&self) -> String {
-        let name = std::env::args().next().expect("executable name");
+        let name = std::env::args().next().expect("executable path");
+        let name = std::path::Path::new(&name)
+            .file_stem()
+            .expect("executable name")
+            .to_str()
+            .expect("valid utf-8");
         let mut help_text = format!(
             "{name}\n{}\n\nUsage: {name} {} [OPTIONS]",
             self.description,
@@ -609,7 +735,7 @@ mod tests {
         parser
             .add_argument("flag", ArgumentType::Boolean)
             .short('f')
-            .not_required()
+            .optional()
             .help("Flag");
 
         let result = parser.parse_args(&["--flag"]);
