@@ -1,9 +1,36 @@
-use mini_git::core::init;
-use mini_git::utils::argparse::ArgumentParser;
+use mini_git::core::{hash_object, init};
+use mini_git::utils::argparse::{ArgumentParser, Namespace};
+
+struct Command {
+    name: &'static str,
+    make_parser: fn() -> ArgumentParser,
+    callback: fn(&Namespace) -> Result<String, String>,
+}
+
+impl Command {
+    pub const fn new(
+        name: &'static str,
+        make_parser: fn() -> ArgumentParser,
+        callback: fn(&Namespace) -> Result<String, String>,
+    ) -> Self {
+        Self {
+            name,
+            make_parser,
+            callback,
+        }
+    }
+}
+
+static COMMAND_MAP: &[Command] = &[
+    Command::new("init", init::make_parser, init::cmd_init),
+    Command::new(
+        "hash-object",
+        hash_object::make_parser,
+        hash_object::cmd_hash_object,
+    ),
+];
 
 fn main() {
-    println!("Hello, world!");
-
     let exit_code = run();
     std::process::exit(exit_code);
 }
@@ -15,14 +42,14 @@ fn run() -> i32 {
         unreachable!();
     };
 
-    let Some((cmd, args)) = args.subcommand() else {
+    let Some((command, args)) = args.subcommand() else {
         unreachable!();
     };
 
-    let res = match cmd.as_str() {
-        "init" => init::cmd_init(args),
-        _ => unreachable!(),
-    };
+    let res = COMMAND_MAP
+        .binary_search_by(|cmd| cmd.name.cmp(&command))
+        .map(|x| (COMMAND_MAP[x].callback)(args))
+        .expect("Should not be an invalid command");
 
     match res {
         Ok(msg) => {
@@ -39,7 +66,9 @@ fn run() -> i32 {
 fn make_parser() -> ArgumentParser {
     let mut parser = ArgumentParser::new("MiniGit, a git, but mini!");
 
-    parser.add_subcommand("init", init::make_parser());
+    for command in COMMAND_MAP {
+        parser.add_subcommand(command.name, (command.make_parser)())
+    }
 
     parser
 }
