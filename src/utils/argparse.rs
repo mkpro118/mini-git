@@ -231,10 +231,6 @@ impl Argument {
 
     /// Sets the default value for the argument.
     ///
-    /// # Panics
-    ///
-    /// Panics if called on a required argument.
-    ///
     /// # Example
     ///
     /// ```
@@ -246,10 +242,6 @@ impl Argument {
     /// // If "--foo VALUE" is not provided, foo will have the value "bar"
     /// ```
     pub fn default(&mut self, default: &str) -> &mut Self {
-        assert!(
-            !self.required,
-            "default value cannot be set on a required argument"
-        );
         self.default = Some(default.to_owned());
         self
     }
@@ -719,6 +711,10 @@ impl ArgumentParser {
         // Check for missing required arguments
         for arg in &self.arguments {
             if arg.required && !parsed.values.contains_key(&arg.name) {
+                if let Some(default) = &arg.default {
+                    parsed.values.insert(arg.name.clone(), default.clone());
+                    continue;
+                }
                 return Err(format!("Missing required argument: {}", arg.name));
             }
         }
