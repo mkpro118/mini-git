@@ -573,7 +573,7 @@ mod tests {
             false,
             "Flag",
         );
-        let result = parser.parse_args(&["--flag", "true"]);
+        let result = parser.parse_args(&["--flag"]);
         assert!(result.is_ok());
         let namespace = result.unwrap();
         assert_eq!(namespace.values.get("flag"), Some(&"true".to_string()));
