@@ -19,10 +19,10 @@
 //! let mut parser = ArgumentParser::new("My CLI App");
 //! parser.add_argument("name", ArgumentType::String)
 //!     .required()
-//!     .help("Your name");
+//!     .add_help("Your name");
 //! parser.add_argument("age", ArgumentType::Integer)
 //!     .short('a')
-//!     .help("Your age");
+//!     .add_help("Your age");
 //!
 //! let args = parser.parse_cli().expect("Failed to parse arguments");
 //! println!("Name: {}", args["name"]);
