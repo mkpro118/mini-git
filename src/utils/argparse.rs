@@ -74,6 +74,7 @@ pub struct ArgumentParser {
     cmd_chain: Option<String>,
     auto_exit: bool,
     exit_code: i32,
+    compiled: bool,
 }
 
 /// Represents the parsed arguments.
@@ -325,6 +326,7 @@ impl Default for ArgumentParser {
             cmd_chain: None,
             auto_exit: true,
             exit_code: 0,
+            compiled: false,
         }
     }
 }
@@ -380,6 +382,7 @@ impl ArgumentParser {
                 arg.help()
             );
         }
+        self.compiled = false;
         self.arguments.push(Argument::new(name, arg_type));
         self.arguments.last_mut().unwrap()
     }
@@ -394,7 +397,43 @@ impl ArgumentParser {
             !self.subcommands.iter().any(|c| c.name == name),
             "Subcommand \"{name}\" already exists."
         );
+        self.compiled = false;
         self.subcommands.push(SubCommand::new(name, parser));
+    }
+
+    pub fn compile(&mut self) {
+        if self.compiled {
+            return;
+        }
+        let Err((short, arg1, arg2)) = self
+            .arguments
+            .iter()
+            .filter(|a| a.short.is_some())
+            .try_fold(
+                std::collections::HashMap::<char, &str>::new(),
+                |mut map, arg| {
+                    let short = arg.short.as_ref().unwrap();
+                    if map.contains_key(short) {
+                        Err((*short, map[short], arg.name.clone()))
+                    } else {
+                        map.insert(*short, &arg.name);
+                        Ok(map)
+                    }
+                },
+            )
+        else {
+            for subcommand in &mut self.subcommands {
+                subcommand.parser.compile();
+            }
+            self.compiled = true;
+            return;
+        };
+
+        panic!(
+            "Found two arguments \"{arg1}\" and \"{arg2}\" \
+                with the same shorthand '-{short}' in parser {}",
+            self.description
+        );
     }
 
     /// Parses command-line arguments.
@@ -444,6 +483,13 @@ impl ArgumentParser {
     where
         I: Iterator<Item = String>,
     {
+        if !self.compiled {
+            panic!(
+                "parser has not been compiled!\
+                \n  Help: use parser.compile() before using parse_{}",
+                if cli { "cli" } else { "args" }
+            )
+        }
         let mut positionals = self
             .arguments
             .iter()
@@ -613,6 +659,7 @@ mod tests {
             .add_argument("age", ArgumentType::Integer)
             .short('a')
             .add_help("Age");
+        parser.compile();
         parser
     }
 
@@ -722,6 +769,7 @@ mod tests {
             .add_argument("flag", ArgumentType::Boolean)
             .short('f')
             .add_help("Flag");
+        parser.compile();
         let result = parser.parse_args(&["--name", "John", "--flag"]);
         assert!(result.is_ok());
         let namespace = result.unwrap();
@@ -757,6 +805,7 @@ mod tests {
             .add_help("Sub arg");
 
         parser.add_subcommand("sub", sub_parser);
+        parser.compile();
 
         let result =
             parser.parse_args(&["--name", "John", "sub", "--sub_arg", "value"]);
@@ -826,6 +875,7 @@ mod tests {
         let sub_parser2 = ArgumentParser::new("Sub parser 2");
         sub_parser1.add_subcommand("sub2", sub_parser2);
         main_parser.add_subcommand("sub1", sub_parser1);
+        main_parser.compile();
 
         let result = main_parser.parse_args(&["sub1", "sub2"]);
         assert!(result.is_ok());
@@ -863,6 +913,7 @@ mod tests {
             .add_argument("opt", ArgumentType::String)
             .short('o')
             .add_help("Optional");
+        parser.compile();
         let result = parser.parse_args(&[]);
         assert!(result.is_ok());
         let namespace = result.unwrap();
@@ -878,6 +929,7 @@ mod tests {
             .short('f')
             .optional()
             .add_help("Flag");
+        parser.compile();
 
         let result = parser.parse_args(&["--flag"]);
         assert!(result.is_ok());
