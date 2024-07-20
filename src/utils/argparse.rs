@@ -222,6 +222,7 @@ impl Argument {
     ///
     /// assert_eq!(foo.help(), "This is the foo argument");
     /// ```
+    #[must_use]
     pub fn help(&self) -> &str {
         &self.help
     }
@@ -495,14 +496,7 @@ impl ArgumentParser {
                         };
                         parsed.values.insert(argument.name.clone(), val);
                     }
-                    println!("before update");
-                    dbg!(&positionals, &argument);
-                    positionals = positionals
-                        .into_iter()
-                        .filter(|a| a.name != argument.name)
-                        .collect();
-                    println!("after update");
-                    dbg!(&positionals);
+                    positionals.retain(|a| a.name != argument.name);
                 } else {
                     return Err(format!("Unknown argument: {arg}"));
                 }
