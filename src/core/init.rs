@@ -1,4 +1,5 @@
 use crate::core::GitRepository;
+use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use std::path::Path;
 
 const DEFAULT_PATH: &str = ".";
@@ -15,18 +16,8 @@ const DEFAULT_PATH: &str = ".";
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
-pub fn cmd_init(
-    args: impl IntoIterator<Item = impl AsRef<str>>,
-) -> Result<String, String> {
-    let path = args.into_iter().next();
-    let path = match path {
-        Some(ref arg) => arg.as_ref(),
-        None => DEFAULT_PATH,
-    };
-
-    if path == "-h" || path == "--help" {
-        return Ok(help().to_owned());
-    }
+pub fn cmd_init(args: &Namespace) -> Result<String, String> {
+    let path = &args["path"];
 
     let Ok(cwd) = std::env::current_dir() else {
         return Err("failed to get cwd".to_owned());
@@ -51,17 +42,15 @@ pub fn cmd_init(
 }
 
 /// Display a help message for the init command
-const fn help() -> &'static str {
-    "mini_git init [path]
-  Initializes a new repository
+pub fn make_parser() -> ArgumentParser {
+    let mut parser = ArgumentParser::new("Initializes a new repository");
+    parser
+        .add_argument("path", ArgumentType::String)
+        .required()
+        .default(".")
+        .add_help("The folder to initialize the new repository in");
 
-Options:
-  -h, --help: Display this help message
-
-Arguments:
-  path: The folder to initialize the new repository in,
-        defaults to the current working directory.
-        If provided, must be an existing directory."
+    parser
 }
 
 #[cfg(test)]
@@ -71,23 +60,28 @@ mod tests {
 
     const WAIT_TIME: u64 = 5;
 
-    #[test]
-    fn test_cmd_init_help() {
-        for args in [["-h"], ["--help"]] {
-            let res = cmd_init(args);
+    fn make_namespaces<'a>(
+        args: &'a [&[&'a str]],
+    ) -> impl Iterator<Item = Namespace> + 'a {
+        let mut parser = make_parser();
+        parser.compile();
 
-            assert!(res.is_ok());
-            let res = res.unwrap();
-            assert_eq!(res, help());
-        }
+        args.into_iter()
+            .map(move |&x| parser.parse_args(x))
+            .map(|x| {
+                dbg!(&x);
+                x
+            })
+            .flatten()
     }
 
     #[test]
     fn test_cmd_init_no_args() {
         let tmp_dir = TempDir::create("cmd_init_no_args");
 
-        let args: [&str; 0] = [];
-        let res = cmd_init(args);
+        let args: [&[&str]; 1] = [&[]];
+        let namespaces = make_namespaces(&args).next().unwrap();
+        let res = cmd_init(&namespaces);
 
         // Allow a couple seconds FS changes to appear
         std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
@@ -104,8 +98,9 @@ mod tests {
     fn test_cmd_init_explicit_dot() {
         let tmp_dir = TempDir::create("cmd_init_explicit_dot");
 
-        let args = ["."];
-        let res = cmd_init(args);
+        let args: [&[&str]; 1] = [&["."]];
+        let namespaces = make_namespaces(&args).next().unwrap();
+        let res = cmd_init(&namespaces);
 
         // Allow a couple seconds FS changes to appear
         std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
@@ -115,15 +110,16 @@ mod tests {
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(&tmp_dir.test_dir().join(args[0]));
+        check_expected_path(&tmp_dir.test_dir().join(args[0][0]));
     }
 
     #[test]
     fn test_cmd_init_path() {
         let tmp_dir = TempDir::create("cmd_init_path");
 
-        let args = ["new_dir"];
-        let res = cmd_init(args);
+        let args: [&[&str]; 1] = [&["new_dir"]];
+        let namespaces = make_namespaces(&args).next().unwrap();
+        let res = cmd_init(&namespaces);
 
         // Allow a couple seconds FS changes to appear
         std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
@@ -133,25 +129,13 @@ mod tests {
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(&tmp_dir.test_dir().join(args[0]));
+        check_expected_path(&tmp_dir.test_dir().join(args[0][0]));
     }
 
     #[test]
     fn test_cmd_init_extra_args() {
-        let tmp_dir = TempDir::create("cmd_init_extra_args");
-
-        let args = ["new_repo", "arg1", "arg2"];
-        let res = cmd_init(args);
-
-        // Allow a couple seconds FS changes to appear
-        std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
-
-        assert!(res.is_ok());
-        let res = res.unwrap();
-
-        assert!(res.contains("initialized"));
-
-        check_expected_path(&tmp_dir.test_dir().join(args[0]));
+        let args: [&[&str]; 1] = [&["new_repo", "arg1", "arg2"]];
+        assert!(make_namespaces(&args).next().is_none());
     }
 
     #[cfg(target_family = "windows")]
