@@ -42,6 +42,7 @@ pub fn cmd_init(args: &Namespace) -> Result<String, String> {
 }
 
 /// Display a help message for the init command
+#[must_use]
 pub fn make_parser() -> ArgumentParser {
     let mut parser = ArgumentParser::new("Initializes a new repository");
     parser
@@ -66,13 +67,7 @@ mod tests {
         let mut parser = make_parser();
         parser.compile();
 
-        args.into_iter()
-            .map(move |&x| parser.parse_args(x))
-            .map(|x| {
-                dbg!(&x);
-                x
-            })
-            .flatten()
+        args.iter().flat_map(move |&x| parser.parse_args(x))
     }
 
     #[test]
