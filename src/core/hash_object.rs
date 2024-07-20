@@ -46,11 +46,13 @@ pub fn make_parser() -> ArgumentParser {
     parser
         .add_argument("path", ArgumentType::String)
         .required()
+        .short('p')
         .add_help("Read object from <file>");
 
     parser
         .add_argument("type", ArgumentType::String)
         .required()
+        .short('t')
         .default("blob")
         .add_help("Specify the type of object");
 
