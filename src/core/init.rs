@@ -58,8 +58,9 @@ pub fn make_parser() -> ArgumentParser {
 mod tests {
     use super::*;
     use crate::utils::test::TempDir;
+    use std::sync::Mutex;
 
-    const WAIT_TIME: u64 = 5;
+    static FS_MUTEX: Mutex<()> = Mutex::new(());
 
     fn make_namespaces<'a>(
         args: &'a [&[&'a str]],
@@ -72,14 +73,21 @@ mod tests {
 
     #[test]
     fn test_cmd_init_no_args() {
-        let tmp_dir = TempDir::create("cmd_init_no_args");
-
         let args: [&[&str]; 1] = [&[]];
         let namespaces = make_namespaces(&args).next().unwrap();
-        let res = cmd_init(&namespaces);
 
-        // Allow a couple seconds FS changes to appear
-        std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
+        let res;
+        let tmp_dir;
+        {
+            let guard = FS_MUTEX.lock();
+            match guard {
+                Ok(_) => {
+                    tmp_dir = TempDir::create("cmd_init_no_args");
+                    res = cmd_init(&namespaces);
+                }
+                Err(..) => panic!("Mutex failed!"),
+            };
+        }
 
         assert!(res.is_ok());
         let res = res.unwrap();
@@ -91,14 +99,21 @@ mod tests {
 
     #[test]
     fn test_cmd_init_explicit_dot() {
-        let tmp_dir = TempDir::create("cmd_init_explicit_dot");
-
         let args: [&[&str]; 1] = [&["."]];
         let namespaces = make_namespaces(&args).next().unwrap();
-        let res = cmd_init(&namespaces);
 
-        // Allow a couple seconds FS changes to appear
-        std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
+        let res;
+        let tmp_dir;
+        {
+            let guard = FS_MUTEX.lock();
+            match guard {
+                Ok(_) => {
+                    tmp_dir = TempDir::create("cmd_init_no_args");
+                    res = cmd_init(&namespaces);
+                }
+                Err(..) => panic!("Mutex failed!"),
+            };
+        }
 
         assert!(res.is_ok());
         let res = res.unwrap();
@@ -110,14 +125,21 @@ mod tests {
 
     #[test]
     fn test_cmd_init_path() {
-        let tmp_dir = TempDir::create("cmd_init_path");
-
         let args: [&[&str]; 1] = [&["new_dir"]];
         let namespaces = make_namespaces(&args).next().unwrap();
-        let res = cmd_init(&namespaces);
 
-        // Allow a couple seconds FS changes to appear
-        std::thread::sleep(core::time::Duration::from_secs(WAIT_TIME));
+        let res;
+        let tmp_dir;
+        {
+            let guard = FS_MUTEX.lock();
+            match guard {
+                Ok(_) => {
+                    tmp_dir = TempDir::create("cmd_init_no_args");
+                    res = cmd_init(&namespaces);
+                }
+                Err(..) => panic!("Mutex failed!"),
+            };
+        }
 
         assert!(res.is_ok());
         let res = res.unwrap();
@@ -133,10 +155,6 @@ mod tests {
         assert!(make_namespaces(&args).next().is_none());
     }
 
-    #[cfg(target_family = "windows")]
-    fn check_expected_path(_root: &Path) {}
-
-    #[cfg(target_family = "unix")]
     fn check_expected_path(root: &Path) {
         use crate::utils::path;
         use std::path::PathBuf;
