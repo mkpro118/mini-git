@@ -256,6 +256,9 @@ impl Argument {
 
 impl SubCommand {
     /// Creates a new `SubCommand` with the given name and parser.
+    ///
+    /// Note that this function takes ownership of the parser, as subcommands
+    /// own their parsers
     pub fn new(name: &str, mut parser: ArgumentParser) -> Self {
         parser.cmd_chain = if let Some(prev) = parser.cmd_chain {
             Some(format!("{prev} {name}"))
@@ -401,6 +404,7 @@ impl ArgumentParser {
         self.subcommands.push(SubCommand::new(name, parser));
     }
 
+    #[allow(clippy::missing_panics_doc)]
     pub fn compile(&mut self) {
         if self.compiled {
             return;
@@ -483,13 +487,12 @@ impl ArgumentParser {
     where
         I: Iterator<Item = String>,
     {
-        if !self.compiled {
-            panic!(
-                "parser has not been compiled!\
-                \n  Help: use parser.compile() before using parse_{}",
-                if cli { "cli" } else { "args" }
-            )
-        }
+        assert!(
+            self.compiled,
+            "parser has not been compiled!\n  Help: use parser.compile() \
+            before using parse_{}",
+            if cli { "cli" } else { "args" }
+        );
         let mut positionals = self
             .arguments
             .iter()
