@@ -10,12 +10,13 @@ pub enum ArgumentType {
 }
 
 #[derive(Debug)]
-struct Argument {
+pub struct Argument {
     name: String,
     short: Option<char>,
     arg_type: ArgumentType,
     required: bool,
     help: String,
+    default: Option<String>,
 }
 
 #[derive(Debug)]
@@ -38,21 +39,60 @@ pub struct Namespace {
     subcommand: Option<(String, Box<Namespace>)>,
 }
 
+impl Default for Argument {
+    fn default() -> Self {
+        Self {
+            name: String::from("unknown"),
+            short: None,
+            arg_type: ArgumentType::String,
+            required: false,
+            help: String::from("No help provided"),
+            default: None,
+        }
+    }
+}
+
 impl Argument {
-    pub fn new(
-        name: &str,
-        short: Option<char>,
-        arg_type: ArgumentType,
-        required: bool,
-        help: &str,
-    ) -> Self {
+    pub fn new(name: &str, arg_type: ArgumentType) -> Self {
         Argument {
             name: name.to_string(),
-            short,
             arg_type,
-            required,
-            help: help.to_string(),
+            ..Default::default()
         }
+    }
+
+    pub fn name(&mut self, name: &str) -> &mut Self {
+        self.name = name.to_owned();
+        self
+    }
+
+    pub fn short(&mut self, short: char) -> &mut Self {
+        self.short = Some(short);
+        self
+    }
+
+    pub fn required(&mut self) -> &mut Self {
+        self.required = true;
+        self
+    }
+
+    pub fn not_required(&mut self) -> &mut Self {
+        self.required = false;
+        self
+    }
+
+    pub fn help(&mut self, help: &str) -> &mut Self {
+        self.help = help.to_owned();
+        self
+    }
+
+    pub fn default(&mut self, default: &str) -> &mut Self {
+        assert!(
+            !self.required,
+            "default value cannot be set on a required argument"
+        );
+        self.default = Some(default.to_owned());
+        self
     }
 }
 
@@ -124,26 +164,21 @@ impl ArgumentParser {
             subcommands: Vec::new(),
             cmd_chain: None,
         };
-        parser.add_argument(
-            "help",
-            Some('h'),
-            ArgumentType::Boolean,
-            false,
-            "Display this help message",
-        );
+        parser
+            .add_argument("help", ArgumentType::Boolean)
+            .short('h')
+            .not_required()
+            .help("Display this help message");
         parser
     }
 
     pub fn add_argument(
         &mut self,
         name: &str,
-        short: Option<char>,
         arg_type: ArgumentType,
-        required: bool,
-        help: &str,
-    ) {
-        self.arguments
-            .push(Argument::new(name, short, arg_type, required, help));
+    ) -> &mut Argument {
+        self.arguments.push(Argument::new(name, arg_type));
+        self.arguments.last_mut().unwrap()
     }
 
     pub fn add_subcommand(&mut self, name: &str, parser: ArgumentParser) {
@@ -301,32 +336,23 @@ mod tests {
     // Helper function to create a basic ArgumentParser
     fn create_basic_parser() -> ArgumentParser {
         let mut parser = ArgumentParser::new("Test parser");
-        parser.add_argument(
-            "name",
-            Some('n'),
-            ArgumentType::String,
-            true,
-            "Name",
-        );
-        parser.add_argument(
-            "age",
-            Some('a'),
-            ArgumentType::Integer,
-            false,
-            "Age",
-        );
+        parser
+            .add_argument("name", ArgumentType::String)
+            .short('n')
+            .required()
+            .help("Name");
+        parser
+            .add_argument("age", ArgumentType::Integer)
+            .short('a')
+            .help("Age");
         parser
     }
 
     #[test]
     fn test_argument_creation() {
-        let arg = Argument::new(
-            "test",
-            Some('t'),
-            ArgumentType::String,
-            true,
-            "Test arg",
-        );
+        let mut arg = Argument::new("test", ArgumentType::String);
+        arg.short('t').required().help("Test arg");
+
         assert_eq!(arg.name, "test");
         assert_eq!(arg.short, Some('t'));
         assert!(matches!(arg.arg_type, ArgumentType::String));
@@ -365,13 +391,12 @@ mod tests {
     #[test]
     fn test_add_argument() {
         let mut parser = ArgumentParser::new("Test parser");
-        parser.add_argument(
-            "test",
-            Some('t'),
-            ArgumentType::String,
-            true,
-            "Test arg",
-        );
+        parser
+            .add_argument("test", ArgumentType::String)
+            .short('t')
+            .required()
+            .help("Test arg");
+
         assert_eq!(parser.arguments.len(), 2); // Including default --help
         let arg = &parser.arguments[1];
         assert_eq!(arg.name, "test");
@@ -425,13 +450,10 @@ mod tests {
     #[test]
     fn test_parse_args_boolean_flag() {
         let mut parser = create_basic_parser();
-        parser.add_argument(
-            "flag",
-            Some('f'),
-            ArgumentType::Boolean,
-            false,
-            "Flag",
-        );
+        parser
+            .add_argument("flag", ArgumentType::Boolean)
+            .short('f')
+            .help("Flag");
         let result = parser.parse_args(&["--name", "John", "--flag"]);
         assert!(result.is_ok());
         let namespace = result.unwrap();
@@ -460,13 +482,12 @@ mod tests {
     fn test_parse_args_with_subcommand() {
         let mut parser = create_basic_parser();
         let mut sub_parser = ArgumentParser::new("Sub parser");
-        sub_parser.add_argument(
-            "sub_arg",
-            Some('s'),
-            ArgumentType::String,
-            true,
-            "Sub arg",
-        );
+        sub_parser
+            .add_argument("sub_arg", ArgumentType::String)
+            .short('s')
+            .required()
+            .help("Sub arg");
+
         parser.add_subcommand("sub", sub_parser);
 
         let result =
@@ -570,13 +591,10 @@ mod tests {
     #[test]
     fn test_parse_args_only_optional() {
         let mut parser = ArgumentParser::new("Test parser");
-        parser.add_argument(
-            "opt",
-            Some('o'),
-            ArgumentType::String,
-            false,
-            "Optional",
-        );
+        parser
+            .add_argument("opt", ArgumentType::String)
+            .short('o')
+            .help("Optional");
         let result = parser.parse_args(&[]);
         assert!(result.is_ok());
         let namespace = result.unwrap();
@@ -587,13 +605,12 @@ mod tests {
     #[test]
     fn test_parse_args_boolean_with_value() {
         let mut parser = ArgumentParser::new("Test parser");
-        parser.add_argument(
-            "flag",
-            Some('f'),
-            ArgumentType::Boolean,
-            false,
-            "Flag",
-        );
+        parser
+            .add_argument("flag", ArgumentType::Boolean)
+            .short('f')
+            .not_required()
+            .help("Flag");
+
         let result = parser.parse_args(&["--flag"]);
         assert!(result.is_ok());
         let namespace = result.unwrap();
