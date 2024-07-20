@@ -149,7 +149,7 @@ impl ArgumentParser {
 
         loop {
             let Some(arg) = args.next() else {
-                return Ok(parsed);
+                break;
             };
 
             // Check for subcommand
