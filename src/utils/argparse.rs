@@ -31,7 +31,7 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::ops::Index;
 
 /// Represents the type of an argument.
@@ -324,12 +324,21 @@ impl ArgumentParser {
     where
         I: Iterator<Item = String>,
     {
+        let mut positionals = self
+            .arguments
+            .iter()
+            .filter(|a| a.required)
+            .collect::<VecDeque<&Argument>>();
+        dbg!(&positionals);
+
         let mut parsed = Namespace::new();
 
         loop {
             let Some(arg) = args.next() else {
                 break;
             };
+
+            dbg!(&arg);
 
             // Check for subcommand
             if let Some(subcommand) =
@@ -386,18 +395,39 @@ impl ArgumentParser {
                         };
                         parsed.values.insert(argument.name.clone(), val);
                     }
+                    println!("before update");
+                    dbg!(&positionals, &argument);
+                    positionals = positionals
+                        .into_iter()
+                        .filter(|a| a.name != argument.name)
+                        .collect();
+                    println!("after update");
+                    dbg!(&positionals);
                 } else {
                     return Err(format!("Unknown argument: {arg}"));
                 }
             } else {
                 // Positional argument
-                if let Some(argument) = self.arguments.iter().find(|a| {
-                    a.required && !parsed.values.contains_key(&a.name)
-                }) {
+                if positionals.is_empty() {
+                    return Err(format!(
+                        "Unexpected positional argument: {arg}"
+                    ));
+                }
+
+                println!("in loop");
+                dbg!(&positionals);
+
+                if let Some(argument) = self
+                    .arguments
+                    .iter()
+                    .find(|a| a.name == positionals[0].name)
+                {
                     parsed.values.insert(argument.name.clone(), arg.clone());
                 } else {
                     return Err(format!("Unexpected argument: {arg}"));
                 }
+
+                positionals.pop_front();
             }
         }
 
@@ -667,8 +697,8 @@ mod tests {
     fn test_parse_args_unexpected_positional() {
         let parser = create_basic_parser();
         let result = parser.parse_args(&["--name", "John", "unexpected"]);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Unexpected argument: unexpected");
+        assert!(result
+            .is_err_and(|msg| msg.contains("Unexpected positional argument")));
     }
 
     #[test]
