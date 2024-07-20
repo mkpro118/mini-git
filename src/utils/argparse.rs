@@ -14,7 +14,7 @@
 //! ## Example
 //!
 //! ```
-//! use argparse::{ArgumentParser, ArgumentType};
+//! use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
 //!
 //! let mut parser = ArgumentParser::new("My CLI App");
 //! parser.add_argument("name", ArgumentType::String)
@@ -247,8 +247,8 @@ impl ArgumentParser {
     /// Whether or not to exit the program if there are errors in
     /// parsing the arguments.
     ///
-    /// This is only relevant if [`parse_cli`] is used.
-    /// The exit code can be set using [`exit_code`], defaults to 0.
+    /// This is only relevant if [`ArgumentParser::parse_cli`] is used.
+    /// The exit code can be set using [`ArgumentParser::exit_code`], defaults to 0.
     pub fn auto_exit(&mut self, auto_exit: bool) -> &mut Self {
         auto_exit.clone_into(&mut self.auto_exit);
         self
@@ -262,6 +262,7 @@ impl ArgumentParser {
 
     /// Adds a new argument to the parser, and returns a mutable reference
     /// to the added [`Argument`]
+    #[allow(clippy::missing_panics_doc)]
     pub fn add_argument(
         &mut self,
         name: &str,
@@ -278,7 +279,7 @@ impl ArgumentParser {
 
     /// Parses command-line arguments.
     ///
-    /// This is essentially a wrapper over [`parse_args`], where the arguments
+    /// This is essentially a wrapper over [`ArgumentParser::parse_args`], where the arguments
     /// are obtained from [`std::env::args`].
     ///
     /// # Errors
@@ -287,9 +288,10 @@ impl ArgumentParser {
     /// - Not all required arguments were found.
     /// - Non-boolean arguments are missing values.
     ///
-    /// This function will automatically exit the program unless
-    /// [`ArgumentParser::auto_exit(false)`] is called. If auto exit is disabled,
-    /// a [`String`] describing the error is returned.
+    /// This function will automatically exit the program unless auto exit is
+    /// disabled using [`ArgumentParser::auto_exit`].
+    ///
+    /// If auto exit is disabled, a [`String`] describing the error is returned.
     ///
     /// The default exit code is 0, but can be set using
     /// [`ArgumentParser::exit_code`]
