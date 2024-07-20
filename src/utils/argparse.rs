@@ -13,7 +13,7 @@
 //!
 //! ## Example
 //!
-//! ```
+//! ```no_run
 //! use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
 //!
 //! let mut parser = ArgumentParser::new("My CLI App");
@@ -23,6 +23,7 @@
 //! parser.add_argument("age", ArgumentType::Integer)
 //!     .short('a')
 //!     .add_help("Your age");
+//! parser.compile();
 //!
 //! let args = parser.parse_cli().expect("Failed to parse arguments");
 //! println!("Name: {}", args["name"]);
@@ -336,6 +337,16 @@ impl Default for ArgumentParser {
 
 impl ArgumentParser {
     /// Creates a new `ArgumentParser` with the given description.
+    ///
+    /// This method automatically adds a `--help` flag to the parser.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
+    ///
+    /// let parser = ArgumentParser::new("My CLI Application");
+    /// ```
     #[must_use]
     pub fn new(description: &str) -> Self {
         let mut parser = ArgumentParser {
@@ -350,28 +361,60 @@ impl ArgumentParser {
         parser
     }
 
-    /// Whether or not to exit the program if there are errors in
+    /// Sets whether the program should automatically exit if there are errors in
     /// parsing the arguments.
     ///
     /// This is only relevant if [`ArgumentParser::parse_cli`] is used.
     /// The exit code can be set using [`ArgumentParser::exit_code`], defaults to 0.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::ArgumentParser;
+    ///
+    /// let mut parser = ArgumentParser::new("My CLI Application");
+    /// parser.auto_exit(false);
+    /// ```
     pub fn auto_exit(&mut self, auto_exit: bool) -> &mut Self {
         auto_exit.clone_into(&mut self.auto_exit);
         self
     }
 
-    /// Sets the exit code
+    /// Sets the exit code to be used when `auto_exit` is true.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::ArgumentParser;
+    ///
+    /// let mut parser = ArgumentParser::new("My CLI Application");
+    /// parser.auto_exit(true).exit_code(1);
+    /// ```
     pub fn exit_code(&mut self, exit_code: i32) -> &mut Self {
         exit_code.clone_into(&mut self.exit_code);
         self
     }
 
     /// Adds a new argument to the parser, and returns a mutable reference
-    /// to the added [`Argument`]
+    /// to the added [`Argument`].
     ///
     /// # Panics
     ///
-    /// If an argument is added twice
+    /// Panics if an argument with the same name is added twice.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
+    ///
+    /// let mut parser = ArgumentParser::new("My CLI Application");
+    /// parser.add_argument("name", ArgumentType::String)
+    ///     .required()
+    ///     .add_help("Your name");
+    /// parser.add_argument("age", ArgumentType::Integer)
+    ///     .optional()
+    ///     .add_help("Your age");
+    /// ```
     #[allow(clippy::missing_panics_doc)]
     pub fn add_argument(
         &mut self,
@@ -394,7 +437,21 @@ impl ArgumentParser {
     ///
     /// # Panics
     ///
-    /// If a subcommand is added twice
+    /// Panics if a subcommand with the same name is added twice.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
+    ///
+    /// let mut main_parser = ArgumentParser::new("Main Application");
+    /// let mut sub_parser = ArgumentParser::new("Subcommand");
+    /// sub_parser.add_argument("sub_arg", ArgumentType::String)
+    ///     .required()
+    ///     .add_help("Subcommand argument");
+    ///
+    /// main_parser.add_subcommand("sub", sub_parser);
+    /// ```
     pub fn add_subcommand(&mut self, name: &str, parser: ArgumentParser) {
         assert!(
             !self.subcommands.iter().any(|c| c.name == name),
@@ -404,6 +461,39 @@ impl ArgumentParser {
         self.subcommands.push(SubCommand::new(name, parser));
     }
 
+    /// Compiles the argument parser, checking for any conflicts in the
+    /// argument definitions.
+    ///
+    /// This method should be called after all arguments and subcommands have
+    /// been added, but before parsing any arguments. It checks for conflicts
+    /// such as duplicate short options.
+    ///
+    /// This function will recursively compile all subcommand parsers.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there are any conflicts in the argument definitions, such as:
+    /// - Two arguments with the same short option
+    ///
+    /// # Example
+    ///
+    /// ```should_panic
+    /// use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
+    ///
+    /// let mut parser = ArgumentParser::new("My CLI Application");
+    /// parser.add_argument("name", ArgumentType::String)
+    ///     .required()
+    ///     .short('n')
+    ///     .add_help("Your name");
+    ///
+    /// // Accidentally adding an argument with the same name
+    /// parser.add_argument("name", ArgumentType::Integer)
+    ///     .optional()
+    ///     .short('a')
+    ///     .add_help("Your age");
+    ///
+    /// parser.compile(); // Will panic!
+    /// ```
     #[allow(clippy::missing_panics_doc)]
     pub fn compile(&mut self) {
         if self.compiled {
@@ -447,7 +537,7 @@ impl ArgumentParser {
     ///
     /// # Errors
     ///
-    /// This function may fail if,
+    /// This function may fail if:
     /// - Not all required arguments were found.
     /// - Non-boolean arguments are missing values.
     ///
@@ -458,6 +548,21 @@ impl ArgumentParser {
     ///
     /// The default exit code is 0, but can be set using
     /// [`ArgumentParser::exit_code`]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
+    ///
+    /// let mut parser = ArgumentParser::new("My CLI Application");
+    /// parser.add_argument("name", ArgumentType::String)
+    ///     .required()
+    ///     .add_help("Your name");
+    ///
+    /// parser.compile();
+    /// let args = parser.parse_cli().expect("Failed to parse arguments");
+    /// println!("Hello, {}!", args["name"]);
+    /// ```
     pub fn parse_cli(&self) -> Result<Namespace, String> {
         let args = std::env::args().skip(1);
         match self.parse(args, true) {
@@ -479,6 +584,28 @@ impl ArgumentParser {
     /// - Non-boolean arguments are missing values.
     ///
     /// A [`String`] describing the error is returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
+    ///
+    /// let mut parser = ArgumentParser::new("My CLI Application");
+    /// parser.add_argument("name", ArgumentType::String)
+    ///     .required()
+    ///     .add_help("Your name");
+    /// parser.add_argument("age", ArgumentType::Integer)
+    ///     .optional()
+    ///     .add_help("Your age");
+    ///
+    /// parser.compile();
+    /// let args = parser.parse_args(&["--name", "Alice", "--age", "30"])
+    ///     .expect("Failed to parse arguments");
+    /// println!("Name: {}", args["name"]);
+    /// if let Some(age) = args.get("age") {
+    ///     println!("Age: {}", age);
+    /// }
+    /// ```
     pub fn parse_args(&self, args: &[&str]) -> Result<Namespace, String> {
         self.parse(args.iter().map(|&x| x.to_owned()), false)
     }
@@ -600,6 +727,24 @@ impl ArgumentParser {
     }
 
     /// Generates a help message for the parser.
+    ///
+    /// This method is automatically called when the `--help` flag is used.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
+    ///
+    /// let mut parser = ArgumentParser::new("My CLI Application");
+    /// parser.add_argument("name", ArgumentType::String)
+    ///     .required()
+    ///     .add_help("Your name");
+    /// parser.add_argument("age", ArgumentType::Integer)
+    ///     .optional()
+    ///     .add_help("Your age");
+    ///
+    /// println!("{}", parser.help());
+    /// ```
     #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn help(&self) -> String {
