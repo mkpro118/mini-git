@@ -98,6 +98,15 @@ impl Default for Argument {
 
 impl Argument {
     /// Creates a new `Argument` with the given name and type.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let verbose = Argument::new("verbose", ArgumentType::Boolean);
+    /// println!("{verbose:?}");
+    /// ```
     #[must_use]
     pub fn new(name: &str, arg_type: ArgumentType) -> Self {
         Argument {
@@ -108,33 +117,113 @@ impl Argument {
     }
 
     /// Sets the name of the argument.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    /// # fn foo(a: &Argument) {}
+    /// # fn bar(a: &Argument) {}
+    ///
+    /// let mut arg_x = Argument::new("x", ArgumentType::Boolean);
+    /// // Oh no, fn foo expects the arg to be called "foo",
+    /// // And fn bar expects the arg to be called "bar",
+    ///
+    /// arg_x.name("foo");
+    /// foo(&arg_x);
+    ///
+    /// arg_x.name("bar");
+    /// bar(&arg_x);
+    /// ```
     pub fn name(&mut self, name: &str) -> &mut Self {
         name.clone_into(&mut self.name);
         self
     }
 
     /// Sets the short option character for the argument.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let mut verbose = Argument::new("verbose", ArgumentType::Boolean);
+    /// verbose.short('v');
+    ///
+    /// // Now "-v" is accepted as a shorthand for "--verbose"
+    /// ```
     pub fn short(&mut self, short: char) -> &mut Self {
         self.short = Some(short);
         self
     }
 
     /// Makes the argument required.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let mut foo = Argument::new("foo", ArgumentType::String);
+    /// foo.required();
+    ///
+    /// // ArgumentParser will fail if "--foo VALUE" is not provided
+    /// ```
     pub fn required(&mut self) -> &mut Self {
         self.required = true;
         self
     }
 
-    /// Makes the argument optional.
+    /// Makes the argument optional. This is the default when creating a new
+    /// object
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let mut foo = Argument::new("foo", ArgumentType::String);
+    /// foo.optional();  // This is the default, so this does not really do
+    ///                  // anything
+    ///
+    /// // ArgumentParser will not fail if "--foo VALUE" is not provided
+    /// ```
     pub fn optional(&mut self) -> &mut Self {
         self.required = false;
         self
     }
 
     /// Sets the help message for the argument.
-    pub fn help(&mut self, help: &str) -> &mut Self {
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let mut foo = Argument::new("foo", ArgumentType::String);
+    /// foo.add_help("This is the foo argument");
+    ///
+    /// assert_eq!(foo.help(), "This is the foo argument");
+    /// ```
+    pub fn add_help(&mut self, help: &str) -> &mut Self {
         help.clone_into(&mut self.help);
         self
+    }
+
+    /// Returns the help message for the argument.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let mut foo = Argument::new("foo", ArgumentType::String);
+    /// foo.add_help("This is the foo argument");
+    ///
+    /// assert_eq!(foo.help(), "This is the foo argument");
+    /// ```
+    pub fn help(&self) -> &str {
+        &self.help
     }
 
     /// Sets the default value for the argument.
@@ -142,6 +231,17 @@ impl Argument {
     /// # Panics
     ///
     /// Panics if called on a required argument.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let mut foo = Argument::new("foo", ArgumentType::String);
+    /// foo.default("bar");
+    ///
+    /// // If "--foo VALUE" is not provided, foo will have the value "bar"
+    /// ```
     pub fn default(&mut self, default: &str) -> &mut Self {
         assert!(
             !self.required,
@@ -240,7 +340,7 @@ impl ArgumentParser {
             .add_argument("help", ArgumentType::Boolean)
             .short('h')
             .optional()
-            .help("Display this help message");
+            .add_help("Display this help message");
         parser
     }
 
@@ -499,18 +599,18 @@ mod tests {
             .add_argument("name", ArgumentType::String)
             .short('n')
             .required()
-            .help("Name");
+            .add_help("Name");
         parser
             .add_argument("age", ArgumentType::Integer)
             .short('a')
-            .help("Age");
+            .add_help("Age");
         parser
     }
 
     #[test]
     fn test_argument_creation() {
         let mut arg = Argument::new("test", ArgumentType::String);
-        arg.short('t').required().help("Test arg");
+        arg.short('t').required().add_help("Test arg");
 
         assert_eq!(arg.name, "test");
         assert_eq!(arg.short, Some('t'));
@@ -554,7 +654,7 @@ mod tests {
             .add_argument("test", ArgumentType::String)
             .short('t')
             .required()
-            .help("Test arg");
+            .add_help("Test arg");
 
         assert_eq!(parser.arguments.len(), 2); // Including default --help
         let arg = &parser.arguments[1];
@@ -612,7 +712,7 @@ mod tests {
         parser
             .add_argument("flag", ArgumentType::Boolean)
             .short('f')
-            .help("Flag");
+            .add_help("Flag");
         let result = parser.parse_args(&["--name", "John", "--flag"]);
         assert!(result.is_ok());
         let namespace = result.unwrap();
@@ -645,7 +745,7 @@ mod tests {
             .add_argument("sub_arg", ArgumentType::String)
             .short('s')
             .required()
-            .help("Sub arg");
+            .add_help("Sub arg");
 
         parser.add_subcommand("sub", sub_parser);
 
@@ -753,7 +853,7 @@ mod tests {
         parser
             .add_argument("opt", ArgumentType::String)
             .short('o')
-            .help("Optional");
+            .add_help("Optional");
         let result = parser.parse_args(&[]);
         assert!(result.is_ok());
         let namespace = result.unwrap();
@@ -768,7 +868,7 @@ mod tests {
             .add_argument("flag", ArgumentType::Boolean)
             .short('f')
             .optional()
-            .help("Flag");
+            .add_help("Flag");
 
         let result = parser.parse_args(&["--flag"]);
         assert!(result.is_ok());
