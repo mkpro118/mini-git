@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Index;
 
 #[derive(Debug, Clone)]
 pub enum ArgumentType {
@@ -70,6 +71,12 @@ impl SubCommand {
     }
 }
 
+impl Default for Namespace {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Namespace {
     pub fn new() -> Self {
         Self {
@@ -81,11 +88,25 @@ impl Namespace {
     pub fn set_subcommand(&mut self, name: &str, namespace: Namespace) {
         self.subcommand = Some((name.to_owned(), Box::new(namespace)))
     }
+
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.values.get(key)
+    }
+
+    pub fn subcommand(&self) -> Option<(&String, &Namespace)> {
+        if let Some((ref cmd, ref namespace)) = &self.subcommand {
+            Some((cmd, namespace))
+        } else {
+            None
+        }
+    }
 }
 
-impl Default for Namespace {
-    fn default() -> Self {
-        Self::new()
+impl Index<&str> for Namespace {
+    type Output = String;
+
+    fn index(&self, index: &str) -> &Self::Output {
+        &self.values[index]
     }
 }
 
