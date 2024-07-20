@@ -1,7 +1,5 @@
-use crate::utils::{
-    argparse::{ArgumentParser, ArgumentType, Namespace},
-    path,
-};
+use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
+use crate::utils::path;
 
 use crate::core::objects::traits::{Deserialize, KVLM};
 use crate::core::objects::{blob::Blob, commit::Commit, tag::Tag, tree::Tree};
