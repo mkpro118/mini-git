@@ -53,6 +53,7 @@ impl Default for Argument {
 }
 
 impl Argument {
+    #[must_use]
     pub fn new(name: &str, arg_type: ArgumentType) -> Self {
         Argument {
             name: name.to_string(),
@@ -62,7 +63,7 @@ impl Argument {
     }
 
     pub fn name(&mut self, name: &str) -> &mut Self {
-        self.name = name.to_owned();
+        name.clone_into(&mut self.name);
         self
     }
 
@@ -82,7 +83,7 @@ impl Argument {
     }
 
     pub fn help(&mut self, help: &str) -> &mut Self {
-        self.help = help.to_owned();
+        help.clone_into(&mut self.help);
         self
     }
 
@@ -118,6 +119,7 @@ impl Default for Namespace {
 }
 
 impl Namespace {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
@@ -126,13 +128,15 @@ impl Namespace {
     }
 
     pub fn set_subcommand(&mut self, name: &str, namespace: Namespace) {
-        self.subcommand = Some((name.to_owned(), Box::new(namespace)))
+        self.subcommand = Some((name.to_owned(), Box::new(namespace)));
     }
 
+    #[must_use]
     pub fn get(&self, key: &str) -> Option<&String> {
         self.values.get(key)
     }
 
+    #[must_use]
     pub fn subcommand(&self) -> Option<(&String, &Namespace)> {
         if let Some((ref cmd, ref namespace)) = &self.subcommand {
             Some((cmd, namespace))
@@ -157,6 +161,7 @@ impl Default for ArgumentParser {
 }
 
 impl ArgumentParser {
+    #[must_use]
     pub fn new(description: &str) -> Self {
         let mut parser = ArgumentParser {
             description: description.to_string(),
@@ -190,11 +195,8 @@ impl ArgumentParser {
         self.parse(args, true)
     }
 
-    pub fn parse_args<'a, 'b>(
-        &self,
-        args: &'a [&'b str],
-    ) -> Result<Namespace, String> {
-        self.parse(args.into_iter().map(|&x| x.to_owned()), false)
+    pub fn parse_args(&self, args: &[&str]) -> Result<Namespace, String> {
+        self.parse(args.iter().map(|&x| x.to_owned()), false)
     }
 
     fn parse<I>(&self, mut args: I, cli: bool) -> Result<Namespace, String>
@@ -222,8 +224,9 @@ impl ArgumentParser {
             // Parse arguments
             // Optional arguments
             if arg.starts_with('-') {
-                let (find_strategy, err) = if arg.starts_with("--") {
-                    let name = &arg[2..];
+                let (find_strategy, err) = if let Some(name) =
+                    arg.strip_prefix("--")
+                {
                     (
                         Box::new(move |a: &&Argument| a.name == name)
                             as Box<dyn Fn(&&Argument) -> bool>,
@@ -263,7 +266,7 @@ impl ArgumentParser {
                         parsed.values.insert(argument.name.clone(), val);
                     }
                 } else {
-                    return Err(format!("Unknown argument: {}", arg));
+                    return Err(format!("Unknown argument: {arg}"));
                 }
             } else {
                 // Positional argument
@@ -272,7 +275,7 @@ impl ArgumentParser {
                 }) {
                     parsed.values.insert(argument.name.clone(), arg.clone());
                 } else {
-                    return Err(format!("Unexpected argument: {}", arg));
+                    return Err(format!("Unexpected argument: {arg}"));
                 }
             }
         }
@@ -287,11 +290,9 @@ impl ArgumentParser {
         Ok(parsed)
     }
 
+    #[must_use]
     pub fn help(&self) -> String {
-        let name = std::env::args()
-            .into_iter()
-            .next()
-            .expect("executable name");
+        let name = std::env::args().next().expect("executable name");
         let mut help_text = format!(
             "{name}\n{}\n\nUsage: {name} {} [OPTIONS]",
             self.description,
@@ -307,7 +308,7 @@ impl ArgumentParser {
         for arg in &self.arguments {
             let short = arg
                 .short
-                .map_or_else(|| " ".repeat(4), |c| format!("-{}, ", c));
+                .map_or_else(|| " ".repeat(4), |c| format!("-{c}, "));
             let required = if arg.required { " (required)" } else { "" };
             help_text.push_str(&format!(
                 "  {}--{:<20}{} {}\n",
