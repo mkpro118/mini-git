@@ -363,18 +363,37 @@ impl ArgumentParser {
 
     /// Adds a new argument to the parser, and returns a mutable reference
     /// to the added [`Argument`]
+    ///
+    /// # Panics
+    ///
+    /// If an argument is added twice
     #[allow(clippy::missing_panics_doc)]
     pub fn add_argument(
         &mut self,
         name: &str,
         arg_type: ArgumentType,
     ) -> &mut Argument {
+        if let Some(arg) = self.arguments.iter().find(|a| a.name == name) {
+            panic!(
+                "Argument \"{name}\" already exists. (type = {:?}, help = {})",
+                arg.arg_type,
+                arg.help()
+            );
+        }
         self.arguments.push(Argument::new(name, arg_type));
         self.arguments.last_mut().unwrap()
     }
 
     /// Adds a subcommand to the parser.
+    ///
+    /// # Panics
+    ///
+    /// If a subcommand is added twice
     pub fn add_subcommand(&mut self, name: &str, parser: ArgumentParser) {
+        assert!(
+            !self.subcommands.iter().any(|c| c.name == name),
+            "Subcommand \"{name}\" already exists."
+        );
         self.subcommands.push(SubCommand::new(name, parser));
     }
 
@@ -430,7 +449,6 @@ impl ArgumentParser {
             .iter()
             .filter(|a| a.required)
             .collect::<VecDeque<&Argument>>();
-        dbg!(&positionals);
 
         let mut parsed = Namespace::new();
 
@@ -438,8 +456,6 @@ impl ArgumentParser {
             let Some(arg) = args.next() else {
                 break;
             };
-
-            dbg!(&arg);
 
             // Check for subcommand
             if let Some(subcommand) =
@@ -478,12 +494,14 @@ impl ArgumentParser {
                     if argument.name == "help" {
                         if cli {
                             println!("{}", self.help());
-                            std::process::exit(0);
+                            if self.auto_exit {
+                                std::process::exit(self.exit_code);
+                            }
                         } else {
                             parsed.values.clear();
                             parsed.values.insert(argument.name.clone(), arg);
-                            return Ok(parsed);
                         }
+                        return Ok(parsed);
                     }
 
                     if matches!(argument.arg_type, ArgumentType::Boolean) {
@@ -507,9 +525,6 @@ impl ArgumentParser {
                         "Unexpected positional argument: {arg}"
                     ));
                 }
-
-                println!("in loop");
-                dbg!(&positionals);
 
                 if let Some(argument) = self
                     .arguments
