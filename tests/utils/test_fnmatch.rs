@@ -19,7 +19,9 @@ mod tests {
 
         #[test]
         fn test_fnmatch_with_existing_files() {
-            let tmp_dir = TempDir::create("existing_files");
+            let mut tmp_dir = TempDir::<()>::create("existing_files")
+                .with_mutex(&crate::TEST_MUTEX);
+            tmp_dir.auto_revert(false);
             let tmp_dir = tmp_dir.tmp_dir();
             create_test_file(tmp_dir, "test1.txt");
             create_test_file(tmp_dir, "test2.txt");
@@ -37,7 +39,9 @@ mod tests {
 
         #[test]
         fn test_fnmatch_with_no_matches() {
-            let tmp_dir = TempDir::create("no_matches");
+            let mut tmp_dir = TempDir::<()>::create("no_matches")
+                .with_mutex(&crate::TEST_MUTEX);
+            tmp_dir.auto_revert(false);
             let tmp_dir = tmp_dir.tmp_dir();
             create_test_file(tmp_dir, "test.log");
 
@@ -60,7 +64,9 @@ mod tests {
 
         #[test]
         fn test_fnmatch_with_existing_files() {
-            let tmp_dir = TempDir::create("existing_files");
+            let mut tmp_dir = TempDir::<()>::create("existing_files")
+                .with_mutex(&crate::TEST_MUTEX);
+            tmp_dir.auto_revert(false);
             let tmp_dir = tmp_dir.tmp_dir();
             create_test_file(tmp_dir, "test1.txt");
             create_test_file(tmp_dir, "test2.txt");
@@ -82,7 +88,9 @@ mod tests {
 
         #[test]
         fn test_fnmatch_with_no_matches() {
-            let tmp_dir = TempDir::create("no_matches");
+            let mut tmp_dir = TempDir::<()>::create("no_matches")
+                .with_mutex(&crate::TEST_MUTEX);
+            tmp_dir.auto_revert(false);
             let tmp_dir = tmp_dir.tmp_dir();
             create_test_file(tmp_dir, "test.log");
 
