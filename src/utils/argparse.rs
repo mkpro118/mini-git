@@ -545,8 +545,18 @@ impl ArgumentParser {
     }
 
     #[must_use]
-    pub fn closest_subcommands(&self, _to: &str) -> Vec<String> {
-        vec![]
+    pub fn closest_subcommands(
+        &self,
+        to: &str,
+        max_dist: usize,
+        count: usize,
+    ) -> Vec<String> {
+        self.subcommands
+            .iter()
+            .map(|cmd| cmd.name.clone())
+            .filter(|name| dl_distance(name, to) <= max_dist)
+            .take(count)
+            .collect()
     }
 
     /// Compiles the argument parser, checking for any conflicts in the
@@ -886,7 +896,7 @@ impl ArgumentParser {
 
         let name = Self::exec_name();
         let mut help = format!("\"{first}\" is not a {name} command.");
-        let matches = self.closest_subcommands(&first);
+        let matches = self.closest_subcommands(&first, 3, 3);
 
         if matches.is_empty() {
             return Err(format!("{help} See '{name} --help'"));
