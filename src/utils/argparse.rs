@@ -78,6 +78,7 @@ pub struct ArgumentParser {
     auto_exit: bool,
     exit_code: i32,
     compiled: bool,
+    subcommand_required: bool,
 }
 
 /// Represents the parsed arguments.
@@ -378,6 +379,7 @@ impl Default for ArgumentParser {
             auto_exit: true,
             exit_code: 0,
             compiled: false,
+            subcommand_required: false,
         }
     }
 }
@@ -499,13 +501,47 @@ impl ArgumentParser {
     ///
     /// main_parser.add_subcommand("sub", sub_parser);
     /// ```
-    pub fn add_subcommand(&mut self, name: &str, parser: ArgumentParser) {
+    pub fn add_subcommand(
+        &mut self,
+        name: &str,
+        parser: ArgumentParser,
+    ) -> &mut Self {
         assert!(
             !self.subcommands.iter().any(|c| c.name == name),
             "Subcommand \"{name}\" already exists."
         );
         self.compiled = false;
         self.subcommands.push(SubCommand::new(name, parser));
+        self
+    }
+
+    /// Requires at least one subcommand to be parsed.
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{ArgumentParser, ArgumentType};
+    ///
+    /// let mut main_parser = ArgumentParser::new("Main Application");
+    /// let mut sub_parser1 = ArgumentParser::new("Subcommand1");
+    /// sub_parser.add_argument("sub_arg", ArgumentType::String)
+    ///     .required()
+    ///     .add_help("Subcommand argument");
+    ///
+    /// let mut sub_parser2 = ArgumentParser::new("Subcommand2");
+    /// sub_parser.add_argument("sub_arg", ArgumentType::String)
+    ///     .required()
+    ///     .add_help("Subcommand argument");
+    ///
+    /// main_parser.add_subcommand("sub1", sub_parser1);
+    /// main_parser.add_subcommand("sub2", sub_parser2);
+    /// main_parser.require_subcommand();
+    /// ```
+    pub fn require_subcommand(&mut self) -> &mut Self {
+        self.subcommand_required = true;
+        self
+    }
+
+    pub fn closest_subcommands(&self, _to: &str) -> Vec<String> {
+        vec![]
     }
 
     /// Compiles the argument parser, checking for any conflicts in the
@@ -674,6 +710,7 @@ impl ArgumentParser {
             .collect::<VecDeque<&Argument>>();
 
         let mut parsed = Namespace::new();
+        let mut first_positional = None;
 
         loop {
             let Some(arg) = args.next() else {
@@ -754,6 +791,9 @@ impl ArgumentParser {
                     .iter()
                     .find(|a| a.name == positionals[0].name)
                 {
+                    if first_positional.is_none() {
+                        first_positional = Some(arg.clone());
+                    }
                     self.insert_argument(&mut parsed, argument, arg)?;
                 } else {
                     return Err(format!("Unexpected argument: {arg}"));
@@ -763,16 +803,8 @@ impl ArgumentParser {
             }
         }
 
-        // Check for missing required arguments
-        for arg in &self.arguments {
-            if arg.required && !parsed.values.contains_key(&arg.name) {
-                if let Some(default) = &arg.default {
-                    parsed.values.insert(arg.name.clone(), default.clone());
-                    continue;
-                }
-                return Err(format!("Missing required argument: {}", arg.name));
-            }
-        }
+        self.check_subcommand(&parsed, first_positional)?;
+        self.check_required(&mut parsed)?;
 
         Ok(parsed)
     }
@@ -802,6 +834,63 @@ impl ArgumentParser {
         Ok(())
     }
 
+    fn check_subcommand(
+        &self,
+        parsed: &Namespace,
+        first: Option<String>,
+    ) -> Result<(), String> {
+        if parsed.subcommand.is_some() {
+            return Ok(());
+        } else if !self.subcommand_required {
+            return Ok(());
+        }
+
+        let Some(first) = first else {
+            return Err(self.help());
+        };
+
+        let name = Self::exec_name();
+        let mut help = format!("\"{first}\" is not a {name} command.");
+        let matches = self.closest_subcommands(&first);
+
+        if matches.is_empty() {
+            return Err(format!("{help} See '{name} --help'"));
+        }
+
+        help.push_str("\nSimilar subcommands are:\n");
+
+        for sub in matches {
+            help.push_str("  ");
+            help.push_str(&sub);
+            help.push('\n');
+        }
+
+        Err(help)
+    }
+
+    // Check all required arguments are provided, and set defaults otherwise
+    fn check_required(&self, parsed: &mut Namespace) -> Result<(), String> {
+        for arg in &self.arguments {
+            // If not already found
+            if !parsed.values.contains_key(&arg.name) {
+                // If has default, use default
+                if let Some(default) = &arg.default {
+                    parsed.values.insert(arg.name.clone(), default.clone());
+                    continue;
+                }
+
+                // If has no default, but it required.
+                if arg.required {
+                    return Err(format!(
+                        "Missing required argument: {}",
+                        arg.name
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Generates a help message for the parser.
     ///
     /// This method is automatically called when the `--help` flag is used.
@@ -824,12 +913,7 @@ impl ArgumentParser {
     #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn help(&self) -> String {
-        let name = std::env::args().next().expect("executable path");
-        let name = std::path::Path::new(&name)
-            .file_stem()
-            .expect("executable name")
-            .to_str()
-            .expect("valid utf-8");
+        let name = Self::exec_name();
         let mut help_text = format!(
             "{name}\n{}\n\nUsage: {name} {} [OPTIONS]",
             self.description,
@@ -864,6 +948,16 @@ impl ArgumentParser {
         }
 
         help_text
+    }
+
+    fn exec_name() -> String {
+        let name = std::env::args().next().expect("executable path");
+        std::path::Path::new(&name)
+            .file_stem()
+            .expect("executable name")
+            .to_str()
+            .expect("valid utf-8")
+            .to_owned()
     }
 }
 
