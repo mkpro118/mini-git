@@ -93,14 +93,10 @@ impl TempDir {
         let tmp_dir = env::temp_dir().join(dirname);
         fs::create_dir_all(&tmp_dir).unwrap();
 
-        let tmp_dir = Self {
+        Self {
             original_dir,
             tmp_dir,
-        };
-
-        tmp_dir.switch();
-
-        tmp_dir
+        }
     }
 
     /// Switches to the temporary directory.
