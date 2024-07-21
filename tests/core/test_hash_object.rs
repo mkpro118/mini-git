@@ -27,7 +27,7 @@ mod tests {
         match guard {
             Ok(mut inner) if inner.is_none() => {
                 let tmp = TempDir::create("cmd_hash_object");
-                GitRepository::create(tmp.test_dir()).expect("Create repo");
+                GitRepository::create(tmp.tmp_dir()).expect("Create repo");
 
                 for (file, content) in CONTENT {
                     fs::write(file, content).expect("Should write");

@@ -351,7 +351,7 @@ mod tests {
         let tmp_dir = TempDir::create("test_read_object_bad_path");
         let sha = "abcdef09123456789abc";
 
-        let repo = GitRepository::create(tmp_dir.test_dir())
+        let repo = GitRepository::create(tmp_dir.tmp_dir())
             .expect("Should create repo");
 
         assert!(read_object(&repo, sha).is_err_and(|msg| msg.contains(sha)));
@@ -362,7 +362,7 @@ mod tests {
         let tmp_dir = TempDir::create("test_read_object_bad_path");
         let sha = "deadbeefdecadedefacecafec0ffeedadfacade8";
 
-        let repo = GitRepository::create(tmp_dir.test_dir())
+        let repo = GitRepository::create(tmp_dir.tmp_dir())
             .expect("Should create repo");
 
         let path = repo_dir(repo.gitdir(), &[OBJECTS_DIR, &sha[..2]], true)
@@ -411,7 +411,7 @@ mod tests {
     fn test_write_object_blob() {
         let tmp_dir = TempDir::create("test_read_object_bad_path");
 
-        let repo = GitRepository::create(tmp_dir.test_dir())
+        let repo = GitRepository::create(tmp_dir.tmp_dir())
             .expect("Should create repo");
 
         let blob_data = [0; 100];

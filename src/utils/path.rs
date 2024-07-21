@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn test_repo_file() {
         let tmp_dir = TempDir::create("test_repo_file");
-        let base = tmp_dir.test_dir().join(".git");
+        let base = tmp_dir.tmp_dir().join(".git");
         fs::create_dir(&base).unwrap();
 
         // Test without creating directories
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn test_repo_dir() {
         let tmp_dir = TempDir::create("test_repo_dir");
-        let base = tmp_dir.test_dir().join(".git");
+        let base = tmp_dir.tmp_dir().join(".git");
         fs::create_dir(&base).unwrap();
 
         // Test without creating directories
@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn test_repo_dir_with_existing_file() {
         let tmp_dir = TempDir::create("test_repo_dir_with_existing_file");
-        let base = tmp_dir.test_dir().join(".git");
+        let base = tmp_dir.tmp_dir().join(".git");
         fs::create_dir(&base).unwrap();
 
         // Create a file instead of a directory
@@ -282,7 +282,7 @@ mod tests {
     #[should_panic(expected = "subtract with overflow")]
     fn test_repo_file_with_empty_paths() {
         let tmp_dir = TempDir::create("test_repo_file_with_empty_paths");
-        let base = tmp_dir.test_dir().join(".git");
+        let base = tmp_dir.tmp_dir().join(".git");
         fs::create_dir(&base).unwrap();
 
         let result = repo_file::<&str>(&base, &[], true);
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn test_repo_dir_with_empty_paths() {
         let tmp_dir = TempDir::create("test_repo_dir_with_empty_paths");
-        let base = tmp_dir.test_dir().join(".git");
+        let base = tmp_dir.tmp_dir().join(".git");
         fs::create_dir(&base).unwrap();
 
         let result = repo_dir::<&str>(&base, &[], true).unwrap();
@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn test_repo_find_no_git() {
         let tmp_dir = TempDir::create("test_repo_find_no_git");
-        let top = tmp_dir.test_dir();
+        let top = tmp_dir.tmp_dir();
         let res = repo_find(top);
         assert!(res.is_err());
     }

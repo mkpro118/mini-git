@@ -36,7 +36,7 @@ use std::path::{Path, PathBuf};
 /// ```
 pub struct TempDir {
     original_dir: PathBuf,
-    test_dir: PathBuf,
+    tmp_dir: PathBuf,
 }
 
 impl TempDir {
@@ -48,12 +48,12 @@ impl TempDir {
     /// use mini_git::utils::test::TempDir;
     ///
     /// let temp_dir = TempDir::create("my_test");
-    /// let test_path = temp_dir.test_dir();
+    /// let test_path = temp_dir.tmp_dir();
     /// println!("Temporary directory path: {:?}", test_path);
     /// ```
     #[must_use]
-    pub fn test_dir(&self) -> &Path {
-        &self.test_dir
+    pub fn tmp_dir(&self) -> &Path {
+        &self.tmp_dir
     }
 
     /// Creates a new temporary directory for testing.
@@ -90,12 +90,12 @@ impl TempDir {
         let original_dir = Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
 
         let dirname = format!("{dirname}{salt}");
-        let test_dir = env::temp_dir().join(dirname);
-        fs::create_dir_all(&test_dir).unwrap();
+        let tmp_dir = env::temp_dir().join(dirname);
+        fs::create_dir_all(&tmp_dir).unwrap();
 
         let tmp_dir = Self {
             original_dir,
-            test_dir,
+            tmp_dir,
         };
 
         tmp_dir.switch();
@@ -124,7 +124,7 @@ impl TempDir {
     /// // The current working directory is now back to the original
     /// ```
     pub fn switch(&self) {
-        env::set_current_dir(&self.test_dir).expect("Should chdir");
+        env::set_current_dir(&self.tmp_dir).expect("Should chdir");
     }
 
     /// Reverts the current working directory to the original directory
@@ -147,7 +147,7 @@ impl TempDir {
     /// directory back to the original directory.
     pub fn revert(&self) {
         // This may not immediately delete, so we just ignore the retval
-        let _ = fs::remove_dir_all(&self.test_dir);
+        let _ = fs::remove_dir_all(&self.tmp_dir);
         env::set_current_dir(&self.original_dir).expect("Should revert");
     }
 }
