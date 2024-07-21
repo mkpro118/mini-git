@@ -35,7 +35,7 @@ This project is currently a work-in-progress
 - [ ] `check-ignore`
 - [ ] `checkout`
 - [ ] `commit`
-- [ ] `hash-object`
+- [x] `hash-object`
 - [x] `init`
 - [ ] `log`
 - [ ] `ls-files`
