@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::make_namespaces_from;
+    use crate::with_test_mutex;
 
     use mini_git::core::hash_object::*;
     use mini_git::core::GitRepository;
@@ -18,14 +19,16 @@ mod tests {
 
     macro_rules! switch_dir {
         ($body:block) => {
-            match FS_MUTEX.lock() {
-                Ok(inner) if inner.is_some() => {
-                    (inner.as_ref().unwrap()).switch();
-                    $body
+            with_test_mutex!({
+                match FS_MUTEX.lock() {
+                    Ok(inner) if inner.is_some() => {
+                        (inner.as_ref().unwrap()).switch();
+                        $body
+                    }
+                    Ok(_) => unreachable!(),
+                    Err(..) => panic!("FS Mutex failed!"),
                 }
-                Ok(_) => unreachable!(),
-                Err(..) => panic!("Mutex failed!"),
-            }
+            })
         };
     }
 
