@@ -55,11 +55,19 @@ fn run() -> i32 {
 
     match res {
         Ok(msg) => {
-            print!("{msg}");
+            if msg.ends_with('\n') {
+                print!("{msg}");
+            } else {
+                println!("{msg}");
+            }
             0
         }
         Err(msg) => {
-            print!("{msg}");
+            if msg.ends_with('\n') {
+                print!("{msg}");
+            } else {
+                println!("{msg}");
+            }
             -1
         }
     }
