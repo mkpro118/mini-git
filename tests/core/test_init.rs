@@ -1,20 +1,27 @@
 #[cfg(test)]
 mod tests {
+    use crate::make_namespaces_from;
+
     use mini_git::core::init::*;
-    use mini_git::utils::argparse::Namespace;
     use mini_git::utils::test::TempDir;
+
     use std::path::Path;
     use std::sync::Mutex;
 
     static FS_MUTEX: Mutex<()> = Mutex::new(());
 
-    fn make_namespaces<'a>(
-        args: &'a [&[&'a str]],
-    ) -> impl Iterator<Item = Namespace> + 'a {
-        let mut parser = make_parser();
-        parser.compile();
+    make_namespaces_from!(make_parser);
 
-        args.iter().flat_map(move |&x| parser.parse_args(x))
+    macro_rules! switch_dir {
+        ($target_dir:ident, $body:block) => {
+            match FS_MUTEX.lock() {
+                Ok(_) => {
+                    $target_dir.switch();
+                    $body
+                }
+                Err(..) => panic!("Mutex failed!"),
+            };
+        };
     }
 
     #[test]
@@ -23,17 +30,11 @@ mod tests {
         let namespaces = make_namespaces(&args).next().unwrap();
 
         let res;
-        let tmp_dir;
-        {
-            let guard = FS_MUTEX.lock();
-            match guard {
-                Ok(_) => {
-                    tmp_dir = TempDir::create("cmd_init_no_args");
-                    res = cmd_init(&namespaces);
-                }
-                Err(..) => panic!("Mutex failed!"),
-            };
-        }
+        let tmp_dir = TempDir::create("cmd_init_no_args");
+
+        switch_dir!(tmp_dir, {
+            res = cmd_init(&namespaces);
+        });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -49,17 +50,11 @@ mod tests {
         let namespaces = make_namespaces(&args).next().unwrap();
 
         let res;
-        let tmp_dir;
-        {
-            let guard = FS_MUTEX.lock();
-            match guard {
-                Ok(_) => {
-                    tmp_dir = TempDir::create("cmd_init_no_args");
-                    res = cmd_init(&namespaces);
-                }
-                Err(..) => panic!("Mutex failed!"),
-            };
-        }
+        let tmp_dir = TempDir::create("cmd_init_no_args");
+
+        switch_dir!(tmp_dir, {
+            res = cmd_init(&namespaces);
+        });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -75,17 +70,11 @@ mod tests {
         let namespaces = make_namespaces(&args).next().unwrap();
 
         let res;
-        let tmp_dir;
-        {
-            let guard = FS_MUTEX.lock();
-            match guard {
-                Ok(_) => {
-                    tmp_dir = TempDir::create("cmd_init_no_args");
-                    res = cmd_init(&namespaces);
-                }
-                Err(..) => panic!("Mutex failed!"),
-            };
-        }
+        let tmp_dir = TempDir::create("cmd_init_no_args");
+
+        switch_dir!(tmp_dir, {
+            res = cmd_init(&namespaces);
+        });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
