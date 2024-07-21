@@ -1,9 +1,12 @@
 #[cfg(test)]
 mod tests {
+    use crate::make_namespaces_from;
+
     use mini_git::core::hash_object::*;
     use mini_git::core::GitRepository;
-    use mini_git::utils::argparse::Namespace;
+
     use mini_git::utils::test::TempDir;
+
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::Mutex;
@@ -11,13 +14,19 @@ mod tests {
     static FS_MUTEX: Mutex<Option<TempDir>> = Mutex::new(None);
     static OBJECT_DIR: fn() -> PathBuf = || Path::new(".git").join("objects");
 
-    fn make_namespaces<'a>(
-        args: &'a [&[&'a str]],
-    ) -> impl Iterator<Item = Namespace> + 'a {
-        let mut parser = make_parser();
-        parser.compile();
+    make_namespaces_from!(make_parser);
 
-        args.iter().flat_map(move |&x| parser.parse_args(x))
+    macro_rules! switch_dir {
+        ($body:block) => {
+            match FS_MUTEX.lock() {
+                Ok(inner) if inner.is_some() => {
+                    (inner.as_ref().unwrap()).switch();
+                    $body
+                }
+                Ok(_) => unreachable!(),
+                Err(..) => panic!("Mutex failed!"),
+            }
+        };
     }
 
     fn setup() {
@@ -28,9 +37,13 @@ mod tests {
             Ok(mut inner) if inner.is_none() => {
                 let tmp = TempDir::create("cmd_hash_object");
                 GitRepository::create(tmp.tmp_dir()).expect("Create repo");
+                tmp.switch();
 
                 for (file, content) in CONTENT {
+                    println!("Writing {content:?} to {file:?}");
                     fs::write(file, content).expect("Should write");
+                    println!("Done with {file:?}");
+                    assert!(Path::new(file).is_file());
                 }
 
                 *inner = Some(tmp);
@@ -45,9 +58,13 @@ mod tests {
         setup();
 
         let args: [&[&str]; 1] = [&["readme"]];
-        let namespaces = make_namespaces(&args).next().unwrap();
+        let namespaces;
+        let res;
 
-        let res = cmd_hash_object(&namespaces);
+        switch_dir!({
+            namespaces = make_namespaces(&args).next().unwrap();
+            res = cmd_hash_object(&namespaces);
+        });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -60,9 +77,13 @@ mod tests {
         setup();
 
         let args: [&[&str]; 1] = [&["test.file"]];
-        let namespaces = make_namespaces(&args).next().unwrap();
+        let namespaces;
+        let res;
 
-        let res = cmd_hash_object(&namespaces);
+        switch_dir!({
+            namespaces = make_namespaces(&args).next().unwrap();
+            res = cmd_hash_object(&namespaces);
+        });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -75,9 +96,13 @@ mod tests {
         setup();
 
         let args: [&[&str]; 1] = [&["-w", "readme"]];
-        let namespaces = make_namespaces(&args).next().unwrap();
+        let namespaces;
+        let res;
 
-        let res = cmd_hash_object(&namespaces);
+        switch_dir!({
+            namespaces = make_namespaces(&args).next().unwrap();
+            res = cmd_hash_object(&namespaces);
+        });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -85,7 +110,11 @@ mod tests {
         let exp_sha = "cdb5f04f10c21998fd7406f7e8ceafd2035d83e2";
         assert_eq!(res, exp_sha);
 
-        let file = OBJECT_DIR().join(&exp_sha[..2]).join(&exp_sha[2..]);
+        let file;
+        switch_dir!({
+            file = OBJECT_DIR().join(&exp_sha[..2]).join(&exp_sha[2..]);
+        });
+
         assert!(file.exists(), "{file:?} doesn't exist");
         assert!(file.is_file(), "{file:?} is not a file");
     }
@@ -95,9 +124,13 @@ mod tests {
         setup();
 
         let args: [&[&str]; 1] = [&["test.file", "-w"]];
-        let namespaces = make_namespaces(&args).next().unwrap();
+        let namespaces;
+        let res;
 
-        let res = cmd_hash_object(&namespaces);
+        switch_dir!({
+            namespaces = make_namespaces(&args).next().unwrap();
+            res = cmd_hash_object(&namespaces);
+        });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -105,7 +138,11 @@ mod tests {
         let exp_sha = "26918572ece0bcfca23251753b32b672be31cf56";
         assert_eq!(res, exp_sha);
 
-        let file = OBJECT_DIR().join(&exp_sha[..2]).join(&exp_sha[2..]);
+        let file;
+        switch_dir!({
+            file = OBJECT_DIR().join(&exp_sha[..2]).join(&exp_sha[2..]);
+        });
+
         assert!(file.exists(), "{file:?} doesn't exist");
         assert!(file.is_file(), "{file:?} is not a file");
     }
