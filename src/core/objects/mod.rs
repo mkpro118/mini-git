@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_read_object_bad_path() {
-        let tmp_dir = TempDir::create("test_read_object_bad_path");
+        let tmp_dir = TempDir::<()>::create("test_read_object_bad_path");
         let sha = "abcdef09123456789abc";
 
         let repo = GitRepository::create(tmp_dir.tmp_dir())
@@ -359,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_read_object_good_path() {
-        let tmp_dir = TempDir::create("test_read_object_bad_path");
+        let tmp_dir = TempDir::<()>::create("test_read_object_bad_path");
         let sha = "deadbeefdecadedefacecafec0ffeedadfacade8";
 
         let repo = GitRepository::create(tmp_dir.tmp_dir())
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_write_object_blob() {
-        let tmp_dir = TempDir::create("test_read_object_bad_path");
+        let tmp_dir = TempDir::<()>::create("test_read_object_bad_path");
 
         let repo = GitRepository::create(tmp_dir.tmp_dir())
             .expect("Should create repo");
