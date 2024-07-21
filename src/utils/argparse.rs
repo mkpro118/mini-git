@@ -175,7 +175,7 @@ impl Argument {
     /// use mini_git::utils::argparse::{Argument, ArgumentType};
     ///
     /// let mut operation = Argument::new("operation", ArgumentType::Boolean);
-    /// operation.choices(["add", "subtract", "multiply", "divide"]]);
+    /// operation.choices(&["add", "subtract", "multiply", "divide"]);
     /// ```
     pub fn choices(&mut self, choices: &[&str]) -> &mut Self {
         self.choices = Some(
@@ -200,8 +200,8 @@ impl Argument {
     ///
     /// let mut operation = Argument::new("operation", ArgumentType::Boolean);
     /// operation
-    ///     .choices(["add", "subtract", "multiply", "divide"]])
-    ///     .insensitive();
+    ///     .choices(&["add", "subtract", "multiply", "divide"])
+    ///     .ignore_case();
     ///
     /// // Now "add", "Add", "ADD", "aDD" are all accepted for `operation`.
     /// ```
@@ -718,7 +718,7 @@ impl ArgumentParser {
                             }
                         } else {
                             parsed.values.clear();
-                            parsed.values.insert(argument.name.clone(), arg);
+                            self.insert_argument(&mut parsed, argument, arg)?;
                         }
                         return Ok(parsed);
                     }
@@ -731,7 +731,7 @@ impl ArgumentParser {
                         let Some(val) = args.next() else {
                             return err;
                         };
-                        parsed.values.insert(argument.name.clone(), val);
+                        self.insert_argument(&mut parsed, argument, val)?;
                     }
                     positionals.retain(|a| a.name != argument.name);
                 } else {
@@ -750,7 +750,7 @@ impl ArgumentParser {
                     .iter()
                     .find(|a| a.name == positionals[0].name)
                 {
-                    parsed.values.insert(argument.name.clone(), arg.clone());
+                    self.insert_argument(&mut parsed, argument, arg)?;
                 } else {
                     return Err(format!("Unexpected argument: {arg}"));
                 }
@@ -771,6 +771,31 @@ impl ArgumentParser {
         }
 
         Ok(parsed)
+    }
+
+    fn insert_argument(
+        &self,
+        parsed: &mut Namespace,
+        argument: &Argument,
+        value: String,
+    ) -> Result<(), String> {
+        if let Some(ref options) = argument.choices {
+            let compare_strategy = if argument.ignore_case {
+                let val = value.to_lowercase();
+                Box::new(move |x: &&String| x.to_lowercase() == val)
+                    as Box<dyn Fn(&&String) -> bool>
+            } else {
+                Box::new(|&x: &&String| *x == value)
+                    as Box<dyn Fn(&&String) -> bool>
+            };
+
+            if options.iter().find(compare_strategy).is_none() {
+                return Err(format!("not a choice: {value}"));
+            }
+        }
+
+        parsed.values.insert(argument.name.clone(), value);
+        Ok(())
     }
 
     /// Generates a help message for the parser.
