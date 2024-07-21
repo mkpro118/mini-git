@@ -993,6 +993,11 @@ impl ArgumentParser {
 }
 
 // Damerau–Levenshtein distance with adjacent transpositions
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss
+)]
 fn dl_distance(a: &str, b: &str) -> usize {
     let (a, b) = (a.as_bytes(), b.as_bytes());
     let (len_a, len_b) = (a.len(), b.len());
