@@ -55,11 +55,11 @@ fn run() -> i32 {
 
     match res {
         Ok(msg) => {
-            println!("{msg}");
+            print!("{msg}");
             0
         }
         Err(msg) => {
-            println!("{msg}");
+            print!("{msg}");
             -1
         }
     }
