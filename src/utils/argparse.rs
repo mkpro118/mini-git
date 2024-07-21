@@ -992,6 +992,64 @@ impl ArgumentParser {
     }
 }
 
+// Damerau–Levenshtein distance with adjacent transpositions
+fn dl_distance(a: &str, b: &str) -> usize {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    let (len_a, len_b) = (a.len(), b.len());
+
+    let max_dist = len_a + len_b;
+
+    let mut da = [0; 128];
+    let mut dist = vec![vec![0; len_a + 2]; len_b + 2];
+
+    let idx = |x: i32| (x + 1) as usize;
+
+    macro_rules! dist {
+        ($idx1:expr, $idx2:expr) => {
+            dist[idx(($idx1) as i32)][idx(($idx2) as i32)]
+        };
+    }
+
+    dist!(-1, -1) = max_dist;
+
+    for i in 0..=len_a {
+        dist!(i, -1) = max_dist;
+        dist!(i, 0) = i;
+    }
+
+    for i in 0..=len_b {
+        dist!(-1, i) = max_dist;
+        dist!(0, i) = i;
+    }
+
+    for i in 1..=len_a {
+        let mut db = 0;
+
+        for j in 1..=len_b {
+            let k = da[b[j - 1] as usize];
+            let l = db;
+            let cost = if a[i - 1] == b[j - 1] {
+                db = j;
+                0
+            } else {
+                1
+            };
+
+            dist!(i, j) = {
+                let substitution = dist!(i - 1, j - 1) + cost;
+                let insertion = dist!(i, j - 1) + 1;
+                let deletion = dist!(i - 1, j) + 1;
+                let transposition = dist!(k - 1, l - 1) + i + j - (k + l + 1);
+                substitution.min(insertion).min(deletion).min(transposition)
+            };
+        }
+
+        da[a[i - 1] as usize] = i;
+    }
+
+    dist[idx(len_a as i32)][idx(len_b as i32)]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
