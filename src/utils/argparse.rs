@@ -522,12 +522,12 @@ impl ArgumentParser {
     ///
     /// let mut main_parser = ArgumentParser::new("Main Application");
     /// let mut sub_parser1 = ArgumentParser::new("Subcommand1");
-    /// sub_parser.add_argument("sub_arg", ArgumentType::String)
+    /// sub_parser1.add_argument("sub_arg", ArgumentType::String)
     ///     .required()
     ///     .add_help("Subcommand argument");
     ///
     /// let mut sub_parser2 = ArgumentParser::new("Subcommand2");
-    /// sub_parser.add_argument("sub_arg", ArgumentType::String)
+    /// sub_parser2.add_argument("sub_arg", ArgumentType::String)
     ///     .required()
     ///     .add_help("Subcommand argument");
     ///
@@ -611,6 +611,10 @@ impl ArgumentParser {
                 with the same shorthand '-{short}' in parser {}",
             self.description
         );
+    }
+
+    fn required_positionals(&self) -> VecDeque<&Argument> {
+        self.arguments.iter().filter(|a| a.required).collect()
     }
 
     /// Parses command-line arguments.
@@ -703,20 +707,12 @@ impl ArgumentParser {
             before using parse_{}",
             if cli { "cli" } else { "args" }
         );
-        let mut positionals = self
-            .arguments
-            .iter()
-            .filter(|a| a.required)
-            .collect::<VecDeque<&Argument>>();
 
         let mut parsed = Namespace::new();
         let mut first_positional = None;
+        let mut positionals = self.required_positionals();
 
-        loop {
-            let Some(arg) = args.next() else {
-                break;
-            };
-
+        while let Some(arg) = args.next() {
             // Check for subcommand
             if let Some(subcommand) =
                 self.subcommands.iter().find(|s| s.name == *arg)
@@ -731,75 +727,22 @@ impl ArgumentParser {
             // Parse arguments
             // Optional arguments
             if arg.starts_with('-') {
-                let (find_strategy, err) = if let Some(name) =
-                    arg.strip_prefix("--")
-                {
-                    (
-                        Box::new(move |a: &&Argument| a.name == name)
-                            as Box<dyn Fn(&&Argument) -> bool>,
-                        Err(format!("Missing value for argument: {name}")),
-                    )
-                } else {
-                    let short = arg.chars().nth(1).unwrap();
-                    (
-                        Box::new(move |a: &&Argument| a.short == Some(short))
-                            as Box<dyn Fn(&&Argument) -> bool>,
-                        Err(format!("Missing value for argument: -{short}")),
-                    )
+                if let Some(_) = self.handle_optional(
+                    &mut parsed,
+                    &arg,
+                    &mut args,
+                    &mut positionals,
+                    cli,
+                )? {
+                    return Ok(parsed);
                 };
-
-                if let Some(argument) =
-                    self.arguments.iter().find(find_strategy)
-                {
-                    if argument.name == "help" {
-                        if cli {
-                            println!("{}", self.help());
-                            if self.auto_exit {
-                                std::process::exit(self.exit_code);
-                            }
-                        } else {
-                            parsed.values.clear();
-                            self.insert_argument(&mut parsed, argument, arg)?;
-                        }
-                        return Ok(parsed);
-                    }
-
-                    if matches!(argument.arg_type, ArgumentType::Boolean) {
-                        parsed
-                            .values
-                            .insert(argument.name.clone(), "true".to_string());
-                    } else {
-                        let Some(val) = args.next() else {
-                            return err;
-                        };
-                        self.insert_argument(&mut parsed, argument, val)?;
-                    }
-                    positionals.retain(|a| a.name != argument.name);
-                } else {
-                    return Err(format!("Unknown argument: {arg}"));
-                }
             } else {
-                // Positional argument
-                if positionals.is_empty() {
-                    return Err(format!(
-                        "Unexpected positional argument: {arg}"
-                    ));
-                }
-
-                if let Some(argument) = self
-                    .arguments
-                    .iter()
-                    .find(|a| a.name == positionals[0].name)
-                {
-                    if first_positional.is_none() {
-                        first_positional = Some(arg.clone());
-                    }
-                    self.insert_argument(&mut parsed, argument, arg)?;
-                } else {
-                    return Err(format!("Unexpected argument: {arg}"));
-                }
-
-                positionals.pop_front();
+                self.handle_positional(
+                    &mut parsed,
+                    &arg,
+                    &mut positionals,
+                    &mut first_positional,
+                )?;
             }
         }
 
@@ -807,6 +750,94 @@ impl ArgumentParser {
         self.check_required(&mut parsed)?;
 
         Ok(parsed)
+    }
+
+    fn handle_optional<'a, 'b, I>(
+        &'a self,
+        parsed: &'b mut Namespace,
+        arg: &String,
+        args: &mut I,
+        positionals: &mut VecDeque<&Argument>,
+        cli: bool,
+    ) -> Result<Option<&'b mut Namespace>, String>
+    where
+        I: Iterator<Item = String>,
+        'a: 'b,
+    {
+        let (find_strategy, err) = if let Some(name) = arg.strip_prefix("--") {
+            (
+                Box::new(move |a: &&Argument| a.name == name)
+                    as Box<dyn Fn(&&Argument) -> bool>,
+                Err(format!("Missing value for argument: {name}")),
+            )
+        } else {
+            let short = arg.chars().nth(1).unwrap();
+            (
+                Box::new(move |a: &&Argument| a.short == Some(short))
+                    as Box<dyn Fn(&&Argument) -> bool>,
+                Err(format!("Missing value for argument: -{short}")),
+            )
+        };
+
+        if let Some(argument) = self.arguments.iter().find(find_strategy) {
+            if argument.name == "help" {
+                if cli {
+                    println!("{}", self.help());
+                    if self.auto_exit {
+                        std::process::exit(self.exit_code);
+                    }
+                } else {
+                    parsed.values.clear();
+                    self.insert_argument(parsed, argument, arg.clone())?;
+                }
+                return Ok(Some(parsed));
+            }
+
+            if matches!(argument.arg_type, ArgumentType::Boolean) {
+                parsed
+                    .values
+                    .insert(argument.name.clone(), "true".to_string());
+            } else {
+                let Some(val) = args.next() else {
+                    return err;
+                };
+                self.insert_argument(parsed, argument, val)?;
+            }
+            positionals.retain(|a| a.name != argument.name);
+        } else {
+            return Err(format!("Unknown argument: {arg}"));
+        }
+
+        Ok(None)
+    }
+
+    fn handle_positional(
+        &self,
+        parsed: &mut Namespace,
+        arg: &String,
+        positionals: &mut VecDeque<&Argument>,
+        first_positional: &mut Option<String>,
+    ) -> Result<(), String> {
+        // Positional argument
+        if positionals.is_empty() {
+            return Err(format!("Unexpected positional argument: {arg}"));
+        }
+
+        if let Some(argument) = self
+            .arguments
+            .iter()
+            .find(|a| a.name == positionals[0].name)
+        {
+            if first_positional.is_none() {
+                *first_positional = Some(arg.clone());
+            }
+            self.insert_argument(parsed, argument, arg.to_string())?;
+        } else {
+            return Err(format!("Unexpected argument: {arg}"));
+        }
+
+        positionals.pop_front();
+        Ok(())
     }
 
     fn insert_argument(
