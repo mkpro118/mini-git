@@ -71,6 +71,8 @@ fn make_parser() -> ArgumentParser {
         parser.add_subcommand(command.name, (command.make_parser)());
     }
 
+    parser.require_subcommand();
+
     parser
 }
 
