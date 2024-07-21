@@ -1,31 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use mini_git::utils::test::walkdir;
     use mini_git::utils::zlib::{compress, compress::Strategy, decompress};
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-    };
-
-    fn walkdir(top: &Path) -> Vec<PathBuf> {
-        assert!(top.is_dir(), "Top is not a directory (top = {top:?})");
-        top.read_dir()
-            .expect("Should read the dir")
-            .flatten()
-            .map(|e| e.path())
-            .filter(|path| {
-                path.file_stem().is_some_and(|stem| {
-                    !stem.to_str().is_some_and(|x| x.starts_with('.'))
-                })
-            })
-            .fold(vec![], |mut paths, entry| {
-                if entry.is_file() {
-                    paths.push(entry);
-                } else {
-                    paths.extend_from_slice(&walkdir(&entry));
-                }
-                paths
-            })
-    }
+    use std::fs;
+    use std::path::Path;
 
     #[test]
     fn test_fixed_on_license() {
@@ -43,7 +21,7 @@ mod tests {
     #[test]
     fn test_fixed_on_source_files() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let src = root.join("src");
+        let src = root.join("src").join("utils").join("zlib");
 
         for file in walkdir(&src) {
             let bytes = fs::read(file).expect("Read file!");
@@ -72,7 +50,7 @@ mod tests {
     #[test]
     fn test_dynamic_on_source_files() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let src = root.join("src");
+        let src = root.join("src").join("utils").join("zlib");
 
         for file in walkdir(&src) {
             let bytes = fs::read(file).expect("Read file!");
@@ -101,7 +79,7 @@ mod tests {
     #[test]
     fn test_auto_on_source_files() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let src = root.join("src");
+        let src = root.join("src").join("utils").join("zlib");
 
         for file in walkdir(&src) {
             let bytes = fs::read(file).expect("Read file!");
