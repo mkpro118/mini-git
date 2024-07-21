@@ -31,7 +31,7 @@ use std::sync::Mutex;
 /// ```
 /// use mini_git::utils::test::TempDir;
 ///
-/// let temp_dir = TempDir::create("my_test");
+/// let temp_dir = TempDir::<()>::create("my_test");
 /// // Perform test operations in the temporary directory
 /// // The directory will be automatically cleaned up when `temp_dir` goes out of scope
 /// ```
@@ -50,7 +50,7 @@ impl<'a, T> TempDir<'a, T> {
     /// ```
     /// use mini_git::utils::test::TempDir;
     ///
-    /// let temp_dir = TempDir::create("my_test");
+    /// let temp_dir = TempDir::<()>::create("my_test");
     /// let test_path = temp_dir.tmp_dir();
     /// println!("Temporary directory path: {:?}", test_path);
     /// ```
@@ -74,7 +74,7 @@ impl<'a, T> TempDir<'a, T> {
     /// ```
     /// use mini_git::utils::test::TempDir;
     ///
-    /// let temp_dir = TempDir::create("my_test");
+    /// let temp_dir = TempDir::<()>::create("my_test");
     /// // The current working directory is now the temporary directory
     /// ```
     ///
@@ -104,13 +104,18 @@ impl<'a, T> TempDir<'a, T> {
         }
     }
 
+    /// Controls whether the current working directory is reverted to the
+    /// original directory that this [`TempDir`] was created in when dropped.
+    ///
+    /// Default behavior is automatically reverting, this function can override
+    /// that behavior.
     pub fn auto_revert(&mut self, revert: bool) {
         self.auto_revert = revert;
     }
 
     /// Switches to the temporary directory.
     ///
-    /// [`TempDir::create`] automatically switches to the temporary directory,
+    /// [`TempDir::<()>::create`] automatically switches to the temporary directory,
     /// however this function allows a manual switch as needed.
     ///
     /// This is especially useful when working in a multithreaded context,
@@ -123,7 +128,7 @@ impl<'a, T> TempDir<'a, T> {
     /// use mini_git::utils::test::TempDir;
     ///
     /// // Create s
-    /// let temp_dir = TempDir::create("my_test");
+    /// let temp_dir = TempDir::<()>::create("my_test");
     /// // Perform test operations
     /// temp_dir.revert();
     /// // The current working directory is now back to the original
@@ -132,18 +137,46 @@ impl<'a, T> TempDir<'a, T> {
         Self::switch_to(self.mutex, &self.tmp_dir);
     }
 
+    /// Switches back to the orignal directory where this [`TempDir`] was
+    /// created.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::test::TempDir;
+    ///
+    /// // Create
+    /// let temp_dir = TempDir::<()>::create("my_test");
+    /// temp_dir.switch();
+    /// // Perform operations
+    ///
+    /// temp_dir.switch_back();
+    /// // The current working directory is now back to the original
+    /// ```
     pub fn switch_back(&self) {
         Self::switch_to(self.mutex, &self.original_dir);
     }
 
+    /// Runs a function in the temporary directory
+    ///
+    /// If the `TempDir` has a mutex, this function will prevent other threads
+    /// from changing the working directory, allowing the function to
+    /// complete in the temporary directory.
+    ///
+    /// If a mutex is not used, the working directory will be changed to the
+    /// temporary directory, but it is not guaranteed that the function will
+    /// complete in the temporary directory.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the mutex fails or is poisoned.
     pub fn run<R>(&self, f: impl Fn() -> R) -> R {
         if let Some(mutex) = self.mutex {
-            if let Ok(_) = mutex.lock() {
+            if let Ok(_guard) = mutex.lock() {
                 Self::switch_dir(&self.tmp_dir);
                 return f();
-            } else {
-                panic!("TempDir Mutex failed!");
             }
+            panic!("TempDir Mutex failed!");
         }
 
         Self::switch_dir(&self.tmp_dir);
@@ -155,12 +188,11 @@ impl<'a, T> TempDir<'a, T> {
         P: AsRef<Path>,
     {
         if let Some(mutex) = mutex {
-            if let Ok(_) = mutex.lock() {
+            if let Ok(_guard) = mutex.lock() {
                 Self::switch_dir(to);
                 return;
-            } else {
-                panic!("TempDir Mutex failed!")
             }
+            panic!("TempDir Mutex failed!")
         }
 
         Self::switch_dir(to);
@@ -181,7 +213,7 @@ impl<'a, T> TempDir<'a, T> {
     /// ```
     /// use mini_git::utils::test::TempDir;
     ///
-    /// let temp_dir = TempDir::create("my_test");
+    /// let temp_dir = TempDir::<()>::create("my_test");
     /// // Perform test operations
     /// temp_dir.revert();
     /// // The current working directory is now back to the original
@@ -200,6 +232,22 @@ impl<'a, T> TempDir<'a, T> {
         }
     }
 
+    /// Returns a [`TempDir`] that performs uses the given mutex before
+    /// switching dirs or running a closure in context.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::test::TempDir;
+    /// use std::sync::Mutex;
+    ///
+    /// let mutex = Mutex::new(());
+    /// let tmp = TempDir::<()>::create("temp").with_mutex(&mutex);
+    ///
+    /// // Operations will use mutex.lock()
+    /// tmp.switch();
+    /// ```
+    #[must_use]
     pub fn with_mutex(mut self, mutex: &'a Mutex<T>) -> Self {
         self.mutex = Some(mutex);
         self
