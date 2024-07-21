@@ -34,11 +34,11 @@ pub fn cmd_hash_object(args: &Namespace) -> Result<String, String> {
 
 fn make_object(obj_type: &str, data: &[u8]) -> Result<GitObject, String> {
     Ok(match obj_type {
-        "blob" => GitObject::Blob(Blob::deserialize(&data)?),
-        "commit" => GitObject::Commit(Commit::deserialize(&data)?),
-        "tag" => GitObject::Tag(Tag::deserialize(&data)?),
-        "tree" => GitObject::Tree(Tree::deserialize(&data)?),
-        _ => return Err(format!("{} is not a known object type", obj_type)),
+        "blob" => GitObject::Blob(Blob::deserialize(data)?),
+        "commit" => GitObject::Commit(Commit::deserialize(data)?),
+        "tag" => GitObject::Tag(Tag::deserialize(data)?),
+        "tree" => GitObject::Tree(Tree::deserialize(data)?),
+        _ => return Err(format!("{obj_type} is not a known object type")),
     })
 }
 
@@ -92,7 +92,7 @@ mod tests {
     }
 
     fn setup() {
-        static CONTENT: &[(&'static str, &'static [u8])] =
+        static CONTENT: &[(&str, &[u8])] =
             &[("readme", b"readme.md\n"), ("test.file", b"testfile\n")];
         let guard = FS_MUTEX.lock();
         match guard {
