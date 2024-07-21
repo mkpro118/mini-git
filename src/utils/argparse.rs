@@ -1345,4 +1345,57 @@ mod tests {
             assert_eq!(namespace.values.get("ops"), Some(&op.to_owned()));
         }
     }
+
+    fn setup_subcommand_parser() -> ArgumentParser {
+        let mut main_parser = ArgumentParser::new("Main Application");
+        main_parser.add_argument("arg1", ArgumentType::String);
+        main_parser.add_argument("arg2", ArgumentType::String);
+
+        let mut sub_parser1 = ArgumentParser::new("Subcommand1");
+        sub_parser1
+            .add_argument("sub_arg", ArgumentType::String)
+            .required()
+            .add_help("Subcommand argument");
+
+        let mut sub_parser2 = ArgumentParser::new("Subcommand2");
+        sub_parser2
+            .add_argument("sub_arg", ArgumentType::String)
+            .required()
+            .add_help("Subcommand argument");
+
+        main_parser
+            .add_subcommand("sub1", sub_parser1)
+            .add_subcommand("sub2", sub_parser2)
+            .require_subcommand()
+            .compile();
+        main_parser
+    }
+
+    #[test]
+    fn test_parse_args_required_subcommand_good() {
+        let parser = setup_subcommand_parser();
+
+        let good_args = [["sub1", "arg"], ["sub2", "arg"]];
+        for args in good_args {
+            let res = parser.parse_args(&args);
+            assert!(res.is_ok());
+            let res = res.unwrap();
+            assert!(res.subcommand.is_some());
+            let (cmd, namespace) = res.subcommand.unwrap();
+            assert_eq!(cmd, args[0]);
+            assert_eq!(namespace["sub_arg"], args[1]);
+        }
+    }
+
+    #[test]
+    fn test_parse_args_required_subcommand_bad() {
+        let parser = setup_subcommand_parser();
+
+        let bad_args = [["hello", "world"], ["foo", "bar"]];
+
+        for args in bad_args {
+            let res = parser.parse_args(&args);
+            assert!(res.is_err());
+        }
+    }
 }
