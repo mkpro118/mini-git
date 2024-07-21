@@ -32,7 +32,7 @@
 //! }
 //! ```
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::ops::Index;
 
 /// Represents the type of an argument.
@@ -57,6 +57,8 @@ pub struct Argument {
     required: bool,
     help: String,
     default: Option<String>,
+    choices: Option<HashSet<String>>,
+    ignore_case: bool,
 }
 
 /// Represents a subcommand in the argument parser.
@@ -94,6 +96,8 @@ impl Default for Argument {
             required: false,
             help: String::from("No help provided"),
             default: None,
+            choices: None,
+            ignore_case: false,
         }
     }
 }
@@ -156,6 +160,53 @@ impl Argument {
     /// ```
     pub fn short(&mut self, short: char) -> &mut Self {
         self.short = Some(short);
+        self
+    }
+
+    /// Sets the choices for a given argument. A parser will fail if the value
+    /// provided is not one of the given choices.
+    ///
+    /// By default, the choices are case sensitive. Use the
+    /// [`ArgumentParser::ignore_case`] method to allow case insensitive choices
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let mut operation = Argument::new("operation", ArgumentType::Boolean);
+    /// operation.choices(["add", "subtract", "multiply", "divide"]]);
+    /// ```
+    pub fn choices(&mut self, choices: &[&str]) -> &mut Self {
+        self.choices = Some(
+            choices
+                .into_iter()
+                .copied()
+                .map(String::from)
+                .collect::<HashSet<String>>(),
+        );
+        self
+    }
+
+    /// Accept case insensitive values for choices.
+    ///
+    /// By default, the choices are case sensitive. This method to allows
+    /// accepting arguments that match choices ignoring case.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mini_git::utils::argparse::{Argument, ArgumentType};
+    ///
+    /// let mut operation = Argument::new("operation", ArgumentType::Boolean);
+    /// operation
+    ///     .choices(["add", "subtract", "multiply", "divide"]])
+    ///     .insensitive();
+    ///
+    /// // Now "add", "Add", "ADD", "aDD" are all accepted for `operation`.
+    /// ```
+    pub fn ignore_case(&mut self) -> &mut Self {
+        self.ignore_case = true;
         self
     }
 
