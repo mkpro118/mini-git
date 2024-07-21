@@ -1009,7 +1009,8 @@ impl ArgumentParser {
     }
 }
 
-// Damerau–Levenshtein distance with adjacent transpositions
+/// Damerau–Levenshtein distance with adjacent transpositions
+/// This function is case sensitive
 #[allow(
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
@@ -1062,7 +1063,7 @@ fn dl_distance(a: &str, b: &str) -> usize {
                 let insertion = dist!(i, j - 1) + 1;
                 let deletion = dist!(i - 1, j) + 1;
                 let transposition =
-                    dist!(k - 1, l - 1) + (i + j + 1) - ((k + l) as usize);
+                    dist!(k - 1, l - 1) + (i + j - 1) - ((k + l) as usize);
                 substitution.min(insertion).min(deletion).min(transposition)
             };
         }
@@ -1477,6 +1478,21 @@ mod tests {
         for args in bad_args {
             let res = parser.parse_args(&args);
             assert!(res.is_err());
+        }
+    }
+
+    #[test]
+    fn test_dl_distance() {
+        let data = [
+            ("ca", "abc", 2),
+            ("foo", "bar", 3),
+            ("arg", "parse", 3),
+            ("hello", "world", 4),
+            ("damerau", "levenshtein", 10),
+        ];
+
+        for (x, y, dist) in data {
+            assert_eq!(dl_distance(x, y), dist);
         }
     }
 }
