@@ -15,13 +15,7 @@ mod tests {
     macro_rules! switch_dir {
         ($target_dir:ident, $body:block) => {
             match FS_MUTEX.lock() {
-                Ok(_) => {
-                    println!(
-                        "-> got on fsmutex {:?}",
-                        std::thread::current().name()
-                    );
-                    ($target_dir).run(|| $body)
-                }
+                Ok(_) => ($target_dir).run(|| $body),
                 Err(..) => panic!("FS Mutex failed!"),
             }
         };

@@ -25,10 +25,6 @@ mod tests {
         ($body:block) => {
             match FS_MUTEX.lock() {
                 Ok(inner) if inner.is_some() => {
-                    println!(
-                        "-> got on fsmutex {:?}",
-                        std::thread::current().name()
-                    );
                     (inner.as_ref().unwrap()).run(|| $body)
                 }
                 Ok(_) => unreachable!(),
