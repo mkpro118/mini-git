@@ -15,7 +15,13 @@ pub fn cmd_hash_object(args: &Namespace) -> Result<String, String> {
     let obj = make_object(&args["type"].to_lowercase(), &data)?;
 
     let sha = if matches!(args.get("write"), Some(..)) {
-        let repo = path::repo_find(".")?;
+        let Ok(cwd) = std::env::current_dir() else {
+            return Err(
+                "Could not determined current working directory".to_owned()
+            );
+        };
+
+        let repo = path::repo_find(cwd)?;
         let repo = GitRepository::new(&repo)?;
         write_object(&obj, &repo)?
     } else {
