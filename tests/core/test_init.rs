@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::make_namespaces_from;
+    use crate::{make_namespaces_from, with_test_mutex};
 
     use mini_git::core::init::*;
     use mini_git::utils::test::TempDir;
@@ -14,13 +14,15 @@ mod tests {
 
     macro_rules! switch_dir {
         ($target_dir:ident, $body:block) => {
-            match FS_MUTEX.lock() {
-                Ok(_) => {
-                    $target_dir.switch();
-                    $body
+            with_test_mutex!({
+                match FS_MUTEX.lock() {
+                    Ok(_) => {
+                        $target_dir.switch();
+                        $body
+                    }
+                    Err(..) => panic!("FS Mutex failed!"),
                 }
-                Err(..) => panic!("Mutex failed!"),
-            };
+            });
         };
     }
 
