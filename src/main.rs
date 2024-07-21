@@ -48,7 +48,7 @@ fn run() -> i32 {
     };
 
     let res = COMMAND_MAP
-        .binary_search_by(|cmd| cmd.name.cmp(&command))
+        .binary_search_by(|cmd| cmd.name.cmp(command))
         .map(|x| (COMMAND_MAP[x].callback)(args))
         .expect("Should not be an invalid command");
 
@@ -68,7 +68,7 @@ fn make_parser() -> ArgumentParser {
     let mut parser = ArgumentParser::new("MiniGit, a git, but mini!");
 
     for command in COMMAND_MAP {
-        parser.add_subcommand(command.name, (command.make_parser)())
+        parser.add_subcommand(command.name, (command.make_parser)());
     }
 
     parser
@@ -98,20 +98,21 @@ const fn str_le(a: &'static str, b: &'static str) -> bool {
 const fn is_cmd_sorted() -> bool {
     let len = COMMAND_MAP.len();
     assert!(len > 1, "COMMAND MAP IS EMPTY");
-    let mut prev = &COMMAND_MAP[0];
+    let mut prev_name = &COMMAND_MAP[0].name;
     let mut i = 1;
 
     while i < len {
-        if !str_le(prev.name, &COMMAND_MAP[i].name) {
+        if !str_le(prev_name, COMMAND_MAP[i].name) {
             return false;
         }
 
-        prev = &COMMAND_MAP[i];
+        prev_name = &COMMAND_MAP[i].name;
         i += 1;
     }
 
     true
 }
 
-// If this line fails to compile, the command array is not sorted
+// If this fails to compile, the command array is not sorted
+#[allow(clippy::erasing_op)]
 const _: u8 = 0 / is_cmd_sorted() as u8;
