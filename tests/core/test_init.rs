@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{make_namespaces_from, with_test_mutex};
+    use crate::make_namespaces_from;
 
     use mini_git::core::init::*;
     use mini_git::utils::test::TempDir;
@@ -14,15 +14,16 @@ mod tests {
 
     macro_rules! switch_dir {
         ($target_dir:ident, $body:block) => {
-            with_test_mutex!({
-                match FS_MUTEX.lock() {
-                    Ok(_) => {
-                        $target_dir.switch();
-                        $body
-                    }
-                    Err(..) => panic!("FS Mutex failed!"),
+            match FS_MUTEX.lock() {
+                Ok(_) => {
+                    println!(
+                        "-> got on fsmutex {:?}",
+                        std::thread::current().name()
+                    );
+                    ($target_dir).run(|| $body)
                 }
-            });
+                Err(..) => panic!("FS Mutex failed!"),
+            }
         };
     }
 
@@ -31,12 +32,10 @@ mod tests {
         let args: [&[&str]; 1] = [&[]];
         let namespaces = make_namespaces(&args).next().unwrap();
 
-        let res;
-        let tmp_dir = TempDir::create("cmd_init_no_args");
+        let tmp_dir = TempDir::<()>::create("cmd_init_no_args")
+            .with_mutex(&crate::TEST_MUTEX);
 
-        switch_dir!(tmp_dir, {
-            res = cmd_init(&namespaces);
-        });
+        let res = switch_dir!(tmp_dir, { cmd_init(&namespaces) });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -51,12 +50,10 @@ mod tests {
         let args: [&[&str]; 1] = [&["."]];
         let namespaces = make_namespaces(&args).next().unwrap();
 
-        let res;
-        let tmp_dir = TempDir::create("cmd_init_no_args");
+        let tmp_dir = TempDir::<()>::create("cmd_init_no_args")
+            .with_mutex(&crate::TEST_MUTEX);
 
-        switch_dir!(tmp_dir, {
-            res = cmd_init(&namespaces);
-        });
+        let res = switch_dir!(tmp_dir, { cmd_init(&namespaces) });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -71,12 +68,10 @@ mod tests {
         let args: [&[&str]; 1] = [&["new_dir"]];
         let namespaces = make_namespaces(&args).next().unwrap();
 
-        let res;
-        let tmp_dir = TempDir::create("cmd_init_no_args");
+        let tmp_dir = TempDir::<()>::create("cmd_init_no_args")
+            .with_mutex(&crate::TEST_MUTEX);
 
-        switch_dir!(tmp_dir, {
-            res = cmd_init(&namespaces);
-        });
+        let res = switch_dir!(tmp_dir, { cmd_init(&namespaces) });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
