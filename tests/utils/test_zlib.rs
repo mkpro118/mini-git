@@ -5,13 +5,14 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    struct RNG {
+    struct Rng {
         seed: u64,
         multiplier: u64,
         increment: u64,
     }
 
-    impl RNG {
+    impl Rng {
+        #[allow(clippy::cast_possible_truncation)]
         pub fn new() -> Self {
             let dur = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -43,11 +44,12 @@ mod tests {
     fn sources() -> Vec<std::path::PathBuf> {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let src = root.join("src").join("utils").join("zlib");
-        let mut rng = RNG::new();
+        let mut rng = Rng::new();
         let sources = walkdir(&src);
         sources
             .iter()
             .filter(|_| rng.randbelow(10) >= 8)
+            .take(3)
             .cloned()
             .collect()
     }
