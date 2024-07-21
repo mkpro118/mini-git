@@ -1,3 +1,4 @@
+pub mod test_cat_file;
 pub mod test_hash_object;
 pub mod test_init;
 
