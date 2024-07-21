@@ -6,6 +6,18 @@ use crate::core::objects::{blob::Blob, commit::Commit, tag::Tag, tree::Tree};
 use crate::core::objects::{hash_object, write_object, GitObject};
 use crate::core::GitRepository;
 
+/// Computes the hash for a git object
+///
+/// This handles the subcommand
+///
+/// ```bash
+/// mini_git hash-object [--type TYPE] [--write] path
+/// ```
+///
+/// # Errors
+///
+/// If file system operations fail, or if input paths are not valid.
+/// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
 pub fn cmd_hash_object(args: &Namespace) -> Result<String, String> {
     let Ok(data) = std::fs::read(&args["path"]) else {
