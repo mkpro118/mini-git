@@ -905,7 +905,7 @@ impl ArgumentParser {
             return Err(format!("{help} See '{name} --help'"));
         }
 
-        help.push_str("\nSimilar subcommands are:\n");
+        help.push_str("\n\nSimilar subcommands are:\n");
 
         for sub in matches {
             help.push_str("  ");
