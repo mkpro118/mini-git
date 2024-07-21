@@ -31,7 +31,7 @@ This project is currently a work-in-progress
 ### Roadmap
 
 - [ ] `add`
-- [ ] `cat-file`
+- [x] `cat-file`
 - [ ] `check-ignore`
 - [ ] `checkout`
 - [ ] `commit`
