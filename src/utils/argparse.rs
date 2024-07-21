@@ -174,10 +174,14 @@ impl Argument {
     /// ```
     /// use mini_git::utils::argparse::{Argument, ArgumentType};
     ///
-    /// let mut operation = Argument::new("operation", ArgumentType::Boolean);
+    /// let mut operation = Argument::new("operation", ArgumentType::String);
     /// operation.choices(&["add", "subtract", "multiply", "divide"]);
     /// ```
     pub fn choices(&mut self, choices: &[&str]) -> &mut Self {
+        assert!(
+            !matches!(self.arg_type, ArgumentType::Boolean),
+            "Choices cannot be used with boolean arguments"
+        );
         self.choices = Some(
             choices
                 .into_iter()
@@ -198,7 +202,7 @@ impl Argument {
     /// ```
     /// use mini_git::utils::argparse::{Argument, ArgumentType};
     ///
-    /// let mut operation = Argument::new("operation", ArgumentType::Boolean);
+    /// let mut operation = Argument::new("operation", ArgumentType::String);
     /// operation
     ///     .choices(&["add", "subtract", "multiply", "divide"])
     ///     .ignore_case();
@@ -1155,5 +1159,65 @@ mod tests {
         assert!(result.is_ok());
         let namespace = result.unwrap();
         assert_eq!(namespace.values.get("flag"), Some(&"true".to_string()));
+    }
+
+    #[test]
+    fn test_parse_args_with_choices() {
+        let choices = ["add", "subtract", "multiply", "divide"];
+        let mut parser = ArgumentParser::new("Test parser");
+        parser
+            .add_argument("ops", ArgumentType::String)
+            .required()
+            .choices(&choices);
+        parser.compile();
+
+        for op in choices {
+            let result = parser.parse_args(&[op]);
+            assert!(result.is_ok());
+            let namespace = result.unwrap();
+            assert_eq!(namespace.values.get("ops"), Some(&op.to_owned()));
+        }
+    }
+
+    #[test]
+    fn test_parse_args_with_bad_choices() {
+        let choices = ["add", "subtract", "multiply", "divide"];
+        let mut parser = ArgumentParser::new("Test parser");
+        parser
+            .add_argument("ops", ArgumentType::String)
+            .required()
+            .choices(&choices);
+        parser.compile();
+
+        let bad_choices = ["exp", "log", "pow"];
+        for op in bad_choices {
+            let result = parser.parse_args(&[op]);
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_parse_args_with_choices_ignore_case() {
+        let choices = ["add", "subtract", "multiply", "divide"];
+        let mut parser = ArgumentParser::new("Test parser");
+        parser
+            .add_argument("ops", ArgumentType::String)
+            .required()
+            .choices(&choices)
+            .ignore_case();
+        parser.compile();
+
+        let choices = [
+            "Add", "add", "ADD", "aDD", "Subtract", "subtract", "SUBTRACT",
+            "suBTRAct", "Multiply", "subtract", "MULTIPLY", "muLTIply",
+            "Divide", "divide", "DIVIDE", "diVIDe",
+        ];
+
+        for op in choices {
+            let result = parser.parse_args(&[op]);
+            assert!(result.is_ok());
+            let namespace = result.unwrap();
+            assert_eq!(namespace.values.get("ops"), Some(&op.to_owned()));
+        }
     }
 }
