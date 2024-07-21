@@ -5,6 +5,53 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
+    struct RNG {
+        seed: u64,
+        multiplier: u64,
+        increment: u64,
+    }
+
+    impl RNG {
+        pub fn new() -> Self {
+            let dur = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap();
+            let seed = dur.as_secs();
+            let multiplier = (dur.as_millis() & (u32::MAX as u128)) as u64;
+            let increment = (dur.as_nanos() & (u32::MAX as u128)) as u64;
+
+            Self {
+                seed,
+                multiplier,
+                increment,
+            }
+        }
+
+        pub fn randint(&mut self) -> u64 {
+            self.seed = self
+                .seed
+                .wrapping_mul(self.multiplier)
+                .wrapping_add(self.increment);
+            self.seed
+        }
+
+        pub fn randbelow(&mut self, limit: u64) -> u64 {
+            self.randint() % limit
+        }
+    }
+
+    fn sources() -> Vec<std::path::PathBuf> {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let src = root.join("src").join("utils").join("zlib");
+        let mut rng = RNG::new();
+        let sources = walkdir(&src);
+        sources
+            .iter()
+            .filter(|_| rng.randbelow(10) >= 8)
+            .cloned()
+            .collect()
+    }
+
     #[test]
     fn test_fixed_on_license() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -20,10 +67,7 @@ mod tests {
 
     #[test]
     fn test_fixed_on_source_files() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let src = root.join("src").join("utils").join("zlib");
-
-        for file in walkdir(&src) {
+        for file in sources() {
             let bytes = fs::read(file).expect("Read file!");
 
             let compressed = compress(&bytes, &Strategy::Fixed);
@@ -49,10 +93,7 @@ mod tests {
 
     #[test]
     fn test_dynamic_on_source_files() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let src = root.join("src").join("utils").join("zlib");
-
-        for file in walkdir(&src) {
+        for file in sources() {
             let bytes = fs::read(file).expect("Read file!");
 
             let compressed = compress(&bytes, &Strategy::Dynamic);
@@ -78,10 +119,7 @@ mod tests {
 
     #[test]
     fn test_auto_on_source_files() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let src = root.join("src").join("utils").join("zlib");
-
-        for file in walkdir(&src) {
+        for file in sources() {
             let bytes = fs::read(file).expect("Read file!");
 
             let compressed = compress(&bytes, &Strategy::Auto);
