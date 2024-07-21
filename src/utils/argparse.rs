@@ -837,6 +837,9 @@ impl ArgumentParser {
     ) -> Result<(), String> {
         // Positional argument
         if positionals.is_empty() {
+            if self.subcommand_required && parsed.subcommand.is_none() {
+                return self.check_subcommand(parsed, Some(arg.clone()));
+            }
             return Err(format!("Unexpected positional argument: {arg}"));
         }
 
@@ -1019,7 +1022,7 @@ fn dl_distance(a: &str, b: &str) -> usize {
     let max_dist = len_a + len_b;
 
     let mut da = [0; 128];
-    let mut dist = vec![vec![0; len_a + 2]; len_b + 2];
+    let mut dist = vec![vec![0; len_b + 2]; len_a + 2];
 
     let idx = |x: i32| (x + 1) as usize;
 
@@ -1045,8 +1048,8 @@ fn dl_distance(a: &str, b: &str) -> usize {
         let mut db = 0;
 
         for j in 1..=len_b {
-            let k = da[b[j - 1] as usize];
-            let l = db;
+            let k = da[b[j - 1] as usize] as i32;
+            let l = db as i32;
             let cost = if a[i - 1] == b[j - 1] {
                 db = j;
                 0
@@ -1058,7 +1061,8 @@ fn dl_distance(a: &str, b: &str) -> usize {
                 let substitution = dist!(i - 1, j - 1) + cost;
                 let insertion = dist!(i, j - 1) + 1;
                 let deletion = dist!(i - 1, j) + 1;
-                let transposition = dist!(k - 1, l - 1) + i + j - (k + l + 1);
+                let transposition =
+                    dist!(k - 1, l - 1) + (i + j + 1) - ((k + l) as usize);
                 substitution.min(insertion).min(deletion).min(transposition)
             };
         }
