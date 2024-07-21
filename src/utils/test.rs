@@ -18,6 +18,7 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 /// A struct representing a temporary directory for testing purposes.
 ///
@@ -34,12 +35,14 @@ use std::path::{Path, PathBuf};
 /// // Perform test operations in the temporary directory
 /// // The directory will be automatically cleaned up when `temp_dir` goes out of scope
 /// ```
-pub struct TempDir {
+pub struct TempDir<'a, T> {
     original_dir: PathBuf,
     tmp_dir: PathBuf,
+    auto_revert: bool,
+    mutex: Option<&'a Mutex<T>>,
 }
 
-impl TempDir {
+impl<'a, T> TempDir<'a, T> {
     /// Returns a reference to the path of the temporary test directory.
     ///
     /// # Examples
@@ -96,7 +99,13 @@ impl TempDir {
         Self {
             original_dir,
             tmp_dir,
+            auto_revert: true,
+            mutex: None,
         }
+    }
+
+    pub fn auto_revert(&mut self, revert: bool) {
+        self.auto_revert = revert;
     }
 
     /// Switches to the temporary directory.
@@ -120,7 +129,48 @@ impl TempDir {
     /// // The current working directory is now back to the original
     /// ```
     pub fn switch(&self) {
-        env::set_current_dir(&self.tmp_dir).expect("Should chdir");
+        Self::switch_to(self.mutex, &self.tmp_dir);
+    }
+
+    pub fn switch_back(&self) {
+        Self::switch_to(self.mutex, &self.original_dir);
+    }
+
+    pub fn run<R>(&self, f: impl Fn() -> R) -> R {
+        if let Some(mutex) = self.mutex {
+            if let Ok(_) = mutex.lock() {
+                Self::switch_dir(&self.tmp_dir);
+                return f();
+            } else {
+                panic!("TempDir Mutex failed!");
+            }
+        }
+
+        Self::switch_dir(&self.tmp_dir);
+        f()
+    }
+
+    fn switch_to<P>(mutex: Option<&'a Mutex<T>>, to: P)
+    where
+        P: AsRef<Path>,
+    {
+        if let Some(mutex) = mutex {
+            if let Ok(_) = mutex.lock() {
+                Self::switch_dir(to);
+                return;
+            } else {
+                panic!("TempDir Mutex failed!")
+            }
+        }
+
+        Self::switch_dir(to);
+    }
+
+    fn switch_dir<P>(to: P)
+    where
+        P: AsRef<Path>,
+    {
+        env::set_current_dir(to).expect("Should chdir");
     }
 
     /// Reverts the current working directory to the original directory
@@ -144,11 +194,19 @@ impl TempDir {
     pub fn revert(&self) {
         // This may not immediately delete, so we just ignore the retval
         let _ = fs::remove_dir_all(&self.tmp_dir);
-        env::set_current_dir(&self.original_dir).expect("Should revert");
+
+        if self.auto_revert {
+            self.switch_back();
+        }
+    }
+
+    pub fn with_mutex(mut self, mutex: &'a Mutex<T>) -> Self {
+        self.mutex = Some(mutex);
+        self
     }
 }
 
-impl Drop for TempDir {
+impl<'a, T> Drop for TempDir<'a, T> {
     fn drop(&mut self) {
         self.revert();
     }
