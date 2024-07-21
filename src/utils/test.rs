@@ -92,12 +92,39 @@ impl TempDir {
         let dirname = format!("{dirname}{salt}");
         let test_dir = env::temp_dir().join(dirname);
         fs::create_dir_all(&test_dir).unwrap();
-        env::set_current_dir(&test_dir).expect("Should chdir");
 
-        Self {
+        let tmp_dir = Self {
             original_dir,
             test_dir,
-        }
+        };
+
+        tmp_dir.switch();
+
+        tmp_dir
+    }
+
+    /// Switches to the temporary directory.
+    ///
+    /// [`TempDir::create`] automatically switches to the temporary directory,
+    /// however this function allows a manual switch as needed.
+    ///
+    /// This is especially useful when working in a multithreaded context,
+    /// where other threads may change the current working directory in a
+    /// non-deterministic order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mini_git::utils::test::TempDir;
+    ///
+    /// // Create s
+    /// let temp_dir = TempDir::create("my_test");
+    /// // Perform test operations
+    /// temp_dir.revert();
+    /// // The current working directory is now back to the original
+    /// ```
+    pub fn switch(&self) {
+        env::set_current_dir(&self.test_dir).expect("Should chdir");
     }
 
     /// Reverts the current working directory to the original directory
