@@ -40,7 +40,7 @@ mod tests {
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(tmp_dir.test_dir());
+        check_expected_path(tmp_dir.tmp_dir());
     }
 
     #[test]
@@ -66,7 +66,7 @@ mod tests {
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(tmp_dir.test_dir());
+        check_expected_path(tmp_dir.tmp_dir());
     }
 
     #[test]
@@ -92,7 +92,7 @@ mod tests {
 
         assert!(res.contains("initialized"));
 
-        check_expected_path(&tmp_dir.test_dir().join(args[0][0]));
+        check_expected_path(&tmp_dir.tmp_dir().join(args[0][0]));
     }
 
     #[test]
