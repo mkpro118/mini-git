@@ -7,8 +7,8 @@ mod tests {
     use std::io::Write;
     use std::path::Path;
 
-    fn create_test_file(test_dir: &Path, filename: &str) {
-        let path = test_dir.join(filename);
+    fn create_test_file(tmp_dir: &Path, filename: &str) {
+        let path = tmp_dir.join(filename);
         let mut file = File::create(path).expect("Should have created file");
         file.write_all(b"test content").unwrap();
     }
@@ -20,32 +20,28 @@ mod tests {
         #[test]
         fn test_fnmatch_with_existing_files() {
             let tmp_dir = TempDir::create("existing_files");
-            let test_dir = tmp_dir.test_dir();
-            create_test_file(test_dir, "test1.txt");
-            create_test_file(test_dir, "test2.txt");
-            create_test_file(test_dir, "other.log");
+            let tmp_dir = tmp_dir.tmp_dir();
+            create_test_file(tmp_dir, "test1.txt");
+            create_test_file(tmp_dir, "test2.txt");
+            create_test_file(tmp_dir, "other.log");
 
-            let pattern = format!("{}/*.txt", test_dir.to_str().unwrap());
+            let pattern = format!("{}/*.txt", tmp_dir.to_str().unwrap());
             let result = fnmatch(&pattern).unwrap();
 
             assert_eq!(result.len(), 2);
-            assert!(result.contains(&format!(
-                "{}/test1.txt",
-                test_dir.to_str().unwrap()
-            )));
-            assert!(result.contains(&format!(
-                "{}/test2.txt",
-                test_dir.to_str().unwrap()
-            )));
+            assert!(result
+                .contains(&format!("{}/test1.txt", tmp_dir.to_str().unwrap())));
+            assert!(result
+                .contains(&format!("{}/test2.txt", tmp_dir.to_str().unwrap())));
         }
 
         #[test]
         fn test_fnmatch_with_no_matches() {
             let tmp_dir = TempDir::create("no_matches");
-            let test_dir = tmp_dir.test_dir();
-            create_test_file(test_dir, "test.log");
+            let tmp_dir = tmp_dir.tmp_dir();
+            create_test_file(tmp_dir, "test.log");
 
-            let pattern = format!("{}/*.txt", test_dir.to_str().unwrap());
+            let pattern = format!("{}/*.txt", tmp_dir.to_str().unwrap());
             let result = fnmatch(&pattern);
 
             assert!(result.is_err());
@@ -65,32 +61,32 @@ mod tests {
         #[test]
         fn test_fnmatch_with_existing_files() {
             let tmp_dir = TempDir::create("existing_files");
-            let test_dir = tmp_dir.tmp_dir();
-            create_test_file(test_dir, "test1.txt");
-            create_test_file(test_dir, "test2.txt");
-            create_test_file(test_dir, "other.log");
+            let tmp_dir = tmp_dir.tmp_dir();
+            create_test_file(tmp_dir, "test1.txt");
+            create_test_file(tmp_dir, "test2.txt");
+            create_test_file(tmp_dir, "other.log");
 
-            let pattern = format!("{}\\*.txt", test_dir.to_str().unwrap());
+            let pattern = format!("{}\\*.txt", tmp_dir.to_str().unwrap());
             let result = fnmatch(&pattern).unwrap();
 
             assert_eq!(result.len(), 2);
             assert!(result.contains(&format!(
                 "{}\\test1.txt",
-                test_dir.to_str().unwrap()
+                tmp_dir.to_str().unwrap()
             )));
             assert!(result.contains(&format!(
                 "{}\\test2.txt",
-                test_dir.to_str().unwrap()
+                tmp_dir.to_str().unwrap()
             )));
         }
 
         #[test]
         fn test_fnmatch_with_no_matches() {
             let tmp_dir = TempDir::create("no_matches");
-            let test_dir = tmp_dir.tmp_dir();
-            create_test_file(test_dir, "test.log");
+            let tmp_dir = tmp_dir.tmp_dir();
+            create_test_file(tmp_dir, "test.log");
 
-            let pattern = format!("{}\\*.txt", test_dir.to_str().unwrap());
+            let pattern = format!("{}\\*.txt", tmp_dir.to_str().unwrap());
             let result = fnmatch(&pattern);
 
             assert!(result.is_err());
