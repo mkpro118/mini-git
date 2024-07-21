@@ -170,6 +170,10 @@ impl Argument {
     /// By default, the choices are case sensitive. Use the
     /// [`ArgumentParser::ignore_case`] method to allow case insensitive choices
     ///
+    /// # Panics
+    ///
+    /// If called on an argument that has type [`ArgumentType::Boolean`]
+    ///
     /// # Example
     ///
     /// ```
@@ -185,7 +189,7 @@ impl Argument {
         );
         self.choices = Some(
             choices
-                .into_iter()
+                .iter()
                 .copied()
                 .map(String::from)
                 .collect::<HashSet<String>>(),
@@ -540,6 +544,7 @@ impl ArgumentParser {
         self
     }
 
+    #[must_use]
     pub fn closest_subcommands(&self, _to: &str) -> Vec<String> {
         vec![]
     }
@@ -727,13 +732,15 @@ impl ArgumentParser {
             // Parse arguments
             // Optional arguments
             if arg.starts_with('-') {
-                if let Some(_) = self.handle_optional(
+                if (self.handle_optional(
                     &mut parsed,
                     &arg,
                     &mut args,
                     &mut positionals,
                     cli,
-                )? {
+                )?)
+                .is_some()
+                {
                     return Ok(parsed);
                 };
             } else {
@@ -788,7 +795,7 @@ impl ArgumentParser {
                     }
                 } else {
                     parsed.values.clear();
-                    self.insert_argument(parsed, argument, arg.clone())?;
+                    Self::insert_argument(parsed, argument, arg.clone())?;
                 }
                 return Ok(Some(parsed));
             }
@@ -801,7 +808,7 @@ impl ArgumentParser {
                 let Some(val) = args.next() else {
                     return err;
                 };
-                self.insert_argument(parsed, argument, val)?;
+                Self::insert_argument(parsed, argument, val)?;
             }
             positionals.retain(|a| a.name != argument.name);
         } else {
@@ -831,7 +838,7 @@ impl ArgumentParser {
             if first_positional.is_none() {
                 *first_positional = Some(arg.clone());
             }
-            self.insert_argument(parsed, argument, arg.to_string())?;
+            Self::insert_argument(parsed, argument, arg.to_string())?;
         } else {
             return Err(format!("Unexpected argument: {arg}"));
         }
@@ -841,7 +848,6 @@ impl ArgumentParser {
     }
 
     fn insert_argument(
-        &self,
         parsed: &mut Namespace,
         argument: &Argument,
         value: String,
@@ -849,14 +855,14 @@ impl ArgumentParser {
         if let Some(ref options) = argument.choices {
             let compare_strategy = if argument.ignore_case {
                 let val = value.to_lowercase();
-                Box::new(move |x: &&String| x.to_lowercase() == val)
-                    as Box<dyn Fn(&&String) -> bool>
+                Box::new(move |x: &String| x.to_lowercase() == val)
+                    as Box<dyn FnMut(&String) -> bool>
             } else {
-                Box::new(|&x: &&String| *x == value)
-                    as Box<dyn Fn(&&String) -> bool>
+                Box::new(|x: &String| *x == value)
+                    as Box<dyn FnMut(&String) -> bool>
             };
 
-            if options.iter().find(compare_strategy).is_none() {
+            if !options.iter().any(compare_strategy) {
                 return Err(format!("not a choice: {value}"));
             }
         }
@@ -870,9 +876,7 @@ impl ArgumentParser {
         parsed: &Namespace,
         first: Option<String>,
     ) -> Result<(), String> {
-        if parsed.subcommand.is_some() {
-            return Ok(());
-        } else if !self.subcommand_required {
+        if parsed.subcommand.is_some() || !self.subcommand_required {
             return Ok(());
         }
 
