@@ -883,6 +883,29 @@ impl ArgumentParser {
             }
         }
 
+        match argument.arg_type {
+            ArgumentType::Integer => {
+                if value.parse::<isize>().is_err() {
+                    return Err(format!(
+                        "Expected integer value for '{}', \
+                    found {value}",
+                        argument.name,
+                    ));
+                }
+            }
+            ArgumentType::Float => {
+                if value.parse::<f64>().is_err() {
+                    return Err(format!(
+                        "Expected float value for '{}', \
+                    found {value}",
+                        argument.name,
+                    ));
+                }
+            }
+            ArgumentType::String => {}
+            ArgumentType::Boolean => unreachable!(),
+        };
+
         parsed.values.insert(argument.name.clone(), value);
         Ok(())
     }
