@@ -21,15 +21,17 @@ impl Command {
     }
 }
 
+macro_rules! cmd {
+    ($name:literal, $cmd:ident) => {
+        Command::new($name, $cmd::make_parser, $cmd::$cmd)
+    };
+}
+
 // Needs to be in sorted order by name
 const COMMAND_MAP: &[Command] = &[
-    Command::new("cat-file", cat_file::make_parser, cat_file::cat_file),
-    Command::new(
-        "hash-object",
-        hash_object::make_parser,
-        hash_object::hash_object,
-    ),
-    Command::new("init", init::make_parser, init::init),
+    cmd!("cat-file", cat_file),
+    cmd!("hash-object", hash_object),
+    cmd!("init", init),
 ];
 
 fn main() {
