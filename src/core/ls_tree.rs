@@ -58,18 +58,18 @@ fn tree(
         let sha = leaf.sha();
         let path = join_path(prefix, &leaf.path_as_string());
 
-        if !(recursive && obj_type == "tree") {
+        if recursive && obj_type == "tree" {
+            if show_trees {
+                acc.push_str(&repr_leaf(&mode, sha, obj_type, &path));
+            }
+            tree(acc, repo, sha, &path, recursive, show_trees, only_trees)?;
+        } else {
             // Base case
             if only_trees && obj_type != "tree" {
                 continue;
             }
 
             acc.push_str(&repr_leaf(&mode, sha, obj_type, &path));
-        } else {
-            if show_trees {
-                acc.push_str(&repr_leaf(&mode, sha, obj_type, &path));
-            }
-            tree(acc, repo, sha, &path, recursive, show_trees, only_trees)?;
         };
     }
     Ok(())
