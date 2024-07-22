@@ -46,7 +46,7 @@ fn tree(
 ) -> Result<(), String> {
     let sha = objects::find_object(repo, tree_ref, Some("tree"), false);
     let GitObject::Tree(obj) = objects::read_object(repo, &sha)? else {
-        unreachable!();
+        return Err(format!("Not a tree object: {tree_ref}"));
     };
 
     for leaf in obj.leaves() {
