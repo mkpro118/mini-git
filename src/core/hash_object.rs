@@ -62,15 +62,10 @@ pub fn make_parser() -> ArgumentParser {
     );
 
     parser
-        .add_argument("path", ArgumentType::String)
-        .required()
-        .short('p')
-        .add_help("Read object from <file>");
-
-    parser
         .add_argument("type", ArgumentType::String)
-        .required()
+        .optional()
         .short('t')
+        .choices(&["blob", "commit", "tag", "tree"])
         .default("blob")
         .add_help("Specify the type of object");
 
@@ -79,6 +74,12 @@ pub fn make_parser() -> ArgumentParser {
         .optional()
         .short('w')
         .add_help("Actually write the object into the database");
+
+    parser
+        .add_argument("path", ArgumentType::String)
+        .required()
+        .short('p')
+        .add_help("Read object from <file>");
 
     parser
 }
