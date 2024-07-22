@@ -79,6 +79,7 @@ pub struct ArgumentParser {
     exit_code: i32,
     compiled: bool,
     subcommand_required: bool,
+    max_arg_len: usize,
 }
 
 /// Represents the parsed arguments.
@@ -384,6 +385,7 @@ impl Default for ArgumentParser {
             exit_code: 0,
             compiled: false,
             subcommand_required: false,
+            max_arg_len: 0,
         }
     }
 }
@@ -483,6 +485,7 @@ impl ArgumentParser {
         }
         self.compiled = false;
         self.arguments.push(Argument::new(name, arg_type));
+        self.max_arg_len = self.max_arg_len.max(name.len());
         self.arguments.last_mut().unwrap()
     }
 
@@ -962,34 +965,91 @@ impl ArgumentParser {
     #[must_use]
     pub fn help(&self) -> String {
         let name = Self::exec_name();
+
+        // First line, usage text
         let mut help_text = format!(
-            "{name}\n{}\n\nUsage: {name} {} [OPTIONS]",
-            self.description,
+            "Usage: {name} {} [options]",
             self.cmd_chain.as_ref().map_or("", |x| x.as_str())
         );
 
+        // First line, usage text positional args
+        for positional in self.required_positionals() {
+            help_text.push(' ');
+            // If positional arg has default, display it as an optional arg
+            if positional.default.is_some() {
+                help_text.push_str("[ --");
+                help_text.push_str(&positional.name);
+                help_text.push(' ');
+                help_text.push_str(&positional.name.to_uppercase());
+                help_text.push_str(" ]");
+            } else {
+                help_text.push_str(&positional.name.to_uppercase());
+            }
+        }
+
+        // First line, usage text, subcommands if any
         if !self.subcommands.is_empty() {
             help_text.push_str(" [SUBCOMMAND]");
         }
 
+        help_text.push_str("\n\n");
+
+        // Next line, descriptoin
+        help_text.push_str(&self.description);
+
+        // Next line, options header
         help_text.push_str("\n\nOptions:\n");
 
+        // List all options
         for arg in &self.arguments {
+            let has_default = arg.default.is_some();
             let short = arg
                 .short
                 .map_or_else(|| " ".repeat(4), |c| format!("-{c}, "));
-            let required = if arg.required { " (required)" } else { "" };
+
+            let required = if arg.required && !has_default {
+                " (required)"
+            } else {
+                ""
+            };
+
+            // Spaces to ensure all help text starts on the same column
+            let padding = " ".repeat(self.max_arg_len - arg.name.len() + 4);
+
+            // {short} {name} {padding} {help} {required}
             help_text.push_str(&format!(
-                "  {}--{:<20}{} {}\n",
-                short, arg.name, arg.help, required
+                "  {short}--{}{padding} {} {required}\n",
+                arg.name, arg.help
             ));
+
+            // For options that have choices, list the choices on the next line
+            if let Some(ref choices) = arg.choices {
+                let indent = 2 + 4 + 2 + self.max_arg_len + 1 + 4 + 2;
+                help_text.push_str(&" ".repeat(indent));
+                help_text.push_str("Choices: [ ");
+
+                let mut choices =
+                    choices.iter().map(|x| x.as_str()).collect::<Vec<&str>>();
+
+                // arg.choices is a set, sort to ensure consistent help message
+                choices.sort_unstable();
+
+                let choices = choices.join(", ");
+                help_text.push_str(&choices);
+
+                if arg.ignore_case {
+                    help_text.push_str(" (case insensitive)");
+                }
+                help_text.push_str(" ]\n");
+            }
         }
 
+        // List all subcommands and their descriptions
         if !self.subcommands.is_empty() {
             help_text.push_str("\nSubcommands:\n");
             for subcommand in &self.subcommands {
                 help_text.push_str(&format!(
-                    "  {:<20} {}\n",
+                    "  {:<16} {}\n",
                     subcommand.name, subcommand.parser.description
                 ));
             }
