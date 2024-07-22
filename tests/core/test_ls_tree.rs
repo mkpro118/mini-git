@@ -189,7 +189,6 @@ mod tests {
             ls_tree(&namespace)
         });
 
-        dbg!(&res);
         assert!(res.is_ok());
         let res = res.unwrap();
         let expected = [
@@ -316,7 +315,6 @@ mod tests {
             ls_tree(&namespace)
         });
 
-        dbg!(&res);
         assert!(res.is_ok());
         let res = res.unwrap();
         let expected = [
@@ -346,6 +344,28 @@ mod tests {
             ),
             exp_blob!("3", "readme.md"),
             exp_blob!("4", "test.file"),
+        ];
+        check_output(&expected, &res);
+    }
+
+    #[test]
+    fn test_root_dir_only_trees() {
+        setup();
+
+        let args: [&[&str]; 1] = [&["-r", "-t", "-d", &"f".repeat(40)]];
+
+        let res = switch_dir!({
+            let namespace = make_namespaces(&args).next().unwrap();
+            ls_tree(&namespace)
+        });
+
+        assert!(res.is_ok());
+        let res = res.unwrap();
+        let expected = [
+            exp_tree!("0", "dir1"),
+            exp_tree!("5", join_path("dir1", "subdir1")),
+            exp_tree!("1", "dir2"),
+            exp_tree!("7", join_path("dir2", "subdir2")),
         ];
         check_output(&expected, &res);
     }
