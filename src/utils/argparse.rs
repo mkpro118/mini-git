@@ -1029,7 +1029,7 @@ impl ArgumentParser {
                 help_text.push_str("Choices: [ ");
 
                 let mut choices =
-                    choices.iter().map(|x| x.as_str()).collect::<Vec<&str>>();
+                    choices.iter().map(String::as_str).collect::<Vec<&str>>();
 
                 // arg.choices is a set, sort to ensure consistent help message
                 choices.sort_unstable();
