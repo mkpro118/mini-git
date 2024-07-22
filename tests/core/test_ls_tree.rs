@@ -304,4 +304,49 @@ mod tests {
         ];
         check_output(&expected, &res);
     }
+
+    #[test]
+    fn test_root_dir_show_trees() {
+        setup();
+
+        let args: [&[&str]; 1] = [&["-r", "-t", &"f".repeat(40)]];
+
+        let res = switch_dir!({
+            let namespace = make_namespaces(&args).next().unwrap();
+            ls_tree(&namespace)
+        });
+
+        dbg!(&res);
+        assert!(res.is_ok());
+        let res = res.unwrap();
+        let expected = [
+            exp_tree!("0", "dir1"),
+            exp_blob!("6", join_path("dir1", "file1")),
+            exp_blob!("7", join_path("dir1", "file2")),
+            exp_tree!("5", join_path("dir1", "subdir1")),
+            exp_blob!(
+                "a",
+                join_path(&join_path("dir1", "subdir1"), "subfile1")
+            ),
+            exp_blob!(
+                "b",
+                join_path(&join_path("dir1", "subdir1"), "subfile2")
+            ),
+            exp_tree!("1", "dir2"),
+            exp_blob!("8", join_path("dir2", "file1")),
+            exp_blob!("9", join_path("dir2", "file2")),
+            exp_tree!("7", join_path("dir2", "subdir2")),
+            exp_blob!(
+                "c",
+                join_path(&join_path("dir2", "subdir2"), "subfile1")
+            ),
+            exp_blob!(
+                "d",
+                join_path(&join_path("dir2", "subdir2"), "subfile2")
+            ),
+            exp_blob!("3", "readme.md"),
+            exp_blob!("4", "test.file"),
+        ];
+        check_output(&expected, &res);
+    }
 }
