@@ -9,17 +9,9 @@ mod tests {
 
     use mini_git::utils::test::TempDir;
 
-    use std::fs;
-    use std::path::PathBuf;
     use std::sync::Mutex;
 
     static FS_MUTEX: Mutex<Option<TempDir<()>>> = Mutex::new(None);
-    static OBJECT_DIR: fn() -> PathBuf = || {
-        std::env::current_dir()
-            .unwrap()
-            .join(".git")
-            .join("objects")
-    };
 
     make_namespaces_from!(make_parser);
 
