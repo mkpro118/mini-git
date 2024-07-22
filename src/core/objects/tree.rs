@@ -15,6 +15,8 @@ use crate::utils::hex;
 
 /// The byte representation of a space character.
 const SPACE_BYTE: u8 = b' ';
+/// The byte representation of the '0' character.
+const ASCII_ZERO: u8 = b'0';
 /// The byte representation of a null character.
 const NULL_BYTE: u8 = b'\0';
 /// The size of the mode field in a tree leaf.
@@ -23,7 +25,7 @@ const MODE_SIZE: usize = 6;
 /// Represents a single entry (leaf) in a Git tree object.
 #[cfg_attr(test, derive(Clone))]
 #[derive(Debug)]
-struct Leaf {
+pub struct Leaf {
     /// The mode of the entry (file permissions).
     mode: [u8; MODE_SIZE],
     /// The path (name) of the entry.
@@ -72,7 +74,7 @@ impl Leaf {
     // sorted before a file name `foo`.
     pub fn cmp_path(&self) -> Vec<u8> {
         let mut path = self.path.clone();
-        if SPACE_BYTE == self.mode[0] {
+        if ASCII_ZERO == self.mode[0] {
             path.push(b'/');
         }
         path
@@ -125,7 +127,7 @@ impl traits::Deserialize for Leaf {
         }
 
         let Some(mode) = data[..space_idx].iter().rev().enumerate().try_fold(
-            [SPACE_BYTE; 6],
+            [ASCII_ZERO; 6],
             |mut acc, (i, byte)| {
                 if !byte.is_ascii_digit() {
                     return None;
@@ -178,7 +180,7 @@ impl traits::Serialize for Leaf {
     fn serialize(&self) -> Vec<u8> {
         [
             match self.mode[0] {
-                SPACE_BYTE => self.mode[1..].to_vec(),
+                ASCII_ZERO => self.mode[1..].to_vec(),
                 _ => self.mode.to_vec(),
             },
             vec![SPACE_BYTE],
@@ -289,7 +291,7 @@ mod tests {
     fn concat_leaf(leaf: &Leaf) -> Vec<u8> {
         [
             match leaf.mode[0] {
-                SPACE_BYTE => leaf.mode[1..].to_vec(),
+                ASCII_ZERO => leaf.mode[1..].to_vec(),
                 _ => leaf.mode.to_vec(),
             },
             vec![SPACE_BYTE],
@@ -303,7 +305,7 @@ mod tests {
     fn good_data() -> [Leaf; 3] {
         [
             Leaf {
-                mode: *b" 10644",
+                mode: *b"010644",
                 path: b"test".to_vec(),
                 sha: "2".repeat(40),
                 len: 0,
@@ -469,7 +471,7 @@ mod tests {
     #[test]
     fn test_leaf_serialize_good_manual() {
         let leaf = Leaf {
-            mode: *b" 00644",
+            mode: *b"000644",
             path: b"leaf".to_vec(),
             sha: "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391".to_owned(),
             len: 0,
