@@ -10,8 +10,6 @@
 //! Git-compatible operations such as serialization, deserialization,
 //! and format identification.
 
-use std::fmt::Write;
-
 use crate::core::objects::traits;
 use crate::utils::hex;
 
