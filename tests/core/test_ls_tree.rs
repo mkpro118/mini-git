@@ -8,6 +8,7 @@ mod tests {
     use mini_git::core::GitRepository;
 
     use mini_git::utils::test::TempDir;
+    use mini_git::utils::zlib;
 
     use std::sync::Mutex;
 
@@ -25,6 +26,24 @@ mod tests {
                 Err(..) => panic!("FS Mutex failed!"),
             }
         };
+    }
+
+    macro_rules! exp_tree {
+        ($sha:literal, $name:literal) => {
+            ("040000", &$sha.repeat(40), "tree", $name.to_string())
+        };
+        ($sha:literal, $name:expr) => {{
+            ("040000", &$sha.repeat(40), "tree", $name)
+        }};
+    }
+
+    macro_rules! exp_blob {
+        ($sha:literal, $name:literal) => {
+            ("100644", &$sha.repeat(40), "blob", $name.to_string())
+        };
+        ($sha:literal, $name:expr) => {{
+            ("100644", &$sha.repeat(40), "blob", $name)
+        }};
     }
 
     fn create_temp_repo<'a>() -> TempDir<'a, ()> {
@@ -72,7 +91,12 @@ mod tests {
             ($tree:ident, $leaves:ident, $hash:literal) => {
                 let mut $tree = Tree::new();
                 $tree.set_leaves($leaves);
-                serialized.push(($tree.serialize(), $hash.repeat(40)));
+                let serialized_tree = &$tree.serialize();
+                let len = serialized_tree.len();
+                let mut data = format!("tree {len}\0").as_bytes().to_vec();
+                data.extend_from_slice(&serialized_tree);
+                let compressed = zlib::compress(&data, &zlib::Strategy::Auto);
+                serialized.push((compressed, $hash.repeat(40)));
             };
         }
 
@@ -83,9 +107,12 @@ mod tests {
         make_tree!(dir2_tree, subdir2, "7");
 
         let obj_dir = repo.gitdir().join("objects");
+        dbg!(&obj_dir);
 
         for (data, hash) in serialized {
-            let path = obj_dir.join(&hash[..2]).join(&hash[2..]);
+            let dir = obj_dir.join(&hash[..2]);
+            std::fs::create_dir(&dir).expect("Should create dir");
+            let path = dir.join(&hash[2..]);
             assert!(!path.is_file(), "Setup failed! File already exists");
             std::fs::write(&path, data).expect("Should write");
             assert!(path.is_file(), "Setup failed! File write failed");
@@ -106,11 +133,34 @@ mod tests {
         };
     }
 
+    fn check_output(expected: &[(&str, &String, &str, String)], res: &str) {
+        let res: Vec<&str> = res.trim().split('\n').collect();
+        assert_eq!(res.len(), expected.len());
+        for (line, (mode, sha, type_, path)) in res.iter().zip(expected.iter())
+        {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            assert_eq!(parts.len(), 4);
+            assert_eq!(parts[0], *mode);
+            assert_eq!(parts[1], *sha);
+            assert_eq!(parts[2], *type_);
+            assert_eq!(parts[3], *path);
+        }
+    }
+
+    fn join_path(x: &str, y: &str) -> String {
+        std::path::Path::new(x)
+            .join(y)
+            .as_os_str()
+            .to_str()
+            .expect("path")
+            .to_owned()
+    }
+
     #[test]
     fn test_root_dir_no_recursive() {
         setup();
 
-        let args: [&[&str]; 0] = [];
+        let args: [&[&str]; 1] = [&[&"f".repeat(40)]];
 
         let res = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
@@ -118,29 +168,63 @@ mod tests {
         });
 
         assert!(res.is_ok());
-        todo!()
+        let expected = [
+            exp_tree!("0", "dir1"),
+            exp_tree!("1", "dir2"),
+            exp_blob!("3", "readme.md"),
+            exp_blob!("4", "test.file"),
+        ];
+
+        check_output(&expected, &res.unwrap());
     }
 
     #[test]
     fn test_root_dir_recursive() {
         setup();
 
-        let args: [&[&str]; 0] = [];
+        let args: [&[&str]; 1] = [&["-r", &"f".repeat(40)]];
 
         let res = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
             ls_tree(&namespace)
         });
 
+        dbg!(&res);
         assert!(res.is_ok());
-        todo!()
+        let res = res.unwrap();
+        let expected = [
+            exp_blob!("6", join_path("dir1", "file1")),
+            exp_blob!("7", join_path("dir1", "file2")),
+            exp_blob!(
+                "a",
+                join_path(&join_path("dir1", "subdir1"), "subfile1")
+            ),
+            exp_blob!(
+                "b",
+                join_path(&join_path("dir1", "subdir1"), "subfile2")
+            ),
+            exp_blob!("8", join_path("dir2", "file1")),
+            exp_blob!("9", join_path("dir2", "file2")),
+            exp_blob!(
+                "a",
+                join_path(&join_path("dir2", "subdir2"), "subfile1")
+            ),
+            exp_blob!(
+                "b",
+                join_path(&join_path("dir2", "subdir2"), "subfile2")
+            ),
+            exp_blob!("3", "readme.md"),
+            exp_blob!("4", "test.file"),
+        ];
+        check_output(&expected, &res);
     }
 
     #[test]
-    fn test_root_subdir1_no_recursive() {
+    #[ignore = "WIP"]
+    fn test_dir1_no_recursive() {
         setup();
 
-        let args: [&[&str]; 0] = [];
+        let args: [&[&str]; 1] = [&[&"0".repeat(40)]];
 
         let res = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
@@ -148,14 +232,17 @@ mod tests {
         });
 
         assert!(res.is_ok());
-        todo!()
+        let res = res.unwrap();
+        let expected = [exp_tree!("0", "lol")];
+        check_output(&expected, &res);
     }
 
     #[test]
-    fn test_root_subdir1_recursive() {
+    #[ignore = "WIP"]
+    fn test_dir1_recursive() {
         setup();
 
-        let args: [&[&str]; 0] = [];
+        let args: [&[&str]; 1] = [&["-r", &"0".repeat(40)]];
 
         let res = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
@@ -163,14 +250,17 @@ mod tests {
         });
 
         assert!(res.is_ok());
-        todo!()
+        let res = res.unwrap();
+        let expected = [exp_tree!("0", "lol")];
+        check_output(&expected, &res);
     }
 
     #[test]
-    fn test_root_subdir2_no_recursive() {
+    #[ignore = "WIP"]
+    fn test_dir2_no_recursive() {
         setup();
 
-        let args: [&[&str]; 0] = [];
+        let args: [&[&str]; 1] = [&["-r", &"1".repeat(40)]];
 
         let res = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
@@ -178,14 +268,17 @@ mod tests {
         });
 
         assert!(res.is_ok());
-        todo!()
+        let res = res.unwrap();
+        let expected = [exp_tree!("0", "lol")];
+        check_output(&expected, &res);
     }
 
     #[test]
-    fn test_root_subdir2_recursive() {
+    #[ignore = "WIP"]
+    fn test_dir2_recursive() {
         setup();
 
-        let args: [&[&str]; 0] = [];
+        let args: [&[&str]; 1] = [&["-r", &"1".repeat(40)]];
 
         let res = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
@@ -193,6 +286,8 @@ mod tests {
         });
 
         assert!(res.is_ok());
-        todo!()
+        let res = res.unwrap();
+        let expected = [exp_tree!("0", "lol")];
+        check_output(&expected, &res);
     }
 }
