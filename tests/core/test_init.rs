@@ -29,7 +29,7 @@ mod tests {
         let tmp_dir = TempDir::<()>::create("cmd_init_no_args")
             .with_mutex(&crate::TEST_MUTEX);
 
-        let res = switch_dir!(tmp_dir, { cmd_init(&namespaces) });
+        let res = switch_dir!(tmp_dir, { init(&namespaces) });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -47,7 +47,7 @@ mod tests {
         let tmp_dir = TempDir::<()>::create("cmd_init_no_args")
             .with_mutex(&crate::TEST_MUTEX);
 
-        let res = switch_dir!(tmp_dir, { cmd_init(&namespaces) });
+        let res = switch_dir!(tmp_dir, { init(&namespaces) });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
@@ -65,7 +65,7 @@ mod tests {
         let tmp_dir = TempDir::<()>::create("cmd_init_no_args")
             .with_mutex(&crate::TEST_MUTEX);
 
-        let res = switch_dir!(tmp_dir, { cmd_init(&namespaces) });
+        let res = switch_dir!(tmp_dir, { init(&namespaces) });
 
         assert!(res.is_ok(), "{res:?}");
         let res = res.unwrap();
