@@ -10,6 +10,8 @@
 //! Git-compatible operations such as serialization, deserialization,
 //! and format identification.
 
+use std::fmt::Write;
+
 use crate::core::objects::traits;
 use crate::utils::hex;
 
@@ -49,9 +51,19 @@ impl Leaf {
         &self.mode
     }
 
+    /// Returns the mode as an owned String
+    pub fn mode_as_string(&self) -> String {
+        self.mode.iter().map(|x| char::from(*x)).collect()
+    }
+
     /// Returns the `path` of the item
     pub fn path(&self) -> &[u8] {
         &self.path
+    }
+
+    /// Returns the mode as an owned String
+    pub fn path_as_string(&self) -> String {
+        self.path().iter().map(|x| char::from(*x)).collect()
     }
 
     /// Returns the SHA hex digest of the item
@@ -65,6 +77,15 @@ impl Leaf {
     /// The length of the leaf in bytes.
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    pub fn obj_type(&self) -> Option<&'static str> {
+        match &self.mode[..2] {
+            b"04" => Some("tree"),
+            b"10" | b"12" => Some("blob"),
+            b"16" => Some("commit"),
+            _ => None,
+        }
     }
 
     // This is the key for comparing two leaves.
