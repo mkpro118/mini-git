@@ -902,8 +902,8 @@ impl ArgumentParser {
                     ));
                 }
             }
-            ArgumentType::String => {}
-            ArgumentType::Boolean => unreachable!(),
+            ArgumentType::Boolean if argument.name != "help" => unreachable!(),
+            _ => {}
         };
 
         parsed.values.insert(argument.name.clone(), value);
@@ -1557,6 +1557,89 @@ mod tests {
         let parser = setup_subcommand_parser();
 
         let bad_args = [["hello", "world"], ["foo", "bar"]];
+
+        for args in bad_args {
+            let res = parser.parse_args(&args);
+            assert!(res.is_err());
+        }
+    }
+
+    fn make_type_parser(float: bool) -> ArgumentParser {
+        use ArgumentType::{Float, Integer};
+        let mut parser = ArgumentParser::new("type_check");
+        parser
+            .add_argument("num1", if float { Float } else { Integer })
+            .optional();
+        parser
+            .add_argument("num2", if float { Float } else { Integer })
+            .optional();
+        parser
+            .add_argument("num3", if float { Float } else { Integer })
+            .optional();
+
+        parser.compile();
+        parser
+    }
+
+    #[test]
+    fn test_parse_args_type_check_integer_good() {
+        let parser = make_type_parser(false);
+        let good_args: [&[&str]; 3] =
+            [&["--num1", "2"], &["--num2", "-3"], &["--num3", "123456"]];
+
+        for args in good_args {
+            let res = parser.parse_args(&args);
+            assert!(res.is_ok());
+            let res = res.unwrap();
+            let key = args[0].strip_prefix("--").unwrap();
+            assert_eq!(res[key], args[1]);
+        }
+    }
+
+    #[test]
+    fn test_parse_args_type_check_integer_bad() {
+        let parser = make_type_parser(false);
+
+        let bad_args: [&[&str]; 3] = [
+            &["--num1", "a2"],
+            &["--num2", "5-3"],
+            &["--num3", "num123456"],
+        ];
+
+        for args in bad_args {
+            let res = parser.parse_args(&args);
+            assert!(res.is_err());
+        }
+    }
+
+    #[test]
+    fn test_parse_args_type_check_float_good() {
+        let parser = make_type_parser(true);
+
+        let good_args: [&[&str]; 3] = [
+            &["--num1", "2.71"],
+            &["--num2", "-3.141"],
+            &["--num3", "123.456"],
+        ];
+
+        for args in good_args {
+            let res = parser.parse_args(&args);
+            assert!(res.is_ok());
+            let res = res.unwrap();
+            let key = args[0].strip_prefix("--").unwrap();
+            assert_eq!(res[key], args[1]);
+        }
+    }
+
+    #[test]
+    fn test_parse_args_type_check_float_bad() {
+        let parser = make_type_parser(true);
+
+        let bad_args: [&[&str]; 3] = [
+            &["--num1", "a2.0"],
+            &["--num2", "53..00"],
+            &["--num3", "num123.456"],
+        ];
 
         for args in bad_args {
             let res = parser.parse_args(&args);
