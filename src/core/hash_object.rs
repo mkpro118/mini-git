@@ -2,8 +2,8 @@ use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::path;
 
 use crate::core::objects::traits::{Deserialize, KVLM};
+use crate::core::objects::{self, write_object, GitObject};
 use crate::core::objects::{blob::Blob, commit::Commit, tag::Tag, tree::Tree};
-use crate::core::objects::{hash_object, write_object, GitObject};
 use crate::core::GitRepository;
 
 /// Computes the hash for a git object
@@ -19,7 +19,7 @@ use crate::core::GitRepository;
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
-pub fn cmd_hash_object(args: &Namespace) -> Result<String, String> {
+pub fn hash_object(args: &Namespace) -> Result<String, String> {
     let Ok(data) = std::fs::read(&args["path"]) else {
         return Err(format!("failed to read file at {}", args["path"]));
     };
@@ -37,7 +37,7 @@ pub fn cmd_hash_object(args: &Namespace) -> Result<String, String> {
         let repo = GitRepository::new(&repo)?;
         write_object(&obj, &repo)?
     } else {
-        let (_, mut sha) = hash_object(&obj);
+        let (_, mut sha) = objects::hash_object(&obj);
         sha.hex_digest()
     };
 

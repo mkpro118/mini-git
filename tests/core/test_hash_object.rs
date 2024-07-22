@@ -67,7 +67,7 @@ mod tests {
 
         let res = switch_dir!({
             let namespaces = make_namespaces(&args).next().unwrap();
-            cmd_hash_object(&namespaces)
+            hash_object(&namespaces)
         });
 
         assert!(res.is_ok(), "{res:?}");
@@ -83,7 +83,7 @@ mod tests {
         let args: [&[&str]; 1] = [&["test.file"]];
         let res = switch_dir!({
             let namespaces = make_namespaces(&args).next().unwrap();
-            cmd_hash_object(&namespaces)
+            hash_object(&namespaces)
         });
 
         assert!(res.is_ok(), "{res:?}");
@@ -99,7 +99,7 @@ mod tests {
         let args: [&[&str]; 1] = [&["-w", "readme"]];
         let res = switch_dir!({
             let namespaces = make_namespaces(&args).next().unwrap();
-            cmd_hash_object(&namespaces)
+            hash_object(&namespaces)
         });
 
         assert!(res.is_ok(), "{res:?}");
@@ -123,7 +123,7 @@ mod tests {
         let args: [&[&str]; 1] = [&["test.file", "-w"]];
         let res = switch_dir!({
             let namespaces = make_namespaces(&args).next().unwrap();
-            cmd_hash_object(&namespaces)
+            hash_object(&namespaces)
         });
 
         assert!(res.is_ok(), "{res:?}");
