@@ -220,7 +220,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "WIP"]
     fn test_dir1_no_recursive() {
         setup();
 
@@ -233,12 +232,15 @@ mod tests {
 
         assert!(res.is_ok());
         let res = res.unwrap();
-        let expected = [exp_tree!("0", "lol")];
+        let expected = [
+            exp_blob!("6", "file1"),
+            exp_blob!("7", "file2"),
+            exp_tree!("5", "subdir1"),
+        ];
         check_output(&expected, &res);
     }
 
     #[test]
-    #[ignore = "WIP"]
     fn test_dir1_recursive() {
         setup();
 
@@ -251,7 +253,12 @@ mod tests {
 
         assert!(res.is_ok());
         let res = res.unwrap();
-        let expected = [exp_tree!("0", "lol")];
+        let expected = [
+            exp_blob!("6", "file1"),
+            exp_blob!("7", "file2"),
+            exp_blob!("a", join_path("subdir1", "subfile1")),
+            exp_blob!("b", join_path("subdir1", "subfile2")),
+        ];
         check_output(&expected, &res);
     }
 
