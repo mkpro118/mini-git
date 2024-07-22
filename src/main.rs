@@ -29,7 +29,7 @@ const COMMAND_MAP: &[Command] = &[
         hash_object::make_parser,
         hash_object::hash_object,
     ),
-    Command::new("init", init::make_parser, init::cmd_init),
+    Command::new("init", init::make_parser, init::init),
 ];
 
 fn main() {
