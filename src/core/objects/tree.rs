@@ -10,8 +10,6 @@
 //! Git-compatible operations such as serialization, deserialization,
 //! and format identification.
 
-#![allow(dead_code)]
-
 use crate::core::objects::traits;
 use crate::utils::hex;
 
@@ -44,6 +42,21 @@ pub struct Tree {
 }
 
 impl Leaf {
+    /// Returns the `mode` of the item
+    pub fn mode(&self) -> &[u8] {
+        &self.mode
+    }
+
+    /// Returns the `path` of the item
+    pub fn path(&self) -> &[u8] {
+        &self.path
+    }
+
+    /// Returns the SHA hex digest of the item
+    pub fn sha(&self) -> &str {
+        &self.sha
+    }
+
     /// Returns the length of the leaf entry when serialized.
     ///
     /// # Returns
@@ -190,6 +203,11 @@ impl Tree {
     #[must_use]
     pub fn new() -> Self {
         Self { leaves: Vec::new() }
+    }
+
+    /// Returns the leaves/items in this tree
+    pub fn leaves(&self) -> &[Leaf] {
+        &self.leaves
     }
 }
 
