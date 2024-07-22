@@ -23,7 +23,7 @@ impl Command {
 
 // Needs to be in sorted order by name
 const COMMAND_MAP: &[Command] = &[
-    Command::new("cat-file", cat_file::make_parser, cat_file::cmd_cat_file),
+    Command::new("cat-file", cat_file::make_parser, cat_file::cat_file),
     Command::new(
         "hash-object",
         hash_object::make_parser,

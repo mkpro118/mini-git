@@ -91,7 +91,7 @@ mod tests {
 
         let res = switch_dir!({
             let namespaces = make_namespaces(&args).next().unwrap();
-            cmd_cat_file(&namespaces)
+            cat_file(&namespaces)
         });
 
         assert!(res.is_ok(), "{res:?}");
@@ -109,7 +109,7 @@ mod tests {
 
         let res = switch_dir!({
             let namespaces = make_namespaces(&args).next().unwrap();
-            cmd_cat_file(&namespaces)
+            cat_file(&namespaces)
         });
 
         assert!(res.is_ok(), "{res:?}");
@@ -131,7 +131,7 @@ mod tests {
 
         let res = switch_dir!({
             let namespaces = make_namespaces(&args).next().unwrap();
-            cmd_cat_file(&namespaces)
+            cat_file(&namespaces)
         });
 
         assert!(res.is_err(), "{res:?}");
