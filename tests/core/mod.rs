@@ -1,6 +1,7 @@
 pub mod test_cat_file;
 pub mod test_hash_object;
 pub mod test_init;
+pub mod test_ls_tree;
 
 #[macro_export]
 macro_rules! make_namespaces_from {
