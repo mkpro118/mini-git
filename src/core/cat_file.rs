@@ -16,7 +16,7 @@ use crate::core::GitRepository;
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
-pub fn cmd_cat_file(args: &Namespace) -> Result<String, String> {
+pub fn cat_file(args: &Namespace) -> Result<String, String> {
     let Ok(cwd) = std::env::current_dir() else {
         return Err("Could not determined current working directory".to_owned());
     };
