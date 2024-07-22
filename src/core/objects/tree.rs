@@ -45,26 +45,31 @@ pub struct Tree {
 
 impl Leaf {
     /// Returns the `mode` of the item
+    #[must_use]
     pub fn mode(&self) -> &[u8] {
         &self.mode
     }
 
     /// Returns the mode as an owned String
+    #[must_use]
     pub fn mode_as_string(&self) -> String {
         self.mode.iter().map(|x| char::from(*x)).collect()
     }
 
     /// Returns the `path` of the item
+    #[must_use]
     pub fn path(&self) -> &[u8] {
         &self.path
     }
 
     /// Returns the mode as an owned String
+    #[must_use]
     pub fn path_as_string(&self) -> String {
         self.path().iter().map(|x| char::from(*x)).collect()
     }
 
     /// Returns the SHA hex digest of the item
+    #[must_use]
     pub fn sha(&self) -> &str {
         &self.sha
     }
@@ -73,10 +78,12 @@ impl Leaf {
     ///
     /// # Returns
     /// The length of the leaf in bytes.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[must_use]
     pub fn obj_type(&self) -> Option<&'static str> {
         match &self.mode[..2] {
             b"04" => Some("tree"),
@@ -91,6 +98,7 @@ impl Leaf {
     //
     // So a directory named `foo` would be treated as `foo/`, and would be
     // sorted before a file name `foo`.
+    #[must_use]
     pub fn cmp_path(&self) -> Vec<u8> {
         let mut path = self.path.clone();
         if ASCII_ZERO == self.mode[0] {
@@ -227,6 +235,7 @@ impl Tree {
     }
 
     /// Returns the leaves/items in this tree
+    #[must_use]
     pub fn leaves(&self) -> &[Leaf] {
         &self.leaves
     }

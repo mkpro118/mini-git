@@ -30,7 +30,7 @@ pub fn ls_tree(args: &Namespace) -> Result<String, String> {
     let only_trees = args.get("only-trees").is_some();
     let mut res = String::new();
     tree(
-        &mut res, &repo, &tree_ref, "", recursive, show_trees, only_trees,
+        &mut res, &repo, tree_ref, "", recursive, show_trees, only_trees,
     )?;
     Ok(res)
 }
@@ -75,13 +75,13 @@ fn tree(
     Ok(())
 }
 
-#[inline(always)]
+#[inline]
 fn join_path(prefix: &str, next: &str) -> String {
-    let path = std::path::Path::new(prefix).join(&next);
+    let path = std::path::Path::new(prefix).join(next);
     path.as_os_str().to_str().expect("utf-8 path").to_owned()
 }
 
-#[inline(always)]
+#[inline]
 fn repr_leaf(mode: &str, obj_type: &str, sha: &str, path: &str) -> String {
     format!("{mode} {obj_type} {sha}\t{path}\n")
 }
