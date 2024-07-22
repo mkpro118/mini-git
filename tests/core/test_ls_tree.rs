@@ -113,4 +113,94 @@ mod tests {
             Err(..) => panic!("Mutex failed!"),
         };
     }
+
+    #[test]
+    fn test_root_dir_no_recursive() {
+        setup();
+
+        let args: [&[&str]; 0] = [];
+
+        let res = switch_dir!({
+            let namespace = make_namespaces(&args).next().unwrap();
+            ls_tree(&namespace)
+        });
+
+        assert!(res.is_ok());
+        todo!()
+    }
+
+    #[test]
+    fn test_root_dir_recursive() {
+        setup();
+
+        let args: [&[&str]; 0] = [];
+
+        let res = switch_dir!({
+            let namespace = make_namespaces(&args).next().unwrap();
+            ls_tree(&namespace)
+        });
+
+        assert!(res.is_ok());
+        todo!()
+    }
+
+    #[test]
+    fn test_root_subdir1_no_recursive() {
+        setup();
+
+        let args: [&[&str]; 0] = [];
+
+        let res = switch_dir!({
+            let namespace = make_namespaces(&args).next().unwrap();
+            ls_tree(&namespace)
+        });
+
+        assert!(res.is_ok());
+        todo!()
+    }
+
+    #[test]
+    fn test_root_subdir1_recursive() {
+        setup();
+
+        let args: [&[&str]; 0] = [];
+
+        let res = switch_dir!({
+            let namespace = make_namespaces(&args).next().unwrap();
+            ls_tree(&namespace)
+        });
+
+        assert!(res.is_ok());
+        todo!()
+    }
+
+    #[test]
+    fn test_root_subdir2_no_recursive() {
+        setup();
+
+        let args: [&[&str]; 0] = [];
+
+        let res = switch_dir!({
+            let namespace = make_namespaces(&args).next().unwrap();
+            ls_tree(&namespace)
+        });
+
+        assert!(res.is_ok());
+        todo!()
+    }
+
+    #[test]
+    fn test_root_subdir2_recursive() {
+        setup();
+
+        let args: [&[&str]; 0] = [];
+
+        let res = switch_dir!({
+            let namespace = make_namespaces(&args).next().unwrap();
+            ls_tree(&namespace)
+        });
+
+        assert!(res.is_ok());
+        todo!()
+    }
 }
