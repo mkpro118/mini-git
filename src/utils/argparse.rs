@@ -1588,7 +1588,7 @@ mod tests {
             [&["--num1", "2"], &["--num2", "-3"], &["--num3", "123456"]];
 
         for args in good_args {
-            let res = parser.parse_args(&args);
+            let res = parser.parse_args(args);
             assert!(res.is_ok());
             let res = res.unwrap();
             let key = args[0].strip_prefix("--").unwrap();
@@ -1607,7 +1607,7 @@ mod tests {
         ];
 
         for args in bad_args {
-            let res = parser.parse_args(&args);
+            let res = parser.parse_args(args);
             assert!(res.is_err());
         }
     }
@@ -1623,7 +1623,7 @@ mod tests {
         ];
 
         for args in good_args {
-            let res = parser.parse_args(&args);
+            let res = parser.parse_args(args);
             assert!(res.is_ok());
             let res = res.unwrap();
             let key = args[0].strip_prefix("--").unwrap();
@@ -1642,7 +1642,7 @@ mod tests {
         ];
 
         for args in bad_args {
-            let res = parser.parse_args(&args);
+            let res = parser.parse_args(args);
             assert!(res.is_err());
         }
     }
