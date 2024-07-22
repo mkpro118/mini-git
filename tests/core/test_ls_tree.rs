@@ -81,8 +81,8 @@ mod tests {
         ];
 
         let subdir2 = vec![
-            leaf!(b"100644", b"subfile1", "a"),
-            leaf!(b"100644", b"subfile2", "b"),
+            leaf!(b"100644", b"subfile1", "c"),
+            leaf!(b"100644", b"subfile2", "d"),
         ];
 
         let mut serialized = vec![];
@@ -206,11 +206,11 @@ mod tests {
             exp_blob!("8", join_path("dir2", "file1")),
             exp_blob!("9", join_path("dir2", "file2")),
             exp_blob!(
-                "a",
+                "c",
                 join_path(&join_path("dir2", "subdir2"), "subfile1")
             ),
             exp_blob!(
-                "b",
+                "d",
                 join_path(&join_path("dir2", "subdir2"), "subfile2")
             ),
             exp_blob!("3", "readme.md"),
@@ -263,11 +263,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "WIP"]
     fn test_dir2_no_recursive() {
         setup();
 
-        let args: [&[&str]; 1] = [&["-r", &"1".repeat(40)]];
+        let args: [&[&str]; 1] = [&[&"1".repeat(40)]];
 
         let res = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
@@ -276,12 +275,15 @@ mod tests {
 
         assert!(res.is_ok());
         let res = res.unwrap();
-        let expected = [exp_tree!("0", "lol")];
+        let expected = [
+            exp_blob!("8", "file1"),
+            exp_blob!("9", "file2"),
+            exp_tree!("7", "subdir2"),
+        ];
         check_output(&expected, &res);
     }
 
     #[test]
-    #[ignore = "WIP"]
     fn test_dir2_recursive() {
         setup();
 
@@ -294,7 +296,12 @@ mod tests {
 
         assert!(res.is_ok());
         let res = res.unwrap();
-        let expected = [exp_tree!("0", "lol")];
+        let expected = [
+            exp_blob!("8", "file1"),
+            exp_blob!("9", "file2"),
+            exp_blob!("c", join_path("subdir2", "subfile1")),
+            exp_blob!("d", join_path("subdir2", "subfile2")),
+        ];
         check_output(&expected, &res);
     }
 }
