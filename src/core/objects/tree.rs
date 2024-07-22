@@ -79,6 +79,7 @@ impl Leaf {
     /// # Returns
     /// The length of the leaf in bytes.
     #[must_use]
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.len
     }
