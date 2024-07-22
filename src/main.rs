@@ -27,7 +27,7 @@ const COMMAND_MAP: &[Command] = &[
     Command::new(
         "hash-object",
         hash_object::make_parser,
-        hash_object::cmd_hash_object,
+        hash_object::hash_object,
     ),
     Command::new("init", init::make_parser, init::cmd_init),
 ];
