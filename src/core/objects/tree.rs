@@ -44,6 +44,16 @@ pub struct Tree {
 }
 
 impl Leaf {
+    /// Create a Leaf with the given params
+    pub fn new(mode: &[u8; 6], path: &[u8], sha: &str) -> Self {
+        Self {
+            mode: *mode,
+            path: path.to_vec(),
+            sha: sha.to_owned(),
+            len: 0,
+        }
+    }
+
     /// Returns the `mode` of the item
     #[must_use]
     pub fn mode(&self) -> &[u8] {
@@ -239,6 +249,12 @@ impl Tree {
     #[must_use]
     pub fn leaves(&self) -> &[Leaf] {
         &self.leaves
+    }
+
+    /// Adds the given leaves to the tree
+    pub fn set_leaves(&mut self, leaves: Vec<Leaf>) -> &mut Self {
+        self.leaves = leaves;
+        self
     }
 }
 
