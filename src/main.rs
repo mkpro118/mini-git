@@ -1,4 +1,4 @@
-use mini_git::core::{cat_file, hash_object, init, ls_tree};
+use mini_git::core::{cat_file, hash_object, init, ls_tree, show_ref};
 use mini_git::utils::argparse::{ArgumentParser, Namespace};
 
 struct Command {
@@ -33,6 +33,7 @@ const COMMAND_MAP: &[Command] = &[
     cmd!("hash-object", hash_object),
     cmd!("init", init),
     cmd!("ls-tree", ls_tree),
+    cmd!("show-ref", show_ref),
 ];
 
 fn main() {
