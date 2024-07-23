@@ -7,8 +7,6 @@ mod tests {
         let timestamp = 1_704_153_600; // > January 1, 2024 in all timezones
         let dt = DateTime::from_timestamp(timestamp);
         let str_repr = dt.to_str();
-        dbg!(&dt);
-        dbg!(&str_repr);
 
         // Check that the string contains the expected date
         assert!(str_repr.contains("2024"));
