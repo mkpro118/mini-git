@@ -225,7 +225,9 @@ impl<'a, T> TempDir<'a, T> {
     /// directory back to the original directory.
     pub fn revert(&self) {
         // This may not immediately delete, so we just ignore the retval
-        let _ = fs::remove_dir_all(&self.tmp_dir);
+        println!("CLEANING UP {:?}", &self.tmp_dir);
+        let res = fs::remove_dir_all(&self.tmp_dir);
+        println!("RESULT {:?}", res);
 
         if self.auto_revert {
             self.switch_back();
