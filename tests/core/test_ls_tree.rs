@@ -140,8 +140,8 @@ mod tests {
             let parts: Vec<&str> = line.split_whitespace().collect();
             assert_eq!(parts.len(), 4);
             assert_eq!(parts[0], *mode);
-            assert_eq!(parts[1], *sha);
-            assert_eq!(parts[2], *type_);
+            assert_eq!(parts[1], *type_);
+            assert_eq!(parts[2], *sha);
             assert_eq!(parts[3], *path);
         }
     }
