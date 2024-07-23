@@ -1,7 +1,9 @@
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
+use crate::utils::collections::kvlm;
 use crate::utils::path;
 
 use crate::core::objects;
+use crate::core::objects::traits::KVLM;
 use crate::core::objects::GitObject;
 use crate::core::GitRepository;
 
@@ -34,7 +36,7 @@ pub fn ls_tree(args: &Namespace) -> Result<String, String> {
     )?;
     Ok(res)
 }
-#[allow(unused_variables)]
+
 fn tree(
     acc: &mut String,
     repo: &GitRepository,
@@ -44,9 +46,32 @@ fn tree(
     show_trees: bool,
     only_trees: bool,
 ) -> Result<(), String> {
-    let sha = objects::find_object(repo, tree_ref, Some("tree"), false);
-    let GitObject::Tree(obj) = objects::read_object(repo, &sha)? else {
-        return Err(format!("Not a tree object: {tree_ref}"));
+    let sha = objects::find_object(repo, tree_ref, None, false);
+    let obj = objects::read_object(repo, &sha)?;
+
+    let mut f = |obj_type: &str, kvlm: &kvlm::KVLM| {
+        let Some(obj_tree) = kvlm.get_key(b"tree") else {
+            return Err(format!(
+                "{obj_type} {tree_ref} has no associated tree"
+            ));
+        };
+        for subtree in obj_tree {
+            let subtree =
+                subtree.iter().map(|x| char::from(*x)).collect::<String>();
+            tree(
+                acc, repo, &subtree, prefix, recursive, show_trees, only_trees,
+            )?;
+        }
+        return Ok(());
+    };
+
+    let obj = match obj {
+        GitObject::Commit(commit) => return f("commit", commit.kvlm()),
+        GitObject::Blob(_) => {
+            return Err(format!("{tree_ref} is not a tree_object"))
+        }
+        GitObject::Tag(tag) => return f("tag", tag.kvlm()),
+        GitObject::Tree(obj) => obj,
     };
 
     for leaf in obj.leaves() {
