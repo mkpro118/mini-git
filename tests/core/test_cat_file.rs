@@ -102,11 +102,11 @@ mod tests {
             println!("decr: {TEST_COUNTER}");
             if TEST_COUNTER == 0 {
                 println!("Dropping MUTEX!!!!");
-                let tdir = std::env::current_dir().unwrap();
-                println!("{:?}", tdir);
+                // let temp = guard.clone().unwrap();
+                // let temp = temp.tmp_dir().to_path_buf();
+                // println!("temp 1 {:?}", temp);
                 *guard = None;
-                println!("{:?}", std::env::current_dir());
-                println!("{tdir:?} exists? {:?}", tdir.exists());
+                // println!("temp 2 {temp:?} exists? {:?}", temp.exists());
             }
         }
     }
