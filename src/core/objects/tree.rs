@@ -45,6 +45,7 @@ pub struct Tree {
 
 impl Leaf {
     /// Create a Leaf with the given params
+    #[must_use]
     pub fn new(mode: &[u8; 6], path: &[u8], sha: &str) -> Self {
         Self {
             mode: *mode,
