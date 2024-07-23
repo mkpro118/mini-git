@@ -134,7 +134,7 @@ mod tests {
     }
 
     fn check_output(expected: &[(&str, &String, &str, String)], res: &str) {
-        let res: Vec<&str> = res.trim().split('\n').collect();
+        let res: Vec<&str> = res.trim().lines().map(str::trim).collect();
         assert_eq!(res.len(), expected.len());
         for (line, (mode, sha, type_, path)) in res.iter().zip(expected.iter())
         {
