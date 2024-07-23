@@ -341,7 +341,6 @@ mod tests {
         let compressor = LZ77Compressor::default();
         let input = vec![b'a'; 1000];
         let compressed = compressor.compress(&input);
-        dbg!(compressed.len());
         assert!(compressed.len() < input.len() / 5);
     }
 }
