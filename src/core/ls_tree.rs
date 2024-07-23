@@ -62,7 +62,7 @@ fn tree(
                 acc, repo, &subtree, prefix, recursive, show_trees, only_trees,
             )?;
         }
-        return Ok(());
+        Ok(())
     };
 
     let obj = match obj {
@@ -85,7 +85,7 @@ fn tree(
 
         if recursive && obj_type == "tree" {
             if show_trees {
-                acc.push_str(&repr_leaf(&mode, sha, obj_type, &path));
+                acc.push_str(&repr_leaf(&mode, obj_type, sha, &path));
             }
             tree(acc, repo, sha, &path, recursive, show_trees, only_trees)?;
         } else {
@@ -94,7 +94,7 @@ fn tree(
                 continue;
             }
 
-            acc.push_str(&repr_leaf(&mode, sha, obj_type, &path));
+            acc.push_str(&repr_leaf(&mode, obj_type, sha, &path));
         };
     }
     Ok(())
