@@ -107,7 +107,6 @@ mod tests {
         make_tree!(dir2_tree, subdir2, "7");
 
         let obj_dir = repo.gitdir().join("objects");
-        dbg!(&obj_dir);
 
         for (data, hash) in serialized {
             let dir = obj_dir.join(&hash[..2]);
