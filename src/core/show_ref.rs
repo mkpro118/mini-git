@@ -24,16 +24,9 @@ const REF_DIR: &str = "refs";
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
 pub fn show_ref(args: &Namespace) -> Result<String, String> {
-    let dereference = args.get("dereference").is_some();
     let repo = repo_find(".")?;
     let repo = GitRepository::new(&repo)?;
 
-    let mut result = vec![];
-    if args.get("head").is_some() {
-        if let Some(sha) = resolve_ref(&repo, "HEAD")? {
-            result.insert(0, format!("{sha} HEAD"));
-        }
-    }
     let filter = args.get("pattern").map_or(None, |x| {
         if x == "*" {
             None
@@ -41,6 +34,40 @@ pub fn show_ref(args: &Namespace) -> Result<String, String> {
             Some(x.as_str())
         }
     });
+
+    let check_exists = args.get("exists").is_some();
+
+    if check_exists && filter.is_none() {
+        return Err("--exists requires a reference".to_owned());
+    }
+
+    if check_exists {
+        let result = list_resolved_refs(args, &repo, None)?;
+        let filter = filter.expect("Should exist, already checked");
+        if result.into_iter().any(|x| x.ends_with(filter)) {
+            Ok("".to_owned())
+        } else {
+            Err("error: reference not found".to_owned())
+        }
+    } else {
+        let result = list_resolved_refs(args, &repo, filter)?;
+        Ok(result.join("\n"))
+    }
+}
+
+fn list_resolved_refs(
+    args: &Namespace,
+    repo: &GitRepository,
+    filter: Option<&str>,
+) -> Result<Vec<String>, String> {
+    let dereference = args.get("dereference").is_some();
+
+    let mut result = vec![];
+    if args.get("head").is_some() {
+        if let Some(sha) = resolve_ref(&repo, "HEAD")? {
+            result.insert(0, format!("{sha} HEAD"));
+        }
+    }
 
     let refs = list_refs(&repo, filter)?;
 
@@ -77,7 +104,7 @@ pub fn show_ref(args: &Namespace) -> Result<String, String> {
 
     result.extend(relevant);
 
-    Ok(result.join("\n"))
+    Ok(result)
 }
 
 fn make_predicate(args: &Namespace) -> Box<dyn Fn(&str) -> bool + '_> {
@@ -215,6 +242,11 @@ pub fn make_parser() -> ArgumentParser {
         .optional()
         .short('d')
         .add_help("Dereference tags into object IDs");
+
+    parser
+        .add_argument("exists", ArgumentType::Boolean)
+        .optional()
+        .add_help("Check for reference existence without resolving");
 
     parser
         .add_argument("pattern", ArgumentType::String)
