@@ -1,9 +1,11 @@
-use std::collections::VecDeque;
 use std::path::PathBuf;
 
+use crate::core::objects::read_object;
+use crate::core::objects::traits::KVLM;
+use crate::core::objects::GitObject;
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::collections::ordered_map::OrderedMap;
-use crate::utils::path;
+use crate::utils::path::{self, repo_find};
 
 use crate::core::GitRepository;
 
@@ -21,8 +23,72 @@ const REF_DIR: &str = "refs";
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
-pub fn show_ref(_args: &Namespace) -> Result<String, String> {
-    todo!()
+pub fn show_ref(args: &Namespace) -> Result<String, String> {
+    let dereference = args.get("dereference").is_some();
+    let repo = repo_find(".")?;
+    let repo = GitRepository::new(&repo)?;
+
+    let mut result = vec![];
+    if args.get("head").is_some() {
+        if let Some(sha) = resolve_ref(&repo, "HEAD")? {
+            result.insert(0, format!("{sha} HEAD"));
+        }
+    }
+    let filter = args.get("pattern").map_or(None, |x| {
+        if x == "*" {
+            None
+        } else {
+            Some(x.as_str())
+        }
+    });
+
+    let refs = list_refs(&repo, filter)?;
+
+    let pred = make_predicate(args);
+    let refs_iter = refs.into_iter().filter(move |(x, _)| pred(&x));
+
+    let relevant = refs_iter.map(|(name, resolved)| {
+        let mut res = format!("{resolved} {name}");
+        if !(dereference && name.starts_with("refs/tags")) {
+            return res;
+        }
+
+        let tag = match read_object(&repo, &resolved) {
+            Ok(GitObject::Tag(tag)) => tag,
+            _ => return res,
+        };
+
+        let tag_kvlm = tag.kvlm();
+        if let Some(object_sha) = tag_kvlm.get_key(b"object") {
+            if object_sha.len() != 1 {
+                return res;
+            }
+            let sha = object_sha[0]
+                .iter()
+                .map(|x| char::from(*x))
+                .collect::<String>();
+
+            res.push('\n');
+            res.push_str(format!("{sha} {name}^{{}}").as_str());
+        }
+
+        res
+    });
+
+    result.extend(relevant);
+
+    Ok(result.join("\n"))
+}
+
+fn make_predicate(args: &Namespace) -> Box<dyn Fn(&str) -> bool + '_> {
+    match (args.get("heads"), args.get("tags")) {
+        (None, None) => Box::new(|_: &str| true),
+        (None, Some(_)) => Box::new(move |x: &str| x.starts_with("refs/tags")),
+        (Some(_), None) => Box::new(move |x: &str| x.starts_with("refs/heads")),
+        (Some(_), Some(_)) => Box::new(move |x: &str| {
+            x.starts_with("refs/heads") || x.starts_with("refs/tags")
+        }),
+    }
 }
 
 fn resolve_ref(
@@ -51,6 +117,7 @@ fn resolve_ref(
 
 fn list_refs(
     repo: &GitRepository,
+    filter: Option<&str>,
 ) -> Result<OrderedMap<String, String>, String> {
     let Some(initial_path) = path::repo_dir(repo.gitdir(), &[REF_DIR], false)?
     else {
@@ -87,6 +154,13 @@ fn list_refs(
                 .map(std::ffi::OsStr::to_string_lossy)
                 .map(|x| x.into())
                 .collect::<Vec<String>>();
+
+            // If looking for a specific ref
+            match (filter, r#ref.last()) {
+                (Some(x), Some(y)) if x == y => {}
+                (None, _) => {}
+                _ => continue,
+            };
 
             // For operations, we use OS specific path separator
             let rec_ref = r#ref.join(std::path::MAIN_SEPARATOR_STR);
@@ -143,9 +217,10 @@ pub fn make_parser() -> ArgumentParser {
         .add_help("Dereference tags into object IDs");
 
     parser
-        .add_argument("ref", ArgumentType::String)
+        .add_argument("pattern", ArgumentType::String)
         .required()
-        .add_help("Ref pattern to show");
+        .default("*") // * is not a valid branch name
+        .add_help("Pattern to filter");
 
     parser
 }
