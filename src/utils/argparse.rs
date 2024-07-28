@@ -169,7 +169,7 @@ impl Argument {
     /// provided is not one of the given choices.
     ///
     /// By default, the choices are case sensitive. Use the
-    /// [`ArgumentParser::ignore_case`] method to allow case insensitive choices
+    /// [`Argument::ignore_case`] method to allow case insensitive choices
     ///
     /// # Panics
     ///
