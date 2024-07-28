@@ -1,3 +1,6 @@
+use std::collections::VecDeque;
+use std::path::PathBuf;
+
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::collections::ordered_map::OrderedMap;
 use crate::utils::path;
@@ -48,9 +51,8 @@ fn resolve_ref(
 
 fn list_refs(
     repo: &GitRepository,
-    path: Option<&std::path::Path>,
-) -> Result<Vec<String>, String> {
-    let Some(default_dir) = path::repo_dir(repo.gitdir(), &[REF_DIR], false)?
+) -> Result<OrderedMap<String, String>, String> {
+    let Some(initial_path) = path::repo_dir(repo.gitdir(), &[REF_DIR], false)?
     else {
         return Err(
             "Fatal error: refs directory not found. This indicates the \
@@ -59,21 +61,59 @@ fn list_refs(
         );
     };
 
-    let path = path.unwrap_or(&default_dir);
+    let n_comps = repo.gitdir().components().count();
+    let initial_entries = sorted_dir(&initial_path)?;
 
+    let mut stack = Vec::<Vec<PathBuf>>::new();
+    stack.push(initial_entries);
+
+    let mut res = OrderedMap::new();
+    while let Some(entries) = stack.pop() {
+        for (i, entry) in entries.iter().enumerate() {
+            if entry.is_dir() {
+                let remaining = entries[(i + 1)..].to_vec();
+
+                stack.push(remaining); // this will pop second
+                stack.push(sorted_dir(&entry)?); // this will pop first
+
+                break;
+            }
+
+            // is file
+            let r#ref = entry
+                .components() // make path relative
+                .skip(n_comps)
+                .map(std::path::Component::as_os_str)
+                .map(std::ffi::OsStr::to_string_lossy)
+                .map(|x| x.into())
+                .collect::<Vec<String>>();
+
+            // For operations, we use OS specific path separator
+            let rec_ref = r#ref.join(std::path::MAIN_SEPARATOR_STR);
+            let resolved =
+                resolve_ref(repo, &rec_ref)?.unwrap_or("".to_owned());
+
+            // For display we use the posix path separator '/'.
+            let key_ref = r#ref.join("/");
+            res.insert(key_ref, resolved);
+        }
+    }
+    Ok(res)
+}
+
+fn sorted_dir(
+    path: &std::path::Path,
+) -> Result<Vec<std::path::PathBuf>, String> {
     let Ok(ls) = std::fs::read_dir(path) else {
         return Err(format!("failed to read dir {:?}", path.as_os_str()));
     };
 
     let mut ls = ls
         .flatten()
-        .filter_map(|x| x.path().as_os_str().to_str().map(String::from))
-        .collect::<Vec<String>>();
-    ls.sort();
-
-    for entry in ls {}
-
-    todo!()
+        .map(|x| x.path())
+        .collect::<Vec<std::path::PathBuf>>();
+    ls.sort_unstable();
+    Ok(ls)
 }
 
 /// Make `show-ref` parser
