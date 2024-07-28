@@ -15,7 +15,13 @@ const REF_DIR: &str = "refs";
 /// This handles the subcommand
 ///
 /// ```bash
-/// mini_git show-ref [--head] [--tags] [--heads] [--dereference] ref
+/// mini_git show-ref [--head] [--tags] [--heads] [--dereference] <pattern>
+/// ```
+///
+/// or,
+///
+/// ```bash
+/// mini_git show-ref [--exists] ref
 /// ```
 ///
 /// # Errors
