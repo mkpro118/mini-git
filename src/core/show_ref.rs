@@ -28,12 +28,12 @@ const REF_DIR: &str = "refs";
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::module_name_repetitions, clippy::missing_panics_doc)]
 pub fn show_ref(args: &Namespace) -> Result<String, String> {
     let repo = repo_find(".")?;
     let repo = GitRepository::new(&repo)?;
 
-    let filter = args.get("pattern").map_or(None, |x| {
+    let filter = args.get("pattern").and_then(|x| {
         if x == "*" {
             None
         } else {
@@ -51,7 +51,7 @@ pub fn show_ref(args: &Namespace) -> Result<String, String> {
         let result = list_resolved_refs(args, &repo, None)?;
         let filter = filter.expect("Should exist, already checked");
         if result.into_iter().any(|x| x.ends_with(filter)) {
-            Ok("".to_owned())
+            Ok(String::new())
         } else {
             Err("error: reference not found".to_owned())
         }
@@ -61,6 +61,7 @@ pub fn show_ref(args: &Namespace) -> Result<String, String> {
     }
 }
 
+#[allow(clippy::similar_names)]
 fn list_resolved_refs(
     args: &Namespace,
     repo: &GitRepository,
@@ -70,15 +71,15 @@ fn list_resolved_refs(
 
     let mut result = vec![];
     if args.get("head").is_some() {
-        if let Some(sha) = resolve_ref(&repo, "HEAD")? {
+        if let Some(sha) = resolve_ref(repo, "HEAD")? {
             result.insert(0, format!("{sha} HEAD"));
         }
     }
 
-    let refs = list_refs(&repo, filter)?;
+    let refs = list_refs(repo, filter)?;
 
     let pred = make_predicate(args);
-    let refs_iter = refs.into_iter().filter(move |(x, _)| pred(&x));
+    let refs_iter = refs.into_iter().filter(move |(x, _)| pred(x));
 
     let relevant = refs_iter.map(|(name, resolved)| {
         let mut res = format!("{resolved} {name}");
@@ -86,9 +87,8 @@ fn list_resolved_refs(
             return res;
         }
 
-        let tag = match read_object(&repo, &resolved) {
-            Ok(GitObject::Tag(tag)) => tag,
-            _ => return res,
+        let Ok(GitObject::Tag(tag)) = read_object(repo, resolved) else {
+            return res;
         };
 
         let tag_kvlm = tag.kvlm();
@@ -148,6 +148,7 @@ fn resolve_ref(
     }
 }
 
+#[allow(clippy::similar_names)]
 fn list_refs(
     repo: &GitRepository,
     filter: Option<&str>,
@@ -174,7 +175,7 @@ fn list_refs(
                 let remaining = entries[(i + 1)..].to_vec();
 
                 stack.push(remaining); // this will pop second
-                stack.push(sorted_dir(&entry)?); // this will pop first
+                stack.push(sorted_dir(entry)?); // this will pop first
 
                 break;
             }
@@ -185,7 +186,7 @@ fn list_refs(
                 .skip(n_comps)
                 .map(std::path::Component::as_os_str)
                 .map(std::ffi::OsStr::to_string_lossy)
-                .map(|x| x.into())
+                .map(std::convert::Into::into)
                 .collect::<Vec<String>>();
 
             // If looking for a specific ref
@@ -198,7 +199,7 @@ fn list_refs(
             // For operations, we use OS specific path separator
             let rec_ref = r#ref.join(std::path::MAIN_SEPARATOR_STR);
             let resolved =
-                resolve_ref(repo, &rec_ref)?.unwrap_or("".to_owned());
+                resolve_ref(repo, &rec_ref)?.unwrap_or(String::new());
 
             // For display we use the posix path separator '/'.
             let key_ref = r#ref.join("/");
