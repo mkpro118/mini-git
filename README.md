@@ -42,6 +42,6 @@ This project is currently a work-in-progress
 - [ ] `ls-tree`
 - [ ] `rev-parse`
 - [ ] `rm`
-- [ ] `show-ref`
+- [x] `show-ref`
 - [ ] `status`
 - [ ] `tag`
