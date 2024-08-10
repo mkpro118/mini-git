@@ -70,7 +70,7 @@ mod tests {
     fn create_dir_if_not_exists(path: &std::path::Path) {
         if !path.exists() {
             fs::create_dir_all(path)
-                .unwrap_or_else(|_| panic!("create dir {:?}", path));
+                .unwrap_or_else(|_| panic!("create dir {path:?}"));
             return;
         }
         assert!(path.is_dir(), "Invalid test state!");
