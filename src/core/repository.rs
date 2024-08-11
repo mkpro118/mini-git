@@ -1,4 +1,3 @@
-#![allow(missing_docs, clippy::missing_errors_doc, clippy::missing_panics_doc)]
 #![forbid(clippy::complexity)]
 
 use std::fs;
@@ -7,30 +6,85 @@ use std::path::{Path, PathBuf};
 use crate::utils::configparser::ConfigParser;
 use crate::utils::path;
 
-/// A git repository
+/// A struct representing a Git repository.
 #[allow(clippy::module_name_repetitions, dead_code)]
 #[derive(Debug)]
 pub struct GitRepository {
+    /// The working tree of the repository.
     worktree: PathBuf,
+    /// The `.git` directory of the repository.
     gitdir: PathBuf,
+    /// The configuration of the repository.
     config: ConfigParser,
 }
 
 impl GitRepository {
+    /// Creates a new `GitRepository` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A reference to the path where the repository is located.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `String` error if the repository could not be created.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use mini_git::core::GitRepository;
+    /// let repo = GitRepository::new(Path::new("/path/to/repo"))?;
+    /// # Ok::<(), String>(())
+    /// ```
     pub fn new(path: &Path) -> Result<Self, String> {
         Self::new_repo(path, false)
     }
 
+    /// Returns the working tree path of the repository.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use mini_git::core::GitRepository;
+    /// let repo = GitRepository::create(Path::new("."))?;
+    /// let worktree = repo.worktree();
+    /// println!("{worktree:?}");
+    /// # Ok::<(), String>(())
+    /// ```
     #[must_use]
     pub fn worktree(&self) -> &Path {
         &self.worktree
     }
 
+    /// Returns the `.git` directory path of the repository.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use mini_git::core::GitRepository;
+    /// let repo = GitRepository::create(Path::new("."))?;
+    /// let gitdir = repo.gitdir();
+    /// println!("{gitdir:?}");
+    /// # Ok::<(), String>(())
+    /// ```
     #[must_use]
     pub fn gitdir(&self) -> &Path {
         &self.gitdir
     }
 
+    /// Creates a new repository object at the specified path.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A reference to the path where the repository should be created.
+    /// * `forced` - A boolean indicating whether the creation should be forced.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `String` error if the repository could not be created.
     fn new_repo(path: &Path, forced: bool) -> Result<Self, String> {
         let not_forced = !forced;
 
@@ -94,6 +148,24 @@ impl GitRepository {
         })
     }
 
+    /// Initializes and creates a new Git repository at the specified path.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A reference to the path where the repository should be created.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `String` error if the repository could not be created.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use mini_git::core::GitRepository;
+    /// let repo = GitRepository::create(Path::new("/path/to/repo"))?;
+    /// # Ok::<(), String>(())
+    /// ```
     pub fn create(path: &Path) -> Result<Self, String> {
         let repo = Self::new_repo(path, true)?;
 
@@ -146,6 +218,7 @@ impl GitRepository {
         Ok(repo)
     }
 
+    /// Creates the default configuration for a Git repository.
     fn default_config() -> ConfigParser {
         let mut config = ConfigParser::new();
         config["core"]["repositoryformatversion"] = String::from("0");
