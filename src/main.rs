@@ -1,4 +1,6 @@
-use mini_git::core::{cat_file, hash_object, init, ls_tree, show_ref};
+use mini_git::core::commands::{
+    cat_file, hash_object, init, ls_tree, show_ref,
+};
 use mini_git::utils::argparse::{ArgumentParser, Namespace};
 
 struct Command {
