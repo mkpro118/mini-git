@@ -43,9 +43,9 @@ impl From<ParseIntError> for DecodeHexError {
 ///
 /// # Errors
 /// - Returns a `DecodeHexError::OddLength` if the input string has an odd number
-/// of characters.
+///   of characters.
 /// - Returns a `DecodeHexError::ParseInt` if any character pair fails to parse
-/// as a valid hex byte.
+///   as a valid hex byte.
 ///
 /// # Examples
 /// ```

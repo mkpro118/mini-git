@@ -55,7 +55,7 @@ pub trait KVLM {
     ///
     /// # Arguments
     /// - `kvlm` - A KVLM structure to create the Git object instance from.
-    /// Note that the Git object will need to own that kvlm
+    ///   Note that the Git object will need to own that kvlm
     ///
     /// # Returns
     /// A new instance of the Git object.
