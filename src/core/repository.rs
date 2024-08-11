@@ -158,6 +158,10 @@ impl GitRepository {
     ///
     /// Returns a `String` error if the repository could not be created.
     ///
+    /// # Panics
+    ///
+    /// If an I/O error occurs while creating a repository
+    ///
     /// # Examples
     ///
     /// ```no_run
