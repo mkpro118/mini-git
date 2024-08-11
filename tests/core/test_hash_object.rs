@@ -2,7 +2,7 @@
 mod tests {
     use crate::make_namespaces_from;
 
-    use mini_git::core::hash_object::*;
+    use mini_git::core::commands::hash_object::*;
     use mini_git::core::GitRepository;
 
     use mini_git::utils::test::TempDir;

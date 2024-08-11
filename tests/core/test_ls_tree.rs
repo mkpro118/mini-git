@@ -2,7 +2,7 @@
 mod tests {
     use crate::make_namespaces_from;
 
-    use mini_git::core::ls_tree::*;
+    use mini_git::core::commands::ls_tree::*;
     use mini_git::core::objects::traits::Serialize;
     use mini_git::core::objects::tree::{Leaf, Tree};
     use mini_git::core::GitRepository;

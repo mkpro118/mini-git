@@ -2,9 +2,9 @@
 mod tests {
     use crate::make_namespaces_from;
 
+    use mini_git::core::commands::show_ref::*;
     use mini_git::core::objects::tag::Tag;
     use mini_git::core::objects::traits::KVLM;
-    use mini_git::core::show_ref::*;
     use mini_git::core::GitRepository;
 
     use mini_git::utils::collections::kvlm;

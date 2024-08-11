@@ -2,7 +2,7 @@
 mod tests {
     use crate::make_namespaces_from;
 
-    use mini_git::core::init::*;
+    use mini_git::core::commands::init::*;
     use mini_git::utils::test::TempDir;
 
     use std::path::Path;

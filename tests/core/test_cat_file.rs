@@ -2,7 +2,7 @@
 mod tests {
     use crate::make_namespaces_from;
 
-    use mini_git::core::cat_file::*;
+    use mini_git::core::commands::cat_file::*;
     use mini_git::core::objects::blob;
     use mini_git::core::objects::traits::Deserialize;
     use mini_git::core::objects::{write_object, GitObject};
