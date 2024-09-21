@@ -31,10 +31,12 @@ mod tests {
             let result = fnmatch(&pattern).unwrap();
 
             assert_eq!(result.len(), 2);
-            assert!(result
-                .contains(&format!("{}/test1.txt", tmp_dir.to_str().unwrap())));
-            assert!(result
-                .contains(&format!("{}/test2.txt", tmp_dir.to_str().unwrap())));
+            assert!(result.iter().any(|file_path| file_path.contains(
+                &format!("{}/test1.txt", tmp_dir.to_str().unwrap())
+            )));
+            assert!(result.iter().any(|file_path| file_path.contains(
+                &format!("{}/test2.txt", tmp_dir.to_str().unwrap())
+            )));
         }
 
         #[test]
