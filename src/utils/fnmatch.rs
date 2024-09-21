@@ -27,17 +27,67 @@
 #[cfg(target_family = "unix")]
 pub mod glob {
     use std::error::Error;
-    use std::ffi::{c_char, c_int, CStr, CString};
+    use std::ffi::{c_char, c_int, c_void, CStr, CString};
     use std::fs::canonicalize;
     use std::path::PathBuf;
     use std::ptr;
 
+    #[cfg(target_os = "macos")]
+    #[repr(C)]
+    struct Glob {
+        gl_pathc: usize,            // Count of total paths so far.
+        gl_matchc: usize,           // Count of paths matching pattern.
+        gl_offs: usize,             // Reserved at beginning of gl_pathv.
+        gl_flags: c_int,            // Copy of flags parameter to glob.
+        gl_pathv: *mut *mut c_char, // List of paths matching pattern.
+        // Additional fields specific to macOS
+        gl_errfunc:
+            Option<extern "C" fn(epath: *const c_char, errno: c_int) -> c_int>,
+        gl_closedir: Option<unsafe extern "C" fn(dirp: *mut c_void) -> c_int>,
+        gl_readdir:
+            Option<unsafe extern "C" fn(dirp: *mut c_void) -> *mut c_void>,
+        gl_opendir:
+            Option<unsafe extern "C" fn(name: *const c_char) -> *mut c_void>,
+        gl_lstat: Option<
+            unsafe extern "C" fn(
+                pathname: *const c_char,
+                buf: *mut c_void,
+            ) -> c_int,
+        >,
+        gl_stat: Option<
+            unsafe extern "C" fn(
+                pathname: *const c_char,
+                buf: *mut c_void,
+            ) -> c_int,
+        >,
+    }
+
+    #[cfg(target_os = "macos")]
+    impl Default for Glob {
+        fn default() -> Self {
+            unsafe { std::mem::zeroed() }
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
     #[repr(C)]
     struct Glob {
         gl_pathc: usize,
         gl_pathv: *mut *mut c_char,
         gl_offs: usize,
         _reserved: [usize; 6],
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    impl Default for Glob {
+        fn default() -> Self {
+            Self {
+                gl_pathc: 0,
+                gl_pathv: ptr::null_mut(),
+                gl_offs: 0,
+                _reserved: [0usize; 6],
+            }
+        }
     }
 
     const GLOB_NOMATCH: c_int = 3;
@@ -82,12 +132,7 @@ pub mod glob {
     /// ```
     pub fn fnmatch(pattern: &str) -> Result<Vec<String>, Box<dyn Error>> {
         let pattern = CString::new(pattern)?;
-        let mut glob_result = Glob {
-            gl_pathc: 0,
-            gl_pathv: ptr::null_mut(),
-            gl_offs: 0,
-            _reserved: [0usize; 6],
-        };
+        let mut glob_result = Glob::default();
 
         let mut paths = vec![];
 
