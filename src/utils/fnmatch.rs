@@ -24,6 +24,7 @@
 #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 
 /// Unix-specific globbing implementation.
+#[allow(clippy::struct_field_names)]
 #[cfg(target_family = "unix")]
 pub mod glob {
     use std::error::Error;
