@@ -28,10 +28,13 @@
 #[cfg(target_family = "unix")]
 pub mod glob {
     use std::error::Error;
-    use std::ffi::{c_char, c_int, c_void, CStr, CString};
+    use std::ffi::{c_char, c_int, CStr, CString};
     use std::fs::canonicalize;
     use std::path::PathBuf;
     use std::ptr;
+
+    #[cfg(target_os = "macos")]
+    use std::ffi::c_void;
 
     #[cfg(target_os = "macos")]
     #[repr(C)]
