@@ -188,12 +188,15 @@ impl GitObject {
 #[allow(clippy::module_name_repetitions)]
 #[must_use]
 pub fn find_object(
-    _repo: &GitRepository,
+    repo: &GitRepository,
     name: &str,
     _format: Option<&str>,
     _follow: bool,
-) -> String {
-    name.to_owned()
+) -> Result<String, String> {
+    if name == "HEAD" {
+        repo_file(repo.gitdir(), &[name], false);
+    }
+    Ok(name.to_owned())
 }
 
 /// Reads an object from the given repository with the given SHA digest

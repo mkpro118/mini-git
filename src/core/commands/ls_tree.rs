@@ -46,7 +46,7 @@ fn tree(
     show_trees: bool,
     only_trees: bool,
 ) -> Result<(), String> {
-    let sha = objects::find_object(repo, tree_ref, None, false);
+    let sha = objects::find_object(repo, tree_ref, None, false)?;
     let obj = objects::read_object(repo, &sha)?;
 
     let mut f = |obj_type: &str, kvlm: &kvlm::KVLM| {
