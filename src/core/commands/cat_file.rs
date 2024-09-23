@@ -26,7 +26,7 @@ pub fn cat_file(args: &Namespace) -> Result<String, String> {
     let obj_type = &args["type"];
     let name = &args["object"];
 
-    let object = find_object(&repo, name, Some(obj_type), true);
+    let object = find_object(&repo, name, Some(obj_type), true)?;
     let object = read_object(&repo, &object)?;
     let Ok(s) = String::from_utf8(object.serialize()) else {
         return Err("Failed to serialize object!".to_owned());
