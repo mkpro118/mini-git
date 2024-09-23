@@ -9,7 +9,7 @@ pub mod tree;
 use std::fs;
 
 use crate::core::GitRepository;
-use crate::utils::path::repo_file;
+use crate::utils::path::{self, repo_file};
 use crate::utils::sha1::SHA1;
 use crate::utils::zlib;
 use traits::{Deserialize, Format, Serialize, KVLM};
@@ -185,8 +185,31 @@ impl GitObject {
     }
 }
 
+pub fn resolve_ref(
+    repo: &GitRepository,
+    r#ref: &str,
+) -> Result<Option<String>, String> {
+    let Some(path) = path::repo_file(repo.gitdir(), &[r#ref], false)? else {
+        unreachable!();
+    };
+
+    if !path.is_file() {
+        return Ok(None);
+    }
+
+    let Ok(contents) = std::fs::read_to_string(&path) else {
+        return Err(format!("Failed to read file at {:?}", path.as_os_str()));
+    };
+
+    let contents = contents.trim();
+    if let Some(stripped) = contents.strip_prefix("ref: ") {
+        resolve_ref(repo, stripped)
+    } else {
+        Ok(Some(contents.to_owned()))
+    }
+}
+
 #[allow(clippy::module_name_repetitions)]
-#[must_use]
 pub fn find_object(
     repo: &GitRepository,
     name: &str,
@@ -194,7 +217,12 @@ pub fn find_object(
     _follow: bool,
 ) -> Result<String, String> {
     if name == "HEAD" {
-        repo_file(repo.gitdir(), &[name], false);
+        let resolved = resolve_ref(repo, name)?;
+        if let Some(x) = resolved {
+            return Ok(x);
+        } else {
+            return Err("Could not find HEAD".to_owned());
+        }
     }
     Ok(name.to_owned())
 }

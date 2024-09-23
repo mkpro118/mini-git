@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use crate::core::objects::read_object;
 use crate::core::objects::traits::KVLM;
 use crate::core::objects::GitObject;
+use crate::core::objects::{read_object, resolve_ref};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::collections::ordered_map::OrderedMap;
 use crate::utils::path::{self, repo_find};
@@ -121,30 +121,6 @@ fn make_predicate(args: &Namespace) -> Box<dyn Fn(&str) -> bool + '_> {
         (Some(_), Some(_)) => Box::new(move |x: &str| {
             x.starts_with("refs/heads") || x.starts_with("refs/tags")
         }),
-    }
-}
-
-fn resolve_ref(
-    repo: &GitRepository,
-    r#ref: &str,
-) -> Result<Option<String>, String> {
-    let Some(path) = path::repo_file(repo.gitdir(), &[r#ref], false)? else {
-        unreachable!();
-    };
-
-    if !path.is_file() {
-        return Ok(None);
-    }
-
-    let Ok(contents) = std::fs::read_to_string(&path) else {
-        return Err(format!("Failed to read file at {:?}", path.as_os_str()));
-    };
-
-    let contents = contents.trim();
-    if let Some(stripped) = contents.strip_prefix("ref: ") {
-        resolve_ref(repo, stripped)
-    } else {
-        Ok(Some(contents.to_owned()))
     }
 }
 
