@@ -37,21 +37,21 @@ pub fn log(args: &Namespace) -> Result<String, String> {
     let path = path::repo_find(cwd)?;
     let repo = GitRepository::new(&path)?;
 
-    let max_count =
+    let _max_count =
         option_to_int!(args.get("max-count"), usize::MAX, "Max count");
-    let skip = option_to_int!(args.get("skip"), usize::MAX, "skip");
-    let count = option_to_int!(args.get("count"), usize::MAX, "count");
-    let oneline = args.get("oneline").is_some();
+    let _skip = option_to_int!(args.get("skip"), usize::MAX, "skip");
+    let _count = option_to_int!(args.get("count"), usize::MAX, "count");
+    let _oneline = args.get("oneline").is_some();
     let treeish = &args["treeish"];
-    _log(&repo, &treeish);
+    let _ = _log(&repo, treeish);
     todo!()
 }
 
 fn _log(repo: &GitRepository, treeish: &str) -> Result<String, String> {
     let treeish = find_object(repo, treeish, None, false)?;
     let stuff = read_object(repo, &treeish)?;
-    println!("{:?}", stuff);
-    Ok("".to_owned())
+    println!("{stuff:?}");
+    Ok(String::new())
 }
 
 /// Make `log` parser
