@@ -185,6 +185,7 @@ impl GitObject {
     }
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub fn resolve_ref(
     repo: &GitRepository,
     r#ref: &str,
@@ -209,7 +210,7 @@ pub fn resolve_ref(
     }
 }
 
-#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::module_name_repetitions, clippy::missing_errors_doc)]
 pub fn find_object(
     repo: &GitRepository,
     name: &str,
@@ -220,9 +221,8 @@ pub fn find_object(
         let resolved = resolve_ref(repo, name)?;
         if let Some(x) = resolved {
             return Ok(x);
-        } else {
-            return Err("Could not find HEAD".to_owned());
         }
+        return Err("Could not find HEAD".to_owned());
     }
     Ok(name.to_owned())
 }
