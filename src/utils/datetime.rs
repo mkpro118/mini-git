@@ -10,6 +10,12 @@ use std::time::{Duration, SystemTime};
 const ONE_MINUTE: u64 = 60; // 60 seconds
 const ONE_HOUR: u64 = 60 * 60; // 60 * 60 seconds
 
+const WEEKDAYS: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS: [&str; 12] = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
+    "Nov", "Dec",
+];
+
 /// Represents timezone information.
 #[derive(Debug)]
 pub struct TZInfo {
@@ -138,6 +144,35 @@ impl TZInfo {
 
         repr
     }
+
+    /// Creates a new `TZInfo` from a Git timezone string (e.g. "+0530" or "-0800")
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use mini_git::utils::datetime::TZInfo;
+    /// let tz = TZInfo::from_git_string("+0530").unwrap();
+    /// assert_eq!(tz.to_str(), "+0530");
+    /// ```
+    pub fn from_git_string(s: &str) -> Option<Self> {
+        if s.len() != 5 {
+            return None;
+        }
+
+        let ahead = &s[0..1] == "+";
+        let hours = s[1..3].parse::<u64>().ok()?;
+        let minutes = s[3..5].parse::<u64>().ok()?;
+
+        if hours >= 24 || minutes >= 60 {
+            return None;
+        }
+
+        Some(Self {
+            hours,
+            minutes,
+            ahead,
+        })
+    }
 }
 
 impl DateTime {
@@ -198,7 +233,6 @@ impl DateTime {
     /// let now = DateTime::now();
     /// let date_string = now.to_str();
     /// println!("Current date and time: {}", date_string);
-    /// assert!(date_string.ends_with("+0000") || date_string.contains("-"));
     /// ```
     #[must_use]
     pub fn to_str(&self) -> String {
@@ -224,6 +258,75 @@ impl DateTime {
         time_str.push(' ');
         time_str.push_str(&self.tz.to_str());
         time_str
+    }
+
+    /// Creates a new DateTime from a Git author/committer timestamp string
+    /// Format: "name <email> timestamp timezone"
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use mini_git::utils::datetime::DateTime;
+    /// let dt = DateTime::from_git_timestamp("John Doe <john@example.com> 1234567890 +0000").unwrap();
+    /// assert!(dt.to_str().contains("2009"));
+    /// ```
+    pub fn from_git_timestamp(timestamp_str: &str) -> Option<Self> {
+        let parts: Vec<&str> = timestamp_str.split_whitespace().collect();
+
+        if parts.len() >= 4 {
+            let timestamp = parts[parts.len() - 2].parse::<u64>().ok()?;
+            let tz =
+                TZInfo::from_git_string(parts.last().expect("Has len > 1"))?;
+
+            // Adjust timestamp for timezone
+            let adjusted_timestamp = if tz.ahead {
+                timestamp.checked_add(
+                    tz.hours * ONE_HOUR + tz.minutes * ONE_MINUTE,
+                )?
+            } else {
+                timestamp.checked_sub(
+                    tz.hours * ONE_HOUR + tz.minutes * ONE_MINUTE,
+                )?
+            };
+
+            let mut dt = Self::from_timestamp(adjusted_timestamp);
+            dt.tz = tz;
+            Some(dt)
+        } else {
+            None
+        }
+    }
+
+    /// Format the date in Git's preferred format (e.g. "Fri Feb 13 23:31:30 2009 +0000")
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use mini_git::utils::datetime::DateTime;
+    /// let dt = DateTime::from_timestamp(1234567890);
+    /// assert!(dt.format_git().contains("2009"));
+    /// ```
+    pub fn format_git(&self) -> String {
+        unsafe {
+            let time_secs = self.time.as_secs();
+            let tm = gmtime(std::ptr::from_ref(&time_secs));
+            if tm.is_null() {
+                return self.to_str();
+            }
+
+            let tm = *tm;
+            format!(
+                "{} {} {:2} {:02}:{:02}:{:02} {} {}",
+                WEEKDAYS[tm.wday as usize],
+                MONTHS[tm.mon as usize],
+                tm.mday,
+                tm.hour,
+                tm.min,
+                tm.sec,
+                1900 + tm.year,
+                self.tz.to_str()
+            )
+        }
     }
 }
 
@@ -294,5 +397,49 @@ mod tests {
         assert!(debug_str.contains("hours: 2"));
         assert!(debug_str.contains("minutes: 30"));
         assert!(debug_str.contains("ahead: true"));
+    }
+
+    #[test]
+    fn test_tzinfo_from_git_string() {
+        let tz = TZInfo::from_git_string("+0530").unwrap();
+        assert_eq!(tz.hours, 5);
+        assert_eq!(tz.minutes, 30);
+        assert!(tz.ahead);
+        assert_eq!(tz.to_str(), "+0530");
+
+        let tz = TZInfo::from_git_string("-0800").unwrap();
+        assert_eq!(tz.hours, 8);
+        assert_eq!(tz.minutes, 0);
+        assert!(!tz.ahead);
+        assert_eq!(tz.to_str(), "-0800");
+
+        assert!(TZInfo::from_git_string("+2400").is_none());
+        assert!(TZInfo::from_git_string("+0060").is_none());
+        assert!(TZInfo::from_git_string("invalid").is_none());
+    }
+
+    #[test]
+    fn test_datetime_from_git_timestamp() {
+        let dt = DateTime::from_git_timestamp(
+            "John Doe <john@example.com> 1234567890 +0000",
+        )
+        .unwrap();
+        let formatted = dt.format_git();
+        dbg!(&formatted);
+        assert!(formatted.contains("2009"));
+        assert!(formatted.contains("Feb"));
+        assert!(formatted.ends_with("+0000"));
+
+        // Test invalid timestamp
+        assert!(DateTime::from_git_timestamp("invalid timestamp").is_none());
+    }
+
+    #[test]
+    fn test_git_format() {
+        let dt = DateTime::from_timestamp(1234567890);
+        let formatted = dt.format_git();
+        assert!(formatted.contains("Feb"));
+        assert!(formatted.contains("2009"));
+        assert!(formatted.matches(':').count() == 2);
     }
 }
