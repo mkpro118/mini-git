@@ -162,7 +162,6 @@ fn _log(
     let mut count = 0;
 
     while count < max_commits {
-        // Current commit hash is already correct, no need to look up tree hash
         let object = read_object(repo, &current)?;
 
         let GitObject::Commit(commit) = &object else {
