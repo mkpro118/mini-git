@@ -7,7 +7,8 @@ use std::ffi::{c_char, c_ulonglong, CStr};
 use std::ptr;
 use std::time::{Duration, SystemTime};
 
-const ONE_HOUR: u64 = 60 * 60;
+const ONE_MINUTE: u64 = 60; // 60 seconds
+const ONE_HOUR: u64 = 60 * 60; // 60 * 60 seconds
 
 /// Represents timezone information.
 #[derive(Debug)]
@@ -101,7 +102,7 @@ impl TZInfo {
         let diff: u64 = diff.unsigned_abs();
 
         let hours = diff / ONE_HOUR;
-        let minutes = diff - hours * ONE_HOUR;
+        let minutes = (diff % ONE_HOUR) / ONE_MINUTE;
 
         Self {
             hours,
