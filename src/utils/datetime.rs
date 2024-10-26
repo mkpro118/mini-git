@@ -154,6 +154,7 @@ impl TZInfo {
     /// let tz = TZInfo::from_git_string("+0530").unwrap();
     /// assert_eq!(tz.to_str(), "+0530");
     /// ```
+    #[must_use]
     pub fn from_git_string(s: &str) -> Option<Self> {
         if s.len() != 5 {
             return None;
@@ -260,7 +261,7 @@ impl DateTime {
         time_str
     }
 
-    /// Creates a new DateTime from a Git author/committer timestamp string
+    /// Creates a new `DateTime` from a Git author/committer timestamp string
     /// Format: "name <email> timestamp timezone"
     ///
     /// # Examples
@@ -270,6 +271,7 @@ impl DateTime {
     /// let dt = DateTime::from_git_timestamp("John Doe <john@example.com> 1234567890 +0000").unwrap();
     /// assert!(dt.to_str().contains("2009"));
     /// ```
+    #[must_use]
     pub fn from_git_timestamp(timestamp_str: &str) -> Option<Self> {
         let parts: Vec<&str> = timestamp_str.split_whitespace().collect();
 
@@ -306,6 +308,7 @@ impl DateTime {
     /// let dt = DateTime::from_timestamp(1234567890);
     /// assert!(dt.format_git().contains("2009"));
     /// ```
+    #[must_use]
     pub fn format_git(&self) -> String {
         unsafe {
             let time_secs = self.time.as_secs();
@@ -436,7 +439,7 @@ mod tests {
 
     #[test]
     fn test_git_format() {
-        let dt = DateTime::from_timestamp(1234567890);
+        let dt = DateTime::from_timestamp(1_234_567_890);
         let formatted = dt.format_git();
         assert!(formatted.contains("Feb"));
         assert!(formatted.contains("2009"));
