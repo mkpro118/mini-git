@@ -278,8 +278,21 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic(expected = "subtract with overflow")]
+    fn test_repo_file_with_empty_paths() {
+        let tmp_dir = TempDir::<()>::create("test_repo_file_with_empty_paths");
+        let base = tmp_dir.tmp_dir().join(".git");
+        fs::create_dir(&base).unwrap();
+
+        let result = repo_file::<&str>(&base, &[], true);
+        assert!(result.is_err());
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    #[should_panic(expected = "out of range")]
     fn test_repo_file_with_empty_paths() {
         let tmp_dir = TempDir::<()>::create("test_repo_file_with_empty_paths");
         let base = tmp_dir.tmp_dir().join(".git");
