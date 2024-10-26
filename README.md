@@ -37,7 +37,7 @@ This project is currently a work-in-progress
 - [ ] `commit`
 - [x] `hash-object`
 - [x] `init`
-- [ ] `log`
+- [x] `log`
 - [ ] `ls-files`
 - [x] `ls-tree`
 - [ ] `rev-parse`
