@@ -1,11 +1,17 @@
 use std::fmt::Write;
 
-use crate::core::objects::{find_object, read_object, traits::KVLM, GitObject};
+use crate::core::objects::{
+    commit::Commit, find_object, read_object, traits::KVLM, GitObject,
+};
 use crate::core::GitRepository;
 
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::datetime::DateTime;
 use crate::utils::path;
+
+const RESET: &str = "\x1b[0m";
+const YELLOW: &str = "\x1b[33m";
+const CYAN: &str = "\x1b[36m";
 
 macro_rules! option_to_int {
     ($value:expr, $default:expr, $err_msg:literal) => {
@@ -69,84 +75,67 @@ pub fn log(args: &Namespace) -> Result<String, String> {
 }
 
 fn format_commit(
-    commit: &GitObject,
+    hash: &str,
+    commit: &Commit,
     oneline: bool,
     show_author: bool,
 ) -> Result<String, String> {
-    match commit {
-        GitObject::Commit(commit) => {
-            let kvlm = commit.kvlm();
-            let mut output = String::new();
+    let kvlm = commit.kvlm();
+    let mut output = String::new();
+    let short_hash = &hash[..7];
 
-            let commit_hash = kvlm_val_to_string!(kvlm
-                .get_key(b"tree")
-                .expect("Commit object has a tree"));
-            let short_hash = &commit_hash[..7]; // First 7 characters of hash
+    if oneline {
+        write!(output, "{YELLOW}{short_hash}{RESET} ")
+            .map_err(|e| e.to_string())?;
 
-            if oneline {
-                write!(output, "{short_hash:#} ").map_err(|e| e.to_string())?;
+        let Some(msg) = kvlm.get_msg() else {
+            return Ok(output);
+        };
+        let msg = kvlm_msg_to_string!(msg);
 
-                // Get first line of message
-                if let Some(msg) = kvlm.get_msg() {
-                    let msg = String::from_utf8(msg.clone())
-                        .map_err(|e| e.to_string())?;
-                    if let Some(first_line) = msg.lines().next() {
-                        writeln!(output, "{first_line}")
-                            .map_err(|e| e.to_string())?;
-                    }
-                }
-            } else {
-                writeln!(output, "commit {commit_hash:#}")
-                    .map_err(|e| e.to_string())?;
+        let Some(first_line) = msg.lines().next() else {
+            return Ok(output);
+        };
+        writeln!(output, "{first_line}").map_err(|e| e.to_string())?;
 
-                if let Some(parent) = kvlm.get_key(b"parent") {
-                    writeln!(
-                        output,
-                        "parent {:#}",
-                        kvlm_val_to_string!(parent)
-                    )
-                    .map_err(|e| e.to_string())?;
-                }
-
-                if show_author {
-                    if let Some(author) = kvlm.get_key(b"author") {
-                        let author = kvlm_val_to_string!(author);
-                        let author = extract_name(&author)
-                            .expect("Author should exist for a commit");
-                        writeln!(output, "Author: {author:#}")
-                            .map_err(|e| e.to_string())?;
-                    }
-                }
-
-                if let Some(committer) = kvlm.get_key(b"committer") {
-                    let committer = kvlm_val_to_string!(committer);
-                    if let Some(date) = DateTime::from_git_timestamp(&committer)
-                    {
-                        writeln!(output, "Date:   {:#}", date.format_git())
-                            .map_err(|e| e.to_string())?;
-                    } else {
-                        writeln!(output, "Date:   {committer:#}")
-                            .map_err(|e| e.to_string())?;
-                    }
-                }
-
-                writeln!(output).map_err(|e| e.to_string())?;
-
-                // Message is stored with empty key
-                if let Some(msg) = kvlm.get_msg() {
-                    let msg = kvlm_msg_to_string!(msg);
-                    for line in msg.lines() {
-                        writeln!(output, "    {line}")
-                            .map_err(|e| e.to_string())?;
-                    }
-                }
-                writeln!(output).map_err(|e| e.to_string())?;
-            }
-
-            Ok(output)
-        }
-        _ => Err("Not a commit object".to_string()),
+        return Ok(output);
     }
+
+    writeln!(output, "commit {YELLOW}{hash}{RESET}")
+        .map_err(|e| e.to_string())?;
+
+    if show_author {
+        if let Some(author) = kvlm.get_key(b"author") {
+            let author = kvlm_val_to_string!(author);
+            let name = extract_name(&author)
+                .expect("Author should exist for a commit");
+            writeln!(output, "Author: {CYAN}{name}{RESET}")
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
+    if let Some(committer) = kvlm.get_key(b"committer") {
+        let committer = kvlm_val_to_string!(committer);
+        if let Some(date) = DateTime::from_git_timestamp(&committer) {
+            writeln!(output, "Date:   {}", date.format_git())
+                .map_err(|e| e.to_string())?;
+        } else {
+            writeln!(output, "Date:   {committer}")
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
+    writeln!(output).map_err(|e| e.to_string())?;
+
+    if let Some(msg) = kvlm.get_msg() {
+        let msg = kvlm_msg_to_string!(msg);
+        for line in msg.lines() {
+            writeln!(output, "    {line}").map_err(|e| e.to_string())?;
+        }
+    }
+    writeln!(output).map_err(|e| e.to_string())?;
+
+    Ok(output)
 }
 
 fn extract_name(author_string: &str) -> Option<&str> {
@@ -164,7 +153,7 @@ fn _log(
     repo: &GitRepository,
     treeish: &str,
     max_commits: usize,
-    show_graph: bool,
+    _show_graph: bool,
     oneline: bool,
     show_author: bool,
 ) -> Result<String, String> {
@@ -173,23 +162,32 @@ fn _log(
     let mut count = 0;
 
     while count < max_commits {
+        // Current commit hash is already correct, no need to look up tree hash
         let object = read_object(repo, &current)?;
 
-        if show_graph {
-            // Add basic ASCII graph visualization
-            write!(output, "* ").map_err(|e| e.to_string())?;
+        let GitObject::Commit(commit) = &object else {
+            break;
+        };
+
+        let mut parents = Vec::new();
+
+        // Collect all parents
+        if let Some(parent_commits) = commit.kvlm().get_key(b"parent") {
+            for parent in parent_commits {
+                parents.push(kvlm_msg_to_string!(parent));
+            }
         }
 
-        output.push_str(&format_commit(&object, oneline, show_author)?);
+        output.push_str(&format_commit(
+            &current,
+            commit,
+            oneline,
+            show_author,
+        )?);
 
-        // Get parent commit
-        if let GitObject::Commit(commit) = object {
-            if let Some(parent) = commit.kvlm().get_key(b"parent") {
-                current = kvlm_val_to_string!(parent);
-                count += 1;
-            } else {
-                break;
-            }
+        if let Some(parent) = parents.first() {
+            current.clone_from(parent);
+            count += 1;
         } else {
             break;
         }
