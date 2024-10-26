@@ -84,20 +84,19 @@ fn format_commit(
             let short_hash = &commit_hash[..7]; // First 7 characters of hash
 
             if oneline {
-                write!(output, "{:#} ", short_hash)
-                    .map_err(|e| e.to_string())?;
+                write!(output, "{short_hash:#} ").map_err(|e| e.to_string())?;
 
                 // Get first line of message
                 if let Some(msg) = kvlm.get_msg() {
-                    let msg = String::from_utf8(msg.to_vec())
+                    let msg = String::from_utf8(msg.clone())
                         .map_err(|e| e.to_string())?;
                     if let Some(first_line) = msg.lines().next() {
-                        writeln!(output, "{}", first_line)
+                        writeln!(output, "{first_line}")
                             .map_err(|e| e.to_string())?;
                     }
                 }
             } else {
-                writeln!(output, "commit {:#}", commit_hash)
+                writeln!(output, "commit {commit_hash:#}")
                     .map_err(|e| e.to_string())?;
 
                 if let Some(parent) = kvlm.get_key(b"parent") {
@@ -114,7 +113,7 @@ fn format_commit(
                         let author = kvlm_val_to_string!(author);
                         let author = extract_name(&author)
                             .expect("Author should exist for a commit");
-                        writeln!(output, "Author: {:#}", author)
+                        writeln!(output, "Author: {author:#}")
                             .map_err(|e| e.to_string())?;
                     }
                 }
@@ -126,7 +125,7 @@ fn format_commit(
                         writeln!(output, "Date:   {:#}", date.format_git())
                             .map_err(|e| e.to_string())?;
                     } else {
-                        writeln!(output, "Date:   {:#}", committer)
+                        writeln!(output, "Date:   {committer:#}")
                             .map_err(|e| e.to_string())?;
                     }
                 }
@@ -137,7 +136,7 @@ fn format_commit(
                 if let Some(msg) = kvlm.get_msg() {
                     let msg = kvlm_msg_to_string!(msg);
                     for line in msg.lines() {
-                        writeln!(output, "    {}", line)
+                        writeln!(output, "    {line}")
                             .map_err(|e| e.to_string())?;
                     }
                 }
