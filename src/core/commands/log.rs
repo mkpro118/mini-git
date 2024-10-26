@@ -59,19 +59,11 @@ pub fn log(args: &Namespace) -> Result<String, String> {
     let repo = GitRepository::new(&path)?;
 
     let max_commits = option_to_int!(args.get("max"), usize::MAX, "max");
-    let show_graph = args.get("graph").is_some();
     let oneline = args.get("oneline").is_some();
     let show_author = args.get("no-author").is_none();
     let treeish = &args["treeish"];
 
-    _log(
-        &repo,
-        treeish,
-        max_commits,
-        show_graph,
-        oneline,
-        show_author,
-    )
+    _log(&repo, treeish, max_commits, oneline, show_author)
 }
 
 fn format_commit(
@@ -153,7 +145,6 @@ fn _log(
     repo: &GitRepository,
     treeish: &str,
     max_commits: usize,
-    _show_graph: bool,
     oneline: bool,
     show_author: bool,
 ) -> Result<String, String> {
@@ -208,10 +199,6 @@ pub fn make_parser() -> ArgumentParser {
         .add_argument("oneline", ArgumentType::Boolean)
         .optional()
         .add_help("Show each commit on a single line");
-    parser
-        .add_argument("graph", ArgumentType::Boolean)
-        .optional()
-        .add_help("Show ASCII graph representing the branch and merge history");
     parser
         .add_argument("no-author", ArgumentType::Boolean)
         .optional()
