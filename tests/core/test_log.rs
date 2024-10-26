@@ -32,26 +32,22 @@ mod tests {
         };
     }
 
+    fn create_commit(kvlm_data: kvlm::KVLM, hash: &str) -> (Vec<u8>, String) {
+        let commit = Commit::with_kvlm(kvlm_data);
+        let serialized_commit = &commit.serialize();
+        let len = serialized_commit.len();
+        let mut data = format!("commit {len}\0").as_bytes().to_vec();
+        data.extend_from_slice(serialized_commit);
+        let compressed = zlib::compress(&data, &zlib::Strategy::Auto);
+        (compressed, hash.to_string())
+    }
+
     fn create_temp_repo<'a>() -> TempDir<'a, ()> {
         let tmp = TempDir::create("cmd_log").with_mutex(&crate::TEST_MUTEX);
         let repo = GitRepository::create(tmp.tmp_dir()).expect("Create repo");
 
         // Create commits manually
         let mut serialized = vec![];
-
-        // Helper function to create a commit object
-        fn create_commit(
-            kvlm_data: kvlm::KVLM,
-            hash: &str,
-        ) -> (Vec<u8>, String) {
-            let commit = Commit::with_kvlm(kvlm_data);
-            let serialized_commit = &commit.serialize();
-            let len = serialized_commit.len();
-            let mut data = format!("commit {len}\0").as_bytes().to_vec();
-            data.extend_from_slice(serialized_commit);
-            let compressed = zlib::compress(&data, &zlib::Strategy::Auto);
-            (compressed, hash.to_string())
-        }
 
         // Create initial commit
         let kvlm_data = kvlm::KVLM::parse(
@@ -103,7 +99,7 @@ Second commit"
         // Create refs/heads/master pointing to the latest commit
         let refs_dir = repo.gitdir().join("refs").join("heads");
         std::fs::create_dir_all(&refs_dir).expect("Create refs/heads");
-        std::fs::write(refs_dir.join("master"), format!("{}\n", hash_second))
+        std::fs::write(refs_dir.join("master"), format!("{hash_second}\n"))
             .expect("Write master ref");
 
         tmp
