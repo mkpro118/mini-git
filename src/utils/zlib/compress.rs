@@ -16,8 +16,6 @@ const SIXTEEN_KB: usize = 16 * ONE_KB;
 const PREVIOUS_CODE: usize = 16;
 const PREVIOUS_MIN: usize = 3;
 const PREVIOUS_MAX: usize = 6;
-const PREVIOUS_MIN_RANGE: usize = 4;
-/* const PREVIOUS_MAX_RANGE: usize = 7; */
 const SHORT_ZERO_CODE: usize = 17;
 const LONG_ZERO_CODE: usize = 18;
 const SHORT_ZERO_MIN: usize = 3;
@@ -546,25 +544,22 @@ fn zlib_rle_encode_nonzero(
     mut repetitions: usize,
 ) {
     while repetitions > 0 {
-        match repetitions {
-            ..=PREVIOUS_MIN => {
-                acc.extend_from_slice(&[(num, None)].repeat(repetitions));
-                break;
-            }
-            PREVIOUS_MIN_RANGE.. => {
-                acc.push((num, None));
-                repetitions -= 1;
-                let current_count = if repetitions > PREVIOUS_MAX {
-                    repetitions -= PREVIOUS_MAX;
-                    PREVIOUS_MAX
-                } else {
-                    let temp = repetitions;
-                    repetitions = 0;
-                    temp
-                };
-                acc.push((PREVIOUS_CODE, Some(current_count)));
-            }
+        if let ..=PREVIOUS_MIN = repetitions {
+            acc.extend_from_slice(&[(num, None)].repeat(repetitions));
+            break;
         }
+
+        acc.push((num, None));
+        repetitions -= 1;
+        let current_count = if repetitions > PREVIOUS_MAX {
+            repetitions -= PREVIOUS_MAX;
+            PREVIOUS_MAX
+        } else {
+            let temp = repetitions;
+            repetitions = 0;
+            temp
+        };
+        acc.push((PREVIOUS_CODE, Some(current_count)));
     }
 }
 

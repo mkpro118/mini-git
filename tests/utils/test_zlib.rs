@@ -18,8 +18,8 @@ mod tests {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap();
             let seed = dur.as_secs();
-            let multiplier = (dur.as_millis() & (u32::MAX as u128)) as u64;
-            let increment = (dur.as_nanos() & (u32::MAX as u128)) as u64;
+            let multiplier = (dur.as_millis() & u128::from(u32::MAX)) as u64;
+            let increment = (dur.as_nanos() & u128::from(u32::MAX)) as u64;
 
             Self {
                 seed,
