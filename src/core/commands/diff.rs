@@ -51,11 +51,13 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
 
     // Parse arguments
     let name_only = args.get("name-only").is_some();
-    let hunk_context_lines = args
-        .get("n-context-lines")
-        .map(|x| x.as_str().parse::<usize>())
-        .expect("Should have some value")
-        .map_err(|err| err.to_string())?;
+    let Some(hunk_context_lines) = args.get("n-context-lines") else {
+        unreachable!()
+    };
+    let Ok(hunk_context_lines) = hunk_context_lines.parse::<usize>() else {
+        unreachable!()
+    };
+
     let files: Vec<&str> = args
         .get("files")
         .map(|f| f.split(',').collect())
@@ -408,6 +410,7 @@ fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
     changes
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_hunks(
     old_lines: &[&str],
     new_lines: &[&str],
@@ -441,7 +444,7 @@ fn generate_hunks(
                 } else if let Some(last_idx) = last_change_idx {
                     if i - last_idx <= hunk_context_lines {
                         // Within range of last change
-                        current_hunk.push_str(&format!(" {}\n", line));
+                        current_hunk.push_str(&format!(" {line}\n"));
                         old_count += 1;
                         new_count += 1;
                     } else {
@@ -470,7 +473,7 @@ fn generate_hunks(
                 // Add context buffer if this is the start of a new hunk
                 if last_change_idx.is_none() {
                     for line in &context_buffer {
-                        current_hunk.push_str(&format!(" {}\n", line));
+                        current_hunk.push_str(&format!(" {line}\n"));
                         old_count += 1;
                         new_count += 1;
                     }
@@ -503,7 +506,7 @@ fn generate_hunks(
                 // Add context buffer if this is the start of a new hunk
                 if last_change_idx.is_none() {
                     for line in &context_buffer {
-                        current_hunk.push_str(&format!(" {}\n", line));
+                        current_hunk.push_str(&format!(" {line}\n"));
                         old_count += 1;
                         new_count += 1;
                     }
