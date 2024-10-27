@@ -13,6 +13,8 @@
 
 use crate::core::objects::traits;
 
+const BINARY_CHECK_BYTES: usize = 8000;
+
 /// Represents a Git blob object, which is used to store file contents in Git.
 #[derive(Debug)]
 pub struct Blob {
@@ -37,6 +39,47 @@ impl Blob {
     #[must_use]
     pub fn data(&self) -> &[u8] {
         &self.data
+    }
+
+    /// Guess if the provided content is binary or not.
+    ///
+    /// # Returns
+    /// `true` if the content is binary, `false` otherwise.
+    pub fn is_binary(content: &[u8]) -> bool {
+        let check_len = content.len().min(BINARY_CHECK_BYTES);
+        if check_len == 0 {
+            return false;
+        }
+
+        // Look for common binary file signatures
+        let binary_signatures: [&[u8]; 5] = [
+            &[0x7F, 0x45, 0x4C, 0x46], // ELF
+            &[0x89, 0x50, 0x4E, 0x47], // PNG
+            &[0x50, 0x4B, 0x03, 0x04], // ZIP
+            &[0xFF, 0xD8, 0xFF],       // JPEG
+            &[0x1F, 0x8B],             // GZIP
+        ];
+
+        if content.len() >= 4
+            && binary_signatures.iter().any(|sig| content.starts_with(sig))
+        {
+            return true;
+        }
+
+        // Heuristic: check for null bytes and control characters
+        let mut null_count = 0;
+        let mut printable_count = 0;
+
+        for &byte in &content[..check_len] {
+            if byte == 0 {
+                null_count += 1;
+            } else if byte.is_ascii_graphic() || byte.is_ascii_whitespace() {
+                printable_count += 1;
+            }
+        }
+
+        // If more than 30% are null bytes or less than 70% are printable, consider it binary
+        null_count > check_len / 3 || printable_count < (check_len * 7) / 10
     }
 }
 
@@ -126,5 +169,58 @@ mod tests {
             Ok(Blob { data: inner }) => assert_eq!(inner, data),
             _ => panic!("Deserialize did not return a blob"),
         }
+    }
+
+    #[test]
+    fn test_is_binary_with_empty_content() {
+        let content = b"";
+        assert!(!Blob::is_binary(content));
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    fn test_is_binary_with_control_characters() {
+        let content = "This text will have >30% control characters.";
+        let n = 10usize; // Number of control characters, must be <= 31
+        let control_chars =
+            (1u8..=(n as u8)).map(|x| x as char).collect::<Vec<_>>();
+
+        // required_len should be > content.len() / 2
+        // to make the control characters take up at least 1/3 (33%) of the content
+        let required_len = (content.len() / 2) + 3;
+        let chars = (0..=required_len)
+            .map(|i| control_chars[i % n])
+            .collect::<String>();
+        let content = format!("{content}{chars}",);
+        assert!(Blob::is_binary(content.as_bytes()));
+    }
+
+    #[test]
+    fn test_is_binary_with_text() {
+        let content = b"This is a simple ASCII text.";
+        assert!(!Blob::is_binary(content));
+    }
+
+    #[test]
+    fn test_is_binary_with_null_bytes() {
+        let content = "This text will have >30% null bytes.";
+
+        // required_len should be > content.len() / 2
+        // to make the null bytes take up at least 1/3 (33%) of the content
+        let required_len = (content.len() / 2) + 1;
+        let content = format!("{content}{}", "\0".repeat(required_len));
+        assert!(Blob::is_binary(content.as_bytes()));
+    }
+
+    #[test]
+    fn test_is_binary_with_elf_signature() {
+        let content = &[0x7F, 0x45, 0x4C, 0x46, 0x00, 0x00]; // ELF signature
+        assert!(Blob::is_binary(content));
+    }
+
+    #[test]
+    fn test_is_binary_with_png_signature() {
+        let content = &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A]; // PNG signature
+        assert!(Blob::is_binary(content));
     }
 }
