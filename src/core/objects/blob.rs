@@ -45,6 +45,7 @@ impl Blob {
     ///
     /// # Returns
     /// `true` if the content is binary, `false` otherwise.
+    #[must_use]
     pub fn is_binary(content: &[u8]) -> bool {
         let check_len = content.len().min(BINARY_CHECK_BYTES);
         if check_len == 0 {
