@@ -10,6 +10,25 @@ use crate::utils::path;
 const RESET: &str = "\x1b[0m";
 const RED: &str = "\x1b[31m";
 const GREEN: &str = "\x1b[32m";
+const HUNK_CONTEXT_LINES: usize = 5;
+const BINARY_CHECK_BYTES: usize = 8000;
+
+#[derive(Debug)]
+struct Hunk {
+    old_start: usize,
+    old_count: usize,
+    new_start: usize,
+    new_count: usize,
+    content: String,
+}
+
+#[derive(Debug)]
+enum Change {
+    Same(usize, usize),    // (old_idx, new_idx)
+    Delete(usize),         // old_idx
+    Insert(usize),         // new_idx
+    Replace(usize, usize), // (old_idx, new_idx)
+}
 
 /// List differences
 /// This handles the subcommand
@@ -64,7 +83,7 @@ fn _diff(
     name_only: bool,
     files: &[&str],
 ) -> Result<String, String> {
-    // Get the two trees to compare
+    // Implementation remains the same until the diff generation part
     let (tree1, tree2) = match (tree1, tree2) {
         (None, None) => {
             // Compare working tree with HEAD
@@ -121,6 +140,8 @@ fn _diff(
             (Some(c1), Some(c2)) if c1 != c2 => {
                 if name_only {
                     output.push_str(&format!("{path}\n"));
+                } else if is_binary(c1) || is_binary(c2) {
+                    output.push_str(&format_binary_diff(path));
                 } else {
                     output.push_str(&format_diff(path, c1, c2));
                 }
@@ -128,6 +149,8 @@ fn _diff(
             (Some(c), None) => {
                 if name_only {
                     output.push_str(&format!("{path}\n"));
+                } else if is_binary(c) {
+                    output.push_str(&format_binary_deletion(path));
                 } else {
                     output.push_str(&format_deletion(path, c));
                 }
@@ -135,6 +158,8 @@ fn _diff(
             (None, Some(c)) => {
                 if name_only {
                     output.push_str(&format!("{path}\n"));
+                } else if is_binary(c) {
+                    output.push_str(&format_binary_addition(path));
                 } else {
                     output.push_str(&format_addition(path, c));
                 }
@@ -253,7 +278,177 @@ fn collect_working_tree_contents(
     Ok(())
 }
 
-#[allow(clippy::similar_names)]
+fn is_binary(content: &[u8]) -> bool {
+    let check_len = content.len().min(BINARY_CHECK_BYTES);
+    let null_count = content[..check_len]
+        .iter()
+        .filter(|&&byte| byte == 0)
+        .count();
+
+    // If more than 20% of the checked bytes are null, consider it binary
+    null_count > check_len / 5
+}
+
+fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
+    let old_len = old_lines.len();
+    let new_len = new_lines.len();
+
+    // Create a matrix for the shortest edit sequence
+    let mut dp = vec![vec![0; new_len + 1]; old_len + 1];
+    let mut backtrace = vec![vec![(0, 0); new_len + 1]; old_len + 1];
+
+    // Initialize first row and column
+    for i in 0..=old_len {
+        dp[i][0] = i;
+        if i > 0 {
+            backtrace[i][0] = (i - 1, 0);
+        }
+    }
+    for j in 0..=new_len {
+        dp[0][j] = j;
+        if j > 0 {
+            backtrace[0][j] = (0, j - 1);
+        }
+    }
+
+    // Fill the matrices
+    for i in 1..=old_len {
+        for j in 1..=new_len {
+            if old_lines[i - 1] == new_lines[j - 1] {
+                dp[i][j] = dp[i - 1][j - 1];
+                backtrace[i][j] = (i - 1, j - 1);
+            } else {
+                let delete_cost = dp[i - 1][j] + 1;
+                let insert_cost = dp[i][j - 1] + 1;
+                let replace_cost = dp[i - 1][j - 1] + 1;
+
+                dp[i][j] = delete_cost.min(insert_cost.min(replace_cost));
+
+                if dp[i][j] == delete_cost {
+                    backtrace[i][j] = (i - 1, j);
+                } else if dp[i][j] == insert_cost {
+                    backtrace[i][j] = (i, j - 1);
+                } else {
+                    backtrace[i][j] = (i - 1, j - 1);
+                }
+            }
+        }
+    }
+
+    // Reconstruct the changes
+    let mut changes = Vec::new();
+    let mut i = old_len;
+    let mut j = new_len;
+
+    while i > 0 || j > 0 {
+        let (prev_i, prev_j) = backtrace[i][j];
+
+        if i == prev_i {
+            changes.push(Change::Insert(j - 1));
+        } else if j == prev_j {
+            changes.push(Change::Delete(i - 1));
+        } else if old_lines[i - 1] == new_lines[j - 1] {
+            changes.push(Change::Same(i - 1, j - 1));
+        } else {
+            changes.push(Change::Replace(i - 1, j - 1));
+        }
+
+        i = prev_i;
+        j = prev_j;
+    }
+
+    changes.reverse();
+    changes
+}
+
+fn generate_hunks(
+    old_lines: &[&str],
+    new_lines: &[&str],
+    changes: &[Change],
+) -> Vec<Hunk> {
+    let mut hunks = Vec::new();
+    let mut current_hunk = String::new();
+    let mut old_start = 1;
+    let mut new_start = 1;
+    let mut old_count = 0;
+    let mut new_count = 0;
+    let mut last_change_idx = None;
+
+    for (i, change) in changes.iter().enumerate() {
+        match change {
+            Change::Same(old_idx, new_idx) => {
+                // If we're within HUNK_CONTEXT_LINES of a change, include the line
+                if let Some(last_idx) = last_change_idx {
+                    if i - last_idx <= HUNK_CONTEXT_LINES {
+                        current_hunk
+                            .push_str(&format!(" {}\n", old_lines[*old_idx]));
+                        old_count += 1;
+                        new_count += 1;
+                    } else {
+                        // Start a new hunk if needed
+                        if !current_hunk.is_empty() {
+                            hunks.push(Hunk {
+                                old_start,
+                                old_count,
+                                new_start,
+                                new_count,
+                                content: current_hunk,
+                            });
+                            current_hunk = String::new();
+                        }
+                        old_start = old_idx + 1;
+                        new_start = new_idx + 1;
+                        old_count = 0;
+                        new_count = 0;
+                    }
+                }
+            }
+            Change::Delete(old_idx) => {
+                current_hunk.push_str(&format!(
+                    "{RED}-{}{RESET}\n",
+                    old_lines[*old_idx]
+                ));
+                old_count += 1;
+                last_change_idx = Some(i);
+            }
+            Change::Insert(new_idx) => {
+                current_hunk.push_str(&format!(
+                    "{GREEN}+{}{RESET}\n",
+                    new_lines[*new_idx]
+                ));
+                new_count += 1;
+                last_change_idx = Some(i);
+            }
+            Change::Replace(old_idx, new_idx) => {
+                current_hunk.push_str(&format!(
+                    "{RED}-{}{RESET}\n",
+                    old_lines[*old_idx]
+                ));
+                current_hunk.push_str(&format!(
+                    "{GREEN}+{}{RESET}\n",
+                    new_lines[*new_idx]
+                ));
+                old_count += 1;
+                new_count += 1;
+                last_change_idx = Some(i);
+            }
+        }
+    }
+
+    // Add the last hunk if there is one
+    if !current_hunk.is_empty() {
+        hunks.push(Hunk {
+            old_start,
+            old_count,
+            new_start,
+            new_count,
+            content: current_hunk,
+        });
+    }
+
+    hunks
+}
+
 fn format_diff(path: &str, content1: &[u8], content2: &[u8]) -> String {
     let mut output = String::new();
     output.push_str(&format!("diff --mini-git a/{path} b/{path}\n"));
@@ -264,50 +459,33 @@ fn format_diff(path: &str, content1: &[u8], content2: &[u8]) -> String {
     let lines1: Vec<&str> = str1.lines().collect();
     let lines2: Vec<&str> = str2.lines().collect();
 
-    // Simple diff implementation - you might want to use a proper diff algorithm
     output.push_str("--- a/\n");
     output.push_str("+++ b/\n");
 
-    let mut hunk = String::new();
-    let hunk_old_start = 1;
-    let hunk_new_start = 1;
-    let mut hunk_old_count = 0;
-    let mut hunk_new_count = 0;
+    let changes = compute_diff(&lines1, &lines2);
+    let hunks = generate_hunks(&lines1, &lines2, &changes);
 
-    for i in 0..lines1.len().max(lines2.len()) {
-        let line1 = lines1.get(i);
-        let line2 = lines2.get(i);
-
-        match (line1, line2) {
-            (Some(l1), Some(l2)) if l1 == l2 => {
-                hunk.push_str(&format!(" {l1}\n"));
-                hunk_old_count += 1;
-                hunk_new_count += 1;
-            }
-            (Some(l1), None) => {
-                hunk.push_str(&format!("{RED}-{l1}{RESET}\n"));
-                hunk_old_count += 1;
-            }
-            (None, Some(l2)) => {
-                hunk.push_str(&format!("{GREEN}+{l2}{RESET}\n"));
-                hunk_new_count += 1;
-            }
-            (Some(l1), Some(l2)) => {
-                hunk.push_str(&format!("{RED}-{l1}{RESET}\n"));
-                hunk.push_str(&format!("{GREEN}+{l2}{RESET}\n"));
-                hunk_old_count += 1;
-                hunk_new_count += 1;
-            }
-            (None, None) => break,
-        }
+    for hunk in hunks {
+        output.push_str(&format!(
+            "@@ -{},{} +{},{} @@\n",
+            hunk.old_start, hunk.old_count, hunk.new_start, hunk.new_count
+        ));
+        output.push_str(&hunk.content);
     }
 
-    output.push_str(&format!(
-        "@@ -{hunk_old_start},{hunk_old_count} +{hunk_new_start},{hunk_new_count} @@\n"
-    ));
-    output.push_str(&hunk);
-
     output
+}
+
+fn format_binary_diff(path: &str) -> String {
+    format!("diff --mini-git a/{path} b/{path}\nBinary files differ\n")
+}
+
+fn format_binary_addition(path: &str) -> String {
+    format!("diff --mini-git a/{path} b/{path}\nBinary file added\n")
+}
+
+fn format_binary_deletion(path: &str) -> String {
+    format!("diff --mini-git a/{path} b/{path}\nBinary file deleted\n")
 }
 
 fn format_deletion(path: &str, content: &[u8]) -> String {
