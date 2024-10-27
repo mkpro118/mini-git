@@ -22,7 +22,7 @@ const GREEN: &str = "\x1b[32m";
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-
+#[allow(clippy::module_name_repetitions)]
 pub fn diff(args: &Namespace) -> Result<String, String> {
     let cwd = std::env::current_dir().map_err(|_| {
         "Could not determine current working directory".to_owned()
@@ -104,9 +104,9 @@ fn _diff(
         let mut all_paths: Vec<&str> = tree1_contents
             .keys()
             .chain(tree2_contents.keys())
-            .map(|x| x.as_str())
+            .map(String::as_str)
             .collect();
-        all_paths.sort();
+        all_paths.sort_unstable();
         all_paths.dedup();
         all_paths
     } else {
@@ -120,21 +120,21 @@ fn _diff(
         match (content1, content2) {
             (Some(c1), Some(c2)) if c1 != c2 => {
                 if name_only {
-                    output.push_str(&format!("{}\n", path));
+                    output.push_str(&format!("{path}\n"));
                 } else {
                     output.push_str(&format_diff(path, c1, c2));
                 }
             }
             (Some(c), None) => {
                 if name_only {
-                    output.push_str(&format!("{}\n", path));
+                    output.push_str(&format!("{path}\n"));
                 } else {
                     output.push_str(&format_deletion(path, c));
                 }
             }
             (None, Some(c)) => {
                 if name_only {
-                    output.push_str(&format!("{}\n", path));
+                    output.push_str(&format!("{path}\n"));
                 } else {
                     output.push_str(&format_addition(path, c));
                 }
@@ -197,7 +197,7 @@ fn collect_tree_contents(
                 Some("tree") => {
                     collect_tree_contents(repo, leaf.sha(), &path, contents)?;
                 }
-                _ => return Err(format!("Unknown object type for {}", path)),
+                _ => return Err(format!("Unknown object type for {path}")),
             }
         }
     }
@@ -224,17 +224,15 @@ fn collect_working_tree_contents(
     contents: &mut HashMap<String, Vec<u8>>,
 ) -> Result<(), String> {
     for entry in std::fs::read_dir(current)
-        .map_err(|e| format!("Failed to read directory: {}", e))?
+        .map_err(|e| format!("Failed to read directory: {e}"))?
     {
-        let entry =
-            entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
         let path = entry.path();
 
         if path
             .file_name()
             .and_then(|n| n.to_str())
-            .map(|n| n == ".git")
-            .unwrap_or(false)
+            .is_some_and(|n| n == ".git")
         {
             continue;
         }
@@ -255,9 +253,10 @@ fn collect_working_tree_contents(
     Ok(())
 }
 
+#[allow(clippy::similar_names)]
 fn format_diff(path: &str, content1: &[u8], content2: &[u8]) -> String {
     let mut output = String::new();
-    output.push_str(&format!("diff --mini-git a/{} b/{}\n", path, path));
+    output.push_str(&format!("diff --mini-git a/{path} b/{path}\n"));
 
     let str1 = String::from_utf8_lossy(content1);
     let str2 = String::from_utf8_lossy(content2);
@@ -281,21 +280,21 @@ fn format_diff(path: &str, content1: &[u8], content2: &[u8]) -> String {
 
         match (line1, line2) {
             (Some(l1), Some(l2)) if l1 == l2 => {
-                hunk.push_str(&format!(" {}\n", l1));
+                hunk.push_str(&format!(" {l1}\n"));
                 hunk_old_count += 1;
                 hunk_new_count += 1;
             }
             (Some(l1), None) => {
-                hunk.push_str(&format!("{}-{}{}\n", RED, l1, RESET));
+                hunk.push_str(&format!("{RED}-{l1}{RESET}\n"));
                 hunk_old_count += 1;
             }
             (None, Some(l2)) => {
-                hunk.push_str(&format!("{}+{}{}\n", GREEN, l2, RESET));
+                hunk.push_str(&format!("{GREEN}+{l2}{RESET}\n"));
                 hunk_new_count += 1;
             }
             (Some(l1), Some(l2)) => {
-                hunk.push_str(&format!("{}-{}{}\n", RED, l1, RESET));
-                hunk.push_str(&format!("{}+{}{}\n", GREEN, l2, RESET));
+                hunk.push_str(&format!("{RED}-{l1}{RESET}\n"));
+                hunk.push_str(&format!("{GREEN}+{l2}{RESET}\n"));
                 hunk_old_count += 1;
                 hunk_new_count += 1;
             }
@@ -304,8 +303,7 @@ fn format_diff(path: &str, content1: &[u8], content2: &[u8]) -> String {
     }
 
     output.push_str(&format!(
-        "@@ -{},{} +{},{} @@\n",
-        hunk_old_start, hunk_old_count, hunk_new_start, hunk_new_count
+        "@@ -{hunk_old_start},{hunk_old_count} +{hunk_new_start},{hunk_new_count} @@\n"
     ));
     output.push_str(&hunk);
 
@@ -314,14 +312,14 @@ fn format_diff(path: &str, content1: &[u8], content2: &[u8]) -> String {
 
 fn format_deletion(path: &str, content: &[u8]) -> String {
     let mut output = String::new();
-    output.push_str(&format!("diff --mini-git a/{} b/{}\n", path, path));
+    output.push_str(&format!("diff --mini-git a/{path} b/{path}\n"));
     output.push_str("deleted file\n");
     output.push_str("--- a/\n");
     output.push_str("+++ /dev/null\n");
 
     let content_str = String::from_utf8_lossy(content);
     for line in content_str.lines() {
-        output.push_str(&format!("{}-{}{}\n", RED, line, RESET));
+        output.push_str(&format!("{RED}-{line}{RESET}\n"));
     }
 
     output
@@ -329,20 +327,21 @@ fn format_deletion(path: &str, content: &[u8]) -> String {
 
 fn format_addition(path: &str, content: &[u8]) -> String {
     let mut output = String::new();
-    output.push_str(&format!("diff --mini-git a/{} b/{}\n", path, path));
+    output.push_str(&format!("diff --mini-git a/{path} b/{path}\n"));
     output.push_str("new file\n");
     output.push_str("--- /dev/null\n");
     output.push_str("+++ b/\n");
 
     let content_str = String::from_utf8_lossy(content);
     for line in content_str.lines() {
-        output.push_str(&format!("{}+{}{}\n", GREEN, line, RESET));
+        output.push_str(&format!("{GREEN}+{line}{RESET}\n"));
     }
 
     output
 }
 
 /// Make parser for the diff command
+#[must_use]
 pub fn make_parser() -> ArgumentParser {
     let mut parser = ArgumentParser::new(
         "Show changes between commits, commit and working tree, etc.",
