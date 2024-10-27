@@ -10,7 +10,15 @@
 //! Git-compatible operations such as serialization, deserialization,
 //! and format identification.
 
-use crate::core::objects::traits;
+use std::collections::HashMap;
+use std::path::Path;
+
+use crate::core::objects::{
+    self,
+    traits::{self, KVLM},
+    GitObject,
+};
+use crate::core::GitRepository;
 use crate::utils::hex;
 
 /// The byte representation of a space character.
@@ -256,6 +264,137 @@ impl Tree {
     pub fn set_leaves(&mut self, leaves: Vec<Leaf>) -> &mut Self {
         self.leaves = leaves;
         self
+    }
+
+    pub fn get_head_tree_sha(repo: &GitRepository) -> Result<String, String> {
+        let head_ref =
+            objects::find_object(repo, "HEAD", Some("commit"), true)?;
+        let head_obj = objects::read_object(repo, &head_ref)?;
+
+        if let GitObject::Commit(commit) = head_obj {
+            commit
+                .kvlm()
+                .get_key(b"tree")
+                .and_then(|t| t.first())
+                .map(|t| String::from_utf8_lossy(t).to_string())
+                .ok_or_else(|| "HEAD commit has no tree".to_owned())
+        } else {
+            Err("HEAD is not a commit".to_owned())
+        }
+    }
+
+    pub fn get_tree_contents(
+        repo: &GitRepository,
+        tree_sha: &str,
+    ) -> Result<HashMap<String, Vec<u8>>, String> {
+        let mut contents = HashMap::new();
+        Self::collect_tree_contents(repo, tree_sha, "", &mut contents)?;
+        Ok(contents)
+    }
+
+    pub fn collect_tree_contents(
+        repo: &GitRepository,
+        tree_sha: &str,
+        prefix: &str,
+        contents: &mut HashMap<String, Vec<u8>>,
+    ) -> Result<(), String> {
+        let tree_obj = objects::read_object(repo, tree_sha)?;
+
+        if let GitObject::Tree(tree) = tree_obj {
+            for leaf in tree.leaves() {
+                let path = if prefix.is_empty() {
+                    leaf.path_as_string()
+                } else {
+                    format!("{}/{}", prefix, leaf.path_as_string())
+                };
+
+                match leaf.obj_type() {
+                    Some("blob") => {
+                        let blob_obj = objects::read_object(repo, leaf.sha())?;
+                        if let GitObject::Blob(blob) = blob_obj {
+                            contents.insert(path, blob.data);
+                        }
+                    }
+                    Some("tree") => {
+                        Self::collect_tree_contents(
+                            repo,
+                            leaf.sha(),
+                            &path,
+                            contents,
+                        )?;
+                    }
+                    _ => return Err(format!("Unknown object type for {path}")),
+                }
+            }
+        } else if let GitObject::Commit(commit) = tree_obj {
+            let tree_sha = String::from_utf8_lossy(
+                &commit.kvlm().get_key(b"tree").unwrap()[0],
+            )
+            .to_string();
+            Self::collect_tree_contents(repo, &tree_sha, prefix, contents)?;
+        } else if let GitObject::Tag(tag) = tree_obj {
+            let tree_sha = String::from_utf8_lossy(
+                &tag.kvlm().get_key(b"object").unwrap()[0],
+            )
+            .to_string();
+            Self::collect_tree_contents(repo, &tree_sha, prefix, contents)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn get_working_tree_contents(
+        repo: &GitRepository,
+    ) -> Result<HashMap<String, Vec<u8>>, String> {
+        let mut contents = HashMap::new();
+        let repo_path = repo.gitdir();
+        let work_tree = repo_path.parent().ok_or("Invalid repo path")?;
+
+        // This is a simplified version - you might want to add proper .gitignore handling
+        Self::collect_working_tree_contents(
+            work_tree,
+            work_tree,
+            &mut contents,
+        )?;
+
+        Ok(contents)
+    }
+
+    pub fn collect_working_tree_contents(
+        base: &Path,
+        current: &Path,
+        contents: &mut HashMap<String, Vec<u8>>,
+    ) -> Result<(), String> {
+        for entry in std::fs::read_dir(current)
+            .map_err(|e| format!("Failed to read directory: {e}"))?
+        {
+            let entry =
+                entry.map_err(|e| format!("Failed to read entry: {e}"))?;
+            let path = entry.path();
+
+            if path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n == ".git")
+            {
+                continue;
+            }
+
+            if path.is_file() {
+                let relative = path
+                    .strip_prefix(base)
+                    .map_err(|_| "Failed to get relative path".to_owned())?;
+                let content = std::fs::read(&path).map_err(|e| {
+                    format!("Failed to read file {}: {}", path.display(), e)
+                })?;
+                contents
+                    .insert(relative.to_string_lossy().to_string(), content);
+            } else if path.is_dir() {
+                Self::collect_working_tree_contents(base, &path, contents)?;
+            }
+        }
+
+        Ok(())
     }
 }
 

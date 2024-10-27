@@ -1,7 +1,4 @@
-use std::collections::HashMap;
-use std::path::Path;
-
-use crate::core::objects::{self, traits::KVLM, GitObject};
+use crate::core::objects::{self, blob::Blob, tree::Tree};
 use crate::core::GitRepository;
 
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
@@ -10,7 +7,6 @@ use crate::utils::path;
 const RESET: &str = "\x1b[0m";
 const RED: &str = "\x1b[31m";
 const GREEN: &str = "\x1b[32m";
-const BINARY_CHECK_BYTES: usize = 8000;
 
 #[derive(Debug)]
 struct Hunk {
@@ -22,6 +18,7 @@ struct Hunk {
 }
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 enum Change {
     Same(usize, usize),    // (old_idx, new_idx)
     Delete(usize),         // old_idx
@@ -94,7 +91,7 @@ fn _diff(
     let (tree1, tree2) = match (tree1, tree2) {
         (None, None) => {
             // Compare working tree with HEAD
-            let head = get_head_tree(repo)?;
+            let head = Tree::get_head_tree_sha(repo)?;
             (head, None)
         }
         (Some(tree), None) => {
@@ -115,11 +112,11 @@ fn _diff(
     };
 
     // Get the tree contents
-    let tree1_contents = get_tree_contents(repo, &tree1)?;
+    let tree1_contents = Tree::get_tree_contents(repo, &tree1)?;
     let tree2_contents = if let Some(tree2) = tree2 {
-        get_tree_contents(repo, &tree2)?
+        Tree::get_tree_contents(repo, &tree2)?
     } else {
-        get_working_tree_contents(repo)?
+        Tree::get_working_tree_contents(repo)?
     };
 
     // Generate diff
@@ -147,7 +144,7 @@ fn _diff(
             (Some(c1), Some(c2)) if c1 != c2 => {
                 if name_only {
                     output.push_str(&format!("{path}\n"));
-                } else if is_binary(c1) || is_binary(c2) {
+                } else if Blob::is_binary(c1) || Blob::is_binary(c2) {
                     output.push_str(&format_binary_diff(path));
                 } else {
                     output.push_str(&format_diff(
@@ -161,7 +158,7 @@ fn _diff(
             (Some(c), None) => {
                 if name_only {
                     output.push_str(&format!("{path}\n"));
-                } else if is_binary(c) {
+                } else if Blob::is_binary(c) {
                     output.push_str(&format_binary_deletion(path));
                 } else {
                     output.push_str(&format_deletion(path, c));
@@ -170,7 +167,7 @@ fn _diff(
             (None, Some(c)) => {
                 if name_only {
                     output.push_str(&format!("{path}\n"));
-                } else if is_binary(c) {
+                } else if Blob::is_binary(c) {
                     output.push_str(&format_binary_addition(path));
                 } else {
                     output.push_str(&format_addition(path, c));
@@ -181,161 +178,6 @@ fn _diff(
     }
 
     Ok(output)
-}
-
-fn get_head_tree(repo: &GitRepository) -> Result<String, String> {
-    let head_ref = objects::find_object(repo, "HEAD", Some("commit"), true)?;
-    let head_obj = objects::read_object(repo, &head_ref)?;
-
-    if let GitObject::Commit(commit) = head_obj {
-        commit
-            .kvlm()
-            .get_key(b"tree")
-            .and_then(|t| t.first())
-            .map(|t| String::from_utf8_lossy(t).to_string())
-            .ok_or_else(|| "HEAD commit has no tree".to_owned())
-    } else {
-        Err("HEAD is not a commit".to_owned())
-    }
-}
-
-fn get_tree_contents(
-    repo: &GitRepository,
-    tree_sha: &str,
-) -> Result<HashMap<String, Vec<u8>>, String> {
-    let mut contents = HashMap::new();
-    collect_tree_contents(repo, tree_sha, "", &mut contents)?;
-    Ok(contents)
-}
-
-fn collect_tree_contents(
-    repo: &GitRepository,
-    tree_sha: &str,
-    prefix: &str,
-    contents: &mut HashMap<String, Vec<u8>>,
-) -> Result<(), String> {
-    let tree_obj = objects::read_object(repo, tree_sha)?;
-
-    if let GitObject::Tree(tree) = tree_obj {
-        for leaf in tree.leaves() {
-            let path = if prefix.is_empty() {
-                leaf.path_as_string()
-            } else {
-                format!("{}/{}", prefix, leaf.path_as_string())
-            };
-
-            match leaf.obj_type() {
-                Some("blob") => {
-                    let blob_obj = objects::read_object(repo, leaf.sha())?;
-                    if let GitObject::Blob(blob) = blob_obj {
-                        contents.insert(path, blob.data);
-                    }
-                }
-                Some("tree") => {
-                    collect_tree_contents(repo, leaf.sha(), &path, contents)?;
-                }
-                _ => return Err(format!("Unknown object type for {path}")),
-            }
-        }
-    } else if let GitObject::Commit(commit) = tree_obj {
-        let tree_sha = String::from_utf8_lossy(
-            &commit.kvlm().get_key(b"tree").unwrap()[0],
-        )
-        .to_string();
-        collect_tree_contents(repo, &tree_sha, prefix, contents)?;
-    } else if let GitObject::Tag(tag) = tree_obj {
-        let tree_sha =
-            String::from_utf8_lossy(&tag.kvlm().get_key(b"object").unwrap()[0])
-                .to_string();
-        collect_tree_contents(repo, &tree_sha, prefix, contents)?;
-    }
-
-    Ok(())
-}
-
-fn get_working_tree_contents(
-    repo: &GitRepository,
-) -> Result<HashMap<String, Vec<u8>>, String> {
-    let mut contents = HashMap::new();
-    let repo_path = repo.gitdir();
-    let work_tree = repo_path.parent().ok_or("Invalid repo path")?;
-
-    // This is a simplified version - you might want to add proper .gitignore handling
-    collect_working_tree_contents(work_tree, work_tree, &mut contents)?;
-
-    Ok(contents)
-}
-
-fn collect_working_tree_contents(
-    base: &Path,
-    current: &Path,
-    contents: &mut HashMap<String, Vec<u8>>,
-) -> Result<(), String> {
-    for entry in std::fs::read_dir(current)
-        .map_err(|e| format!("Failed to read directory: {e}"))?
-    {
-        let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
-        let path = entry.path();
-
-        if path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .is_some_and(|n| n == ".git")
-        {
-            continue;
-        }
-
-        if path.is_file() {
-            let relative = path
-                .strip_prefix(base)
-                .map_err(|_| "Failed to get relative path".to_owned())?;
-            let content = std::fs::read(&path).map_err(|e| {
-                format!("Failed to read file {}: {}", path.display(), e)
-            })?;
-            contents.insert(relative.to_string_lossy().to_string(), content);
-        } else if path.is_dir() {
-            collect_working_tree_contents(base, &path, contents)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn is_binary(content: &[u8]) -> bool {
-    let check_len = content.len().min(BINARY_CHECK_BYTES);
-    if check_len == 0 {
-        return false;
-    }
-
-    // Look for common binary file signatures
-    let binary_signatures: [&[u8]; 5] = [
-        &[0x7F, 0x45, 0x4C, 0x46], // ELF
-        &[0x89, 0x50, 0x4E, 0x47], // PNG
-        &[0x50, 0x4B, 0x03, 0x04], // ZIP
-        &[0xFF, 0xD8, 0xFF],       // JPEG
-        &[0x1F, 0x8B],             // GZIP
-    ];
-
-    if content.len() >= 4
-        && binary_signatures.iter().any(|sig| content.starts_with(sig))
-    {
-        return true;
-    }
-
-    // Heuristic: check for null bytes and control characters
-    let mut null_count = 0;
-    let mut printable_count = 0;
-
-    for &byte in &content[..check_len] {
-        if byte == 0 {
-            null_count += 1;
-        } else if byte.is_ascii_graphic() || byte.is_ascii_whitespace() {
-            printable_count += 1;
-        }
-    }
-
-    // If more than 30% are null bytes or less than 70% are printable, consider it binary
-    null_count > check_len / 3 || printable_count < (check_len * 7) / 10
 }
 
 fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
@@ -649,4 +491,185 @@ pub fn make_parser() -> ArgumentParser {
         .add_help("Second tree-ish");
 
     parser
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_diff_same_content() {
+        let old_lines = ["Line 1", "Line 2", "Line 3"];
+        let new_lines = ["Line 1", "Line 2", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert!(changes
+            .iter()
+            .all(|change| matches!(change, Change::Same(_, _))));
+    }
+
+    #[test]
+    fn test_compute_diff_with_deletion() {
+        let old_lines = ["Line 1", "Line 2", "Line 3"];
+        let new_lines = ["Line 1", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0], Change::Same(0, 0));
+        assert_eq!(changes[1], Change::Delete(1));
+        assert_eq!(changes[2], Change::Same(2, 1));
+    }
+
+    #[test]
+    fn test_compute_diff_with_insertion() {
+        let old_lines = ["Line 1", "Line 3"];
+        let new_lines = ["Line 1", "Line 2", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0], Change::Same(0, 0));
+        assert_eq!(changes[1], Change::Insert(1));
+        assert_eq!(changes[2], Change::Same(1, 2));
+    }
+
+    #[test]
+    fn test_compute_diff_with_replacement() {
+        let old_lines = ["Line 1", "Old Line 2", "Line 3"];
+        let new_lines = ["Line 1", "New Line 2", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0], Change::Same(0, 0));
+        assert_eq!(changes[1], Change::Replace(1, 1));
+        assert_eq!(changes[2], Change::Same(2, 2));
+    }
+
+    #[test]
+    fn test_generate_hunks_simple_change() {
+        let old_lines = ["Line 1", "Line 2", "Line 3"];
+        let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        let hunks = generate_hunks(&old_lines, &new_lines, &changes, 3);
+        assert_eq!(hunks.len(), 1);
+        let hunk = &hunks[0];
+        assert_eq!(hunk.old_start, 1);
+        assert_eq!(hunk.old_count, 3);
+        assert_eq!(hunk.new_start, 1);
+        assert_eq!(hunk.new_count, 3);
+        assert!(hunk.content.contains("-Line 2"));
+        assert!(hunk.content.contains("+Changed Line 2"));
+    }
+
+    #[test]
+    fn test_format_diff_simple_change() {
+        let path = "test.txt";
+        let content1 = b"Line 1\nLine 2\nLine 3\n";
+        let content2 = b"Line 1\nChanged Line 2\nLine 3\n";
+        let hunk_context_lines = 3;
+        let diff_output =
+            format_diff(path, content1, content2, hunk_context_lines);
+        assert!(diff_output.contains("diff --mini-git a/test.txt b/test.txt"));
+        assert!(diff_output.contains("--- a/"));
+        assert!(diff_output.contains("+++ b/"));
+        assert!(diff_output.contains("@@ -1,3 +1,3 @@"));
+        assert!(diff_output.contains("-Line 2"));
+        assert!(diff_output.contains("+Changed Line 2"));
+    }
+
+    #[test]
+    fn test_format_binary_diff() {
+        let path = "binary_file.bin";
+        let output = format_binary_diff(path);
+        assert!(output
+            .contains("diff --mini-git a/binary_file.bin b/binary_file.bin"));
+        assert!(output.contains("Binary files differ"));
+    }
+
+    #[test]
+    fn test_format_binary_addition() {
+        let path = "binary_file.bin";
+        let output = format_binary_addition(path);
+        assert!(output
+            .contains("diff --mini-git a/binary_file.bin b/binary_file.bin"));
+        assert!(output.contains("Binary file added"));
+    }
+
+    #[test]
+    fn test_format_binary_deletion() {
+        let path = "binary_file.bin";
+        let output = format_binary_deletion(path);
+        assert!(output
+            .contains("diff --mini-git a/binary_file.bin b/binary_file.bin"));
+        assert!(output.contains("Binary file deleted"));
+    }
+
+    #[test]
+    fn test_format_addition() {
+        let path = "new_file.txt";
+        let content = b"New content\nLine 2\n";
+        let output = format_addition(path, content);
+        assert!(
+            output.contains("diff --mini-git a/new_file.txt b/new_file.txt")
+        );
+        assert!(output.contains("new file"));
+        assert!(output.contains("+++ b/"));
+        assert!(output.contains("+New content"));
+    }
+
+    #[test]
+    fn test_format_deletion() {
+        let path = "old_file.txt";
+        let content = b"Old content\nLine 2\n";
+        let output = format_deletion(path, content);
+        assert!(
+            output.contains("diff --mini-git a/old_file.txt b/old_file.txt")
+        );
+        assert!(output.contains("deleted file"));
+        assert!(output.contains("--- a/"));
+        assert!(output.contains("-Old content"));
+    }
+
+    #[test]
+    fn test_generate_hunks_with_multiple_changes() {
+        let old_lines = ["Line 1", "Line 2", "Line 3", "Line 4"];
+        let new_lines = ["Line 1", "Changed Line 2", "Line 3", "New Line 4"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        let hunks = generate_hunks(&old_lines, &new_lines, &changes, 2);
+        assert_eq!(hunks.len(), 1);
+        let hunk = &hunks[0];
+        assert!(hunk.content.contains("-Line 2"));
+        assert!(hunk.content.contains("+Changed Line 2"));
+        assert!(hunk.content.contains("-Line 4"));
+        assert!(hunk.content.contains("+New Line 4"));
+    }
+
+    #[test]
+    fn test_compute_diff_with_empty_old_lines() {
+        let old_lines: [&str; 0] = [];
+        let new_lines = ["Line 1", "Line 2"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], Change::Insert(0));
+        assert_eq!(changes[1], Change::Insert(1));
+    }
+
+    #[test]
+    fn test_compute_diff_with_empty_new_lines() {
+        let old_lines = ["Line 1", "Line 2"];
+        let new_lines: [&str; 0] = [];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], Change::Delete(0));
+        assert_eq!(changes[1], Change::Delete(1));
+    }
+
+    #[test]
+    fn test_format_diff_with_no_changes() {
+        let path = "unchanged.txt";
+        let content = b"Line 1\nLine 2\n";
+        let diff_output = format_diff(path, content, content, 3);
+        // Since there are no changes, diff output should be minimal
+        assert!(diff_output
+            .contains("diff --mini-git a/unchanged.txt b/unchanged.txt"));
+        assert!(diff_output.contains("--- a/"));
+        assert!(diff_output.contains("+++ b/"));
+        // No hunks should be present
+        assert!(!diff_output.contains("@@"));
+    }
 }
