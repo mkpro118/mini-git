@@ -278,6 +278,7 @@ fn collect_working_tree_contents(
     Ok(())
 }
 
+#[allow(clippy::naive_bytecount)]
 fn is_binary(content: &[u8]) -> bool {
     let check_len = content.len().min(BINARY_CHECK_BYTES);
     let null_count = content[..check_len]
