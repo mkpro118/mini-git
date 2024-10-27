@@ -1,5 +1,5 @@
 use mini_git::core::commands::{
-    cat_file, hash_object, init, log, ls_tree, show_ref,
+    cat_file, diff, hash_object, init, log, ls_tree, show_ref,
 };
 use mini_git::utils::argparse::{ArgumentParser, Namespace};
 
@@ -32,6 +32,7 @@ macro_rules! cmd {
 // Needs to be in sorted order by name
 const COMMAND_MAP: &[Command] = &[
     cmd!("cat-file", cat_file),
+    cmd!("diff", diff),
     cmd!("hash-object", hash_object),
     cmd!("init", init),
     cmd!("log", log),
