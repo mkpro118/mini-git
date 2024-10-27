@@ -299,16 +299,41 @@ fn collect_working_tree_contents(
     Ok(())
 }
 
-#[allow(clippy::naive_bytecount)]
 fn is_binary(content: &[u8]) -> bool {
     let check_len = content.len().min(BINARY_CHECK_BYTES);
-    let null_count = content[..check_len]
-        .iter()
-        .filter(|&&byte| byte == 0)
-        .count();
+    if check_len == 0 {
+        return false;
+    }
 
-    // If more than 20% of the checked bytes are null, consider it binary
-    null_count > check_len / 5
+    // Look for common binary file signatures
+    let binary_signatures: [&[u8]; 5] = [
+        &[0x7F, 0x45, 0x4C, 0x46], // ELF
+        &[0x89, 0x50, 0x4E, 0x47], // PNG
+        &[0x50, 0x4B, 0x03, 0x04], // ZIP
+        &[0xFF, 0xD8, 0xFF],       // JPEG
+        &[0x1F, 0x8B],             // GZIP
+    ];
+
+    if content.len() >= 4
+        && binary_signatures.iter().any(|sig| content.starts_with(sig))
+    {
+        return true;
+    }
+
+    // Heuristic: check for null bytes and control characters
+    let mut null_count = 0;
+    let mut printable_count = 0;
+
+    for &byte in &content[..check_len] {
+        if byte == 0 {
+            null_count += 1;
+        } else if byte.is_ascii_graphic() || byte.is_ascii_whitespace() {
+            printable_count += 1;
+        }
+    }
+
+    // If more than 30% are null bytes or less than 70% are printable, consider it binary
+    null_count > check_len / 3 || printable_count < (check_len * 7) / 10
 }
 
 fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
