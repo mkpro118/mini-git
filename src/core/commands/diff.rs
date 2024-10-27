@@ -10,7 +10,6 @@ use crate::utils::path;
 const RESET: &str = "\x1b[0m";
 const RED: &str = "\x1b[31m";
 const GREEN: &str = "\x1b[32m";
-const HUNK_CONTEXT_LINES: usize = 5;
 const BINARY_CHECK_BYTES: usize = 8000;
 
 #[derive(Debug)]
@@ -52,6 +51,11 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
 
     // Parse arguments
     let name_only = args.get("name-only").is_some();
+    let hunk_context_lines = args
+        .get("n-context-lines")
+        .map(|x| x.as_str().parse::<usize>())
+        .expect("Should have some value")
+        .map_err(|err| err.to_string())?;
     let files: Vec<&str> = args
         .get("files")
         .map(|f| f.split(',').collect())
@@ -73,7 +77,7 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
         Some(tree2.as_str())
     };
 
-    _diff(&repo, tree1, tree2, name_only, &files)
+    _diff(&repo, tree1, tree2, name_only, &files, hunk_context_lines)
 }
 
 fn _diff(
@@ -82,6 +86,7 @@ fn _diff(
     tree2: Option<&str>,
     name_only: bool,
     files: &[&str],
+    hunk_context_lines: usize,
 ) -> Result<String, String> {
     // Implementation remains the same until the diff generation part
     let (tree1, tree2) = match (tree1, tree2) {
@@ -143,7 +148,12 @@ fn _diff(
                 } else if is_binary(c1) || is_binary(c2) {
                     output.push_str(&format_binary_diff(path));
                 } else {
-                    output.push_str(&format_diff(path, c1, c2));
+                    output.push_str(&format_diff(
+                        path,
+                        c1,
+                        c2,
+                        hunk_context_lines,
+                    ));
                 }
             }
             (Some(c), None) => {
@@ -377,6 +387,7 @@ fn generate_hunks(
     old_lines: &[&str],
     new_lines: &[&str],
     changes: &[Change],
+    hunk_context_lines: usize,
 ) -> Vec<Hunk> {
     let mut hunks = Vec::new();
     let mut current_hunk = String::new();
@@ -386,18 +397,30 @@ fn generate_hunks(
     let mut new_count = 0;
     let mut last_change_idx = None;
 
+    // Keep track of context lines before changes
+    let mut context_buffer = Vec::new();
+
     for (i, change) in changes.iter().enumerate() {
         match change {
             Change::Same(old_idx, new_idx) => {
-                // If we're within HUNK_CONTEXT_LINES of a change, include the line
-                if let Some(last_idx) = last_change_idx {
-                    if i - last_idx <= HUNK_CONTEXT_LINES {
-                        current_hunk
-                            .push_str(&format!(" {}\n", old_lines[*old_idx]));
+                let line = old_lines[*old_idx];
+
+                if last_change_idx.is_none() {
+                    // Before any changes, store in context buffer
+                    if context_buffer.len() < hunk_context_lines {
+                        context_buffer.push(line);
+                    } else {
+                        context_buffer.remove(0);
+                        context_buffer.push(line);
+                    }
+                } else if let Some(last_idx) = last_change_idx {
+                    if i - last_idx <= hunk_context_lines {
+                        // Within range of last change
+                        current_hunk.push_str(&format!(" {}\n", line));
                         old_count += 1;
                         new_count += 1;
                     } else {
-                        // Start a new hunk if needed
+                        // End current hunk if exists
                         if !current_hunk.is_empty() {
                             hunks.push(Hunk {
                                 old_start,
@@ -407,40 +430,66 @@ fn generate_hunks(
                                 content: current_hunk,
                             });
                             current_hunk = String::new();
+                            context_buffer.clear();
                         }
-                        old_start = old_idx + 1;
-                        new_start = new_idx + 1;
+                        // Start storing context for next potential hunk
+                        context_buffer.push(line);
+                        old_start = old_idx + 1 - context_buffer.len();
+                        new_start = new_idx + 1 - context_buffer.len();
                         old_count = 0;
                         new_count = 0;
                     }
                 }
             }
-            Change::Delete(old_idx) => {
-                current_hunk.push_str(&format!(
-                    "{RED}-{}{RESET}\n",
-                    old_lines[*old_idx]
-                ));
-                old_count += 1;
+            Change::Delete(old_idx) | Change::Replace(old_idx, _) => {
+                // Add context buffer if this is the start of a new hunk
+                if last_change_idx.is_none() {
+                    for line in &context_buffer {
+                        current_hunk.push_str(&format!(" {}\n", line));
+                        old_count += 1;
+                        new_count += 1;
+                    }
+                    // Adjust start positions
+                    old_start = old_idx + 1 - context_buffer.len();
+                    new_start = old_start;
+                }
+
+                if let Change::Delete(idx) = change {
+                    current_hunk.push_str(&format!(
+                        "{RED}-{}{RESET}\n",
+                        old_lines[*idx]
+                    ));
+                    old_count += 1;
+                } else if let Change::Replace(old_idx, new_idx) = change {
+                    current_hunk.push_str(&format!(
+                        "{RED}-{}{RESET}\n",
+                        old_lines[*old_idx]
+                    ));
+                    current_hunk.push_str(&format!(
+                        "{GREEN}+{}{RESET}\n",
+                        new_lines[*new_idx]
+                    ));
+                    old_count += 1;
+                    new_count += 1;
+                }
                 last_change_idx = Some(i);
             }
             Change::Insert(new_idx) => {
+                // Add context buffer if this is the start of a new hunk
+                if last_change_idx.is_none() {
+                    for line in &context_buffer {
+                        current_hunk.push_str(&format!(" {}\n", line));
+                        old_count += 1;
+                        new_count += 1;
+                    }
+                    old_start = *new_idx + 1 - context_buffer.len();
+                    new_start = old_start;
+                }
+
                 current_hunk.push_str(&format!(
                     "{GREEN}+{}{RESET}\n",
                     new_lines[*new_idx]
                 ));
-                new_count += 1;
-                last_change_idx = Some(i);
-            }
-            Change::Replace(old_idx, new_idx) => {
-                current_hunk.push_str(&format!(
-                    "{RED}-{}{RESET}\n",
-                    old_lines[*old_idx]
-                ));
-                current_hunk.push_str(&format!(
-                    "{GREEN}+{}{RESET}\n",
-                    new_lines[*new_idx]
-                ));
-                old_count += 1;
                 new_count += 1;
                 last_change_idx = Some(i);
             }
@@ -461,7 +510,12 @@ fn generate_hunks(
     hunks
 }
 
-fn format_diff(path: &str, content1: &[u8], content2: &[u8]) -> String {
+fn format_diff(
+    path: &str,
+    content1: &[u8],
+    content2: &[u8],
+    hunk_context_lines: usize,
+) -> String {
     let mut output = String::new();
     output.push_str(&format!("diff --mini-git a/{path} b/{path}\n"));
 
@@ -475,7 +529,7 @@ fn format_diff(path: &str, content1: &[u8], content2: &[u8]) -> String {
     output.push_str("+++ b/\n");
 
     let changes = compute_diff(&lines1, &lines2);
-    let hunks = generate_hunks(&lines1, &lines2, &changes);
+    let hunks = generate_hunks(&lines1, &lines2, &changes, hunk_context_lines);
 
     for hunk in hunks {
         output.push_str(&format!(
@@ -546,6 +600,13 @@ pub fn make_parser() -> ArgumentParser {
         .add_argument("files", ArgumentType::String)
         .optional()
         .add_help("Comma-separated list of files to diff");
+
+    parser
+        .add_argument("n-context-lines", ArgumentType::Integer)
+        .short('l')
+        .optional()
+        .default("5")
+        .add_help("Number of context lines around a diff hunk");
 
     parser
         .add_argument("tree1", ArgumentType::String)
