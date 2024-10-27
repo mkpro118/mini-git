@@ -266,6 +266,27 @@ impl Tree {
         self
     }
 
+    /// Retrieves the SHA-1 hash of the tree object pointed to by the HEAD commit.
+    ///
+    /// This function reads the HEAD reference of the repository to find the
+    /// current commit and then extracts the tree SHA from that commit object.
+    ///
+    /// # Arguments
+    ///
+    /// - `repo` - A reference to the `GitRepository`.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(String)` containing the SHA-1 hash of the tree object if successful.
+    /// - `Err(String)` containing an error message if the HEAD is not a commit
+    ///   or if it lacks a tree.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// - The HEAD reference does not point to a valid commit.
+    /// - The commit object does not contain a tree SHA.
     pub fn get_head_tree_sha(repo: &GitRepository) -> Result<String, String> {
         let head_ref =
             objects::find_object(repo, "HEAD", Some("commit"), true)?;
@@ -283,6 +304,29 @@ impl Tree {
         }
     }
 
+    /// Retrieves the contents of a tree object.
+    ///
+    /// This function reads the tree object identified by `tree_sha` and collects
+    /// all the blob contents within that tree and its subtrees.
+    /// The contents are stored in a `HashMap` where the keys are file paths
+    /// and the values are the file contents.
+    ///
+    /// # Arguments
+    ///
+    /// - `repo` - A reference to the `GitRepository`.
+    /// - `tree_sha` - The SHA-1 hash of the tree object to read.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(HashMap<String, Vec<u8>>)` containing file paths and their contents.
+    /// - `Err(String)` containing an error message if the tree cannot be read.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// - The tree object cannot be found or read.
+    /// - An unknown object type is encountered within the tree.
     pub fn get_tree_contents(
         repo: &GitRepository,
         tree_sha: &str,
@@ -292,7 +336,7 @@ impl Tree {
         Ok(contents)
     }
 
-    pub fn collect_tree_contents(
+    fn collect_tree_contents(
         repo: &GitRepository,
         tree_sha: &str,
         prefix: &str,
@@ -343,6 +387,27 @@ impl Tree {
         Ok(())
     }
 
+    /// Retrieves the contents of the working directory recursively.
+    ///
+    /// This function scans the working directory of the repository and collects
+    /// all file contents, storing them in a `HashMap` where the keys are file paths
+    /// relative to the repository root, and the values are the file contents.
+    ///
+    /// # Arguments
+    ///
+    /// - `repo` - A reference to the `GitRepository`.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(HashMap<String, Vec<u8>>)` containing file paths and their contents.
+    /// - `Err(String)` containing an error message if the working directory cannot be read.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// - The repository path is invalid.
+    /// - A file or directory cannot be read.
     pub fn get_working_tree_contents(
         repo: &GitRepository,
     ) -> Result<HashMap<String, Vec<u8>>, String> {
@@ -360,7 +425,7 @@ impl Tree {
         Ok(contents)
     }
 
-    pub fn collect_working_tree_contents(
+    fn collect_working_tree_contents(
         base: &Path,
         current: &Path,
         contents: &mut HashMap<String, Vec<u8>>,
