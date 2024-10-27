@@ -225,6 +225,17 @@ fn collect_tree_contents(
                 _ => return Err(format!("Unknown object type for {path}")),
             }
         }
+    } else if let GitObject::Commit(commit) = tree_obj {
+        let tree_sha = String::from_utf8_lossy(
+            &commit.kvlm().get_key(b"tree").unwrap()[0],
+        )
+        .to_string();
+        collect_tree_contents(repo, &tree_sha, prefix, contents)?;
+    } else if let GitObject::Tag(tag) = tree_obj {
+        let tree_sha =
+            String::from_utf8_lossy(&tag.kvlm().get_key(b"object").unwrap()[0])
+                .to_string();
+        collect_tree_contents(repo, &tree_sha, prefix, contents)?;
     }
 
     Ok(())
