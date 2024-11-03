@@ -1,5 +1,3 @@
-#![allow(clippy::needless_pass_by_value)]
-
 pub mod blob;
 pub mod commit;
 pub mod packfiles;
