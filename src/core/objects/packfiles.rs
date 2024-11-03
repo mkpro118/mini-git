@@ -1,4 +1,3 @@
-#![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 #![allow(clippy::module_name_repetitions)]
 
 use std::collections::HashMap;
@@ -15,6 +14,22 @@ use crate::utils::zlib;
 const HASH_SIZE: usize = 20;
 type Hash = [u8; HASH_SIZE];
 
+/// Represents a Git packfile, which contains multiple Git objects in a compressed format.
+///
+/// A `PackFile` allows reading Git objects stored within a packfile, using an index to map object hashes to their locations in the packfile.
+///
+/// # Examples
+///
+/// ```no_run
+/// use mini_git::core::objects::packfiles::PackFile;
+/// use std::path::Path;
+///
+/// let idx_path = Path::new("/path/to/packfile.idx");
+/// let pack_path = Path::new("/path/to/packfile.pack");
+///
+/// let mut packfile = PackFile::from_files(idx_path, pack_path)
+///     .expect("Failed to load packfile");
+/// ```
 #[derive(Debug)]
 pub struct PackFile {
     index: HashMap<Hash, u64>,
@@ -23,6 +38,36 @@ pub struct PackFile {
 }
 
 impl PackFile {
+    /// Creates a new `PackFile` from the given index and pack file paths.
+    ///
+    /// This function parses the index file and prepares the packfile for object retrieval.
+    ///
+    /// # Arguments
+    ///
+    /// * `idx_path` - Path to the index file (`.idx`) corresponding to the packfile.
+    /// * `pack_path` - Path to the packfile (`.pack`) containing the Git objects.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(String)` in the following cases:
+    ///
+    /// - The index file cannot be opened or read.
+    /// - The index file has an unsupported version.
+    /// - The packfile cannot be opened or read.
+    /// - The packfile has an invalid signature or unsupported version.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use mini_git::core::objects::packfiles::PackFile;
+    /// use std::path::Path;
+    ///
+    /// let idx_path = Path::new("/path/to/packfile.idx");
+    /// let pack_path = Path::new("/path/to/packfile.pack");
+    ///
+    /// let packfile = PackFile::from_files(idx_path, pack_path)
+    ///     .expect("Failed to load packfile");
+    /// ```
     #[allow(clippy::similar_names, clippy::cast_possible_wrap)]
     pub fn from_files(
         idx_path: &Path,
@@ -148,6 +193,44 @@ impl PackFile {
         }
     }
 
+    /// Reads a Git object from the packfile by its hash.
+    ///
+    /// This function locates the object in the packfile using the index and returns the corresponding `GitObject`.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - The hash of the Git object to retrieve.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(String)` in the following cases:
+    ///
+    /// - The object is not found in the packfile.
+    /// - The object type is unknown or unsupported.
+    /// - There is an error reading or decompressing the object data.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use mini_git::core::objects::GitObject;
+    /// use mini_git::core::objects::packfiles::PackFile;
+    /// use std::path::Path;
+    ///
+    /// let idx_path = Path::new("/path/to/packfile.idx");
+    /// let pack_path = Path::new("/path/to/packfile.pack");
+    ///
+    /// let mut packfile = PackFile::from_files(idx_path, pack_path)
+    ///     .expect("Failed to load packfile");
+    ///
+    /// let hash: [u8; 20] = [/* object hash */];
+    ///
+    /// match packfile.read_object(&hash) {
+    ///     Ok(git_object) => {
+    ///         // Process the GitObject
+    ///     },
+    ///     Err(e) => eprintln!("Error reading object: {}", e),
+    /// }
+    /// ```
     pub fn read_object(&mut self, hash: &Hash) -> Result<GitObject, String> {
         let &offset = self
             .index
@@ -285,6 +368,43 @@ impl PackFile {
     }
 }
 
+/// Finds and loads all packfiles in the repository.
+///
+/// This function searches the repository's `objects/pack` directory for packfiles and their corresponding index files, loading them into `PackFile` instances.
+///
+/// # Arguments
+///
+/// * `repo` - The `GitRepository` to search for packfiles.
+///
+/// # Errors
+///
+/// Returns an `Err(String)` in the following cases:
+///
+/// - The pack directory is not found in the repository.
+/// - Any index file or packfile cannot be opened or read.
+/// - An index file has an unsupported version.
+/// - A packfile has an invalid signature or unsupported version.
+///
+/// # Examples
+///
+/// ```no_run
+///
+/// use std::path::Path;
+/// use mini_git::core::GitRepository;
+/// use mini_git::core::objects::packfiles::find_packfiles;
+///
+/// let repo = GitRepository::new(&Path::new("/path/to/repo"))
+///     .expect("Failed to open repository");
+///
+/// match find_packfiles(&repo) {
+///     Ok(packfiles) => {
+///         for mut packfile in packfiles {
+///             // Use the packfile
+///         }
+///     },
+///     Err(e) => eprintln!("Error finding packfiles: {}", e),
+/// }
+/// ```
 pub fn find_packfiles(repo: &GitRepository) -> Result<Vec<PackFile>, String> {
     let pack_dir = path::repo_dir(repo.gitdir(), &["objects", "pack"], false)?
         .ok_or_else(|| "Pack directory not found".to_string())?;
@@ -530,6 +650,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::similar_names)]
     fn test_read_object_at_offset_cache() {
         // Create a dummy PackFile with empty index and a fake pack_file
         let tmp_dir = TempDir::<()>::create("test_read_object_at_offset_cache");

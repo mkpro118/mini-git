@@ -184,6 +184,45 @@ impl GitObject {
     }
 }
 
+/// Resolves a Git reference to an object ID.
+///
+/// This function attempts to resolve a given reference (e.g., `"HEAD"`, `"refs/heads/main"`)
+/// to an object ID (commit hash) within the specified `GitRepository`.
+///
+/// # Arguments
+///
+/// * `repo` - A reference to the `GitRepository` where the reference should be resolved.
+/// * `r#ref` - The name of the reference to resolve.
+///
+/// # Returns
+///
+/// * `Ok(Some(object_id))` - If the reference is successfully resolved to an object ID.
+/// * `Ok(None)` - If the reference does not exist.
+/// * `Err(error_message)` - If an error occurs during resolution.
+///
+/// # Errors
+///
+/// This function will return an error if:
+///
+/// * The reference file cannot be found or accessed.
+/// * Reading the reference file fails.
+/// * An I/O error occurs while accessing the filesystem.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::path::Path;
+/// # use mini_git::core::objects::resolve_ref;
+/// use mini_git::core::GitRepository;
+/// let repo = GitRepository::new(&Path::new("."))?;
+/// let object_id = resolve_ref(&repo, "HEAD")?;
+/// if let Some(oid) = object_id {
+///     println!("Resolved object ID: {}", oid);
+/// } else {
+///     println!("Reference does not exist.");
+/// }
+/// # Ok::<(), String>(())
+/// ```
 pub fn resolve_ref(
     repo: &GitRepository,
     r#ref: &str,
@@ -208,6 +247,32 @@ pub fn resolve_ref(
     }
 }
 
+/// Finds an object in the repository.
+///
+/// # Errors
+///
+/// This function will return an error if:
+///
+/// * The reference file cannot be found or accessed.
+/// * Reading the reference file fails.
+/// * An I/O error occurs while accessing the filesystem.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::path::Path;
+/// # use mini_git::core::objects::find_object;
+/// use mini_git::core::GitRepository;
+/// let repo = GitRepository::new(&Path::new("."))?;
+///
+/// let object_name = "HEAD";
+/// if let Ok(name) = find_object(&repo, object_name, None, false) {
+///     println!("Resolved object name: {}", name);
+/// } else {
+///     println!("Reference does not exist.");
+/// }
+/// # Ok::<(), String>(())
+/// ```
 pub fn find_object(
     repo: &GitRepository,
     name: &str,
