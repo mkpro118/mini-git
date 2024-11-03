@@ -1,4 +1,5 @@
 #![allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
+#![allow(clippy::module_name_repetitions)]
 
 use std::collections::HashMap;
 use std::fs;
@@ -22,6 +23,7 @@ pub struct PackFile {
 }
 
 impl PackFile {
+    #[allow(clippy::similar_names, clippy::cast_possible_wrap)]
     pub fn from_files(
         idx_path: &Path,
         pack_path: &Path,
@@ -43,17 +45,16 @@ impl PackFile {
             ]);
             if version != 2 {
                 return Err(format!(
-                    "Unsupported pack index version: {}",
-                    version
+                    "Unsupported pack index version: {version}"
                 ));
             }
 
             // Read fan-out table
             let mut fanout_table = [0u32; 256];
-            for i in 0..256 {
+            for item in &mut fanout_table {
                 let mut buf = [0u8; 4];
                 idx_reader.read_exact(&mut buf).map_err(|e| e.to_string())?;
-                fanout_table[i] = u32::from_be_bytes(buf);
+                *item = u32::from_be_bytes(buf);
             }
 
             let num_objects = fanout_table[255] as usize;
@@ -85,7 +86,7 @@ impl PackFile {
                     large_offsets_indices.push(i);
                     offsets.push(0);
                 } else {
-                    offsets.push(offset as u64);
+                    offsets.push(u64::from(offset));
                 }
             }
 
@@ -192,7 +193,7 @@ impl PackFile {
                 GitObject::Tag(tag)
             }
             _ => {
-                return Err(format!("Unknown object type: {}", object_type));
+                return Err(format!("Unknown object type: {object_type}"));
             }
         };
 
@@ -236,12 +237,12 @@ impl PackFile {
                 // OFS_DELTA
                 let mut c = [0u8; 1];
                 reader.read_exact(&mut c).map_err(|e| e.to_string())?;
-                base_offset = (c[0] & 0x7F) as u64;
+                base_offset = u64::from(c[0] & 0x7F);
                 while c[0] & 0x80 != 0 {
                     base_offset += 1;
                     base_offset <<= 7;
                     reader.read_exact(&mut c).map_err(|e| e.to_string())?;
-                    base_offset |= (c[0] & 0x7F) as u64;
+                    base_offset |= u64::from(c[0] & 0x7F);
                 }
                 base_offset = offset - base_offset;
             }
@@ -252,7 +253,7 @@ impl PackFile {
                     .map_err(|e| e.to_string())?;
             }
             _ => {
-                return Err(format!("Unknown object type: {}", object_type));
+                return Err(format!("Unknown object type: {object_type}"));
             }
         }
 
