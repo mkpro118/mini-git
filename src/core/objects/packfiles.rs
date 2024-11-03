@@ -383,7 +383,7 @@ mod delta {
         Ok(result)
     }
 
-    fn read_varint(data: &[u8]) -> Result<(usize, usize), String> {
+    pub(super) fn read_varint(data: &[u8]) -> Result<(usize, usize), String> {
         let mut result = 0usize;
         let mut shift = 0;
         let mut offset = 0;
@@ -400,5 +400,161 @@ mod delta {
             shift += 7;
         }
         Ok((result, offset))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::test::TempDir;
+
+    use super::delta::{apply_delta, read_varint};
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+
+    #[test]
+    fn test_read_varint() {
+        // Test reading single-byte varint
+        let data = [0x7F]; // 127
+        let (value, offset) = read_varint(&data).unwrap();
+        assert_eq!(value, 127);
+        assert_eq!(offset, 1);
+
+        // Test reading multi-byte varint
+        let data = [0x81, 0x01]; // 129
+        let (value, offset) = read_varint(&data).unwrap();
+        assert_eq!(value, 129);
+        assert_eq!(offset, 2);
+
+        // Test reading larger varint
+        let data = [0x85, 0x80, 0x01]; // 16389
+        let (value, offset) = read_varint(&data).unwrap();
+        assert_eq!(value, 16389);
+        assert_eq!(offset, 3);
+
+        // Test error on empty data
+        let data: [u8; 0] = [];
+        let result = read_varint(&data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_apply_delta_copy() {
+        // Base data
+        let base = b"Hello, world!";
+        // Delta instructions to copy entire base
+        let delta = vec![
+            0x0D, // Base size (13)
+            0x0D, // Result size (13)
+            0x91, // Opcode: copy, offset[0] and size[0] present
+            0x00, // offset[0] = 0x00
+            0x0D, // size[0] = 13
+        ];
+
+        let result = apply_delta(base, &delta).unwrap();
+        assert_eq!(result, base);
+    }
+
+    #[test]
+    fn test_apply_delta_insert() {
+        // Base data
+        let base = b"";
+        // Delta instructions to insert "Hello, world!"
+        let delta = {
+            let mut v = Vec::new();
+            v.push(0x00); // Base size
+            v.push(0x0D); // Result size
+            v.push(0x0D); // Insert command for 13 bytes
+            v.extend_from_slice(b"Hello, world!");
+            v
+        };
+        let result = apply_delta(base, &delta).unwrap();
+        assert_eq!(result, b"Hello, world!");
+    }
+
+    #[test]
+    fn test_apply_delta_mixed() {
+        // Base data
+        let base = b"Hello, world!";
+        // Expected result: "Hello, Rust!"
+        let delta = {
+            let mut v = vec![
+                0x0D, // Base size (13)
+                0x0C, // Result size (12)
+                // Copy "Hello, "
+                0x91, // Opcode: copy, offset[0] and size[0] present
+                0x00, // offset[0] = 0
+                0x07, // size[0] = 7
+                // Insert "Rust"
+                0x04, // Insert command for 4 bytes
+            ];
+            v.extend_from_slice(b"Rust");
+            // Copy "!" from base[12]
+            v.push(0x91); // Opcode: copy, offset[0] and size[0] present
+            v.push(0x0C); // offset[0] = 12
+            v.push(0x01); // size[0] = 1
+            v
+        };
+        let result = apply_delta(base, &delta).unwrap();
+        assert_eq!(result, b"Hello, Rust!");
+    }
+
+    #[test]
+    fn test_apply_delta_invalid_opcode() {
+        // Base data
+        let base = b"Hello";
+        // Delta with invalid opcode (0x00)
+        let delta = [0x05, 0x05, 0x00];
+        let result = apply_delta(base, &delta);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_packfile_from_files_invalid_paths() {
+        let idx_path = Path::new("nonexistent.idx");
+        let pack_path = Path::new("nonexistent.pack");
+
+        let result = PackFile::from_files(idx_path, pack_path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_find_packfiles_empty_repo() {
+        let tmp_dir = TempDir::<()>::create("test_find_packfiles_empty_repo");
+        let gitdir = tmp_dir.tmp_dir().join(".git");
+        fs::create_dir_all(&gitdir).unwrap();
+        let repo = GitRepository::create(&gitdir).unwrap();
+
+        let result = find_packfiles(&repo).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_read_object_at_offset_cache() {
+        // Create a dummy PackFile with empty index and a fake pack_file
+        let tmp_dir = TempDir::<()>::create("test_read_object_at_offset_cache");
+        let pack_path = tmp_dir.tmp_dir().join("packfile.pack");
+        let mut pack_file = File::create(&pack_path).unwrap();
+        // Write dummy data to pack_file
+        pack_file.write_all(b"PACK").unwrap(); // Magic number
+        pack_file
+            .write_all(&[0x00, 0x00, 0x00, 0x02]) // Version 2
+            .unwrap();
+        pack_file
+            .write_all(&[0x00, 0x00, 0x00, 0x01]) // 1 object
+            .unwrap();
+        // Write a dummy object at offset 12
+        pack_file.write_all(&[0x00]).unwrap(); // Object data
+        pack_file.flush().unwrap();
+
+        let packfile = PackFile {
+            index: HashMap::new(),
+            pack_file: File::open(&pack_path).unwrap(),
+            object_cache: HashMap::new(),
+        };
+
+        // Since there's no real object, we can't read it, but we can test that
+        // the cache is empty initially
+        assert!(packfile.object_cache.is_empty());
     }
 }
