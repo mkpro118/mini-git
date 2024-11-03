@@ -226,34 +226,8 @@ pub fn find_object(
     Ok(name.to_owned())
 }
 
-/// Reads a loose object from the given repository with the given SHA digest
-///
-/// A loose object is an object that is not stored in a packfile, rather plainly
-/// in the `.git/objects/` directory.
-///
-/// # Errors
-/// This function may fail if,
-/// - Request object does not exist
-/// - I/O errors occur while reading object files
-/// - Object files are corrupted/malformed
-///
-/// Example
-/// ```no_run
-/// use std::path::Path;
-/// use mini_git::core::GitRepository;
-/// use mini_git::core::objects::read_object;
-///
-/// // This is an example digest (highly unlikely digest)
-/// let digest = "deadbeefdecadedefacecafec0ffeedadfacade8";
-/// // Get current repository
-/// let repo = GitRepository::new(Path::new("."))?;
-///
-/// let obj = read_object(&repo, &digest)?;
-/// println!("{obj:?}");
-/// # Ok::<(), String>(())
-/// ```
 #[allow(clippy::module_name_repetitions)]
-pub fn read_loose_object(
+fn read_loose_object(
     repo: &GitRepository,
     sha: &str,
 ) -> Result<GitObject, String> {
@@ -281,6 +255,29 @@ pub fn read_loose_object(
     Ok(res)
 }
 
+/// Reads an object from the given repository with the given SHA digest
+///
+/// # Errors
+/// This function may fail if,
+/// - Request object does not exist
+/// - I/O errors occur while reading object files
+/// - Object files are corrupted/malformed
+///
+/// Example
+/// ```no_run
+/// use std::path::Path;
+/// use mini_git::core::GitRepository;
+/// use mini_git::core::objects::read_object;
+///
+/// // This is an example digest (highly unlikely digest)
+/// let digest = "deadbeefdecadedefacecafec0ffeedadfacade8";
+/// // Get current repository
+/// let repo = GitRepository::new(Path::new("."))?;
+///
+/// let obj = read_object(&repo, &digest)?;
+/// println!("{obj:?}");
+/// # Ok::<(), String>(())
+/// ```
 pub fn read_object(
     repo: &GitRepository,
     sha: &str,
