@@ -191,6 +191,7 @@ impl GitRepository {
 
         path::repo_dir(&repo.gitdir, &["branches"], true)?;
         path::repo_dir(&repo.gitdir, &["objects"], true)?;
+        path::repo_dir(&repo.gitdir, &["objects", "pack"], true)?;
         path::repo_dir(&repo.gitdir, &["refs", "tags"], true)?;
         path::repo_dir(&repo.gitdir, &["refs", "heads"], true)?;
 
