@@ -226,7 +226,10 @@ pub fn find_object(
     Ok(name.to_owned())
 }
 
-/// Reads an object from the given repository with the given SHA digest
+/// Reads a loose object from the given repository with the given SHA digest
+///
+/// A loose object is an object that is not stored in a packfile, rather plainly
+/// in the `.git/objects/` directory.
 ///
 /// # Errors
 /// This function may fail if,
@@ -250,7 +253,7 @@ pub fn find_object(
 /// # Ok::<(), String>(())
 /// ```
 #[allow(clippy::module_name_repetitions)]
-pub fn read_object(
+pub fn read_loose_object(
     repo: &GitRepository,
     sha: &str,
 ) -> Result<GitObject, String> {
@@ -276,6 +279,36 @@ pub fn read_object(
         }
     };
     Ok(res)
+}
+
+pub fn read_object(
+    repo: &GitRepository,
+    sha: &str,
+) -> Result<GitObject, String> {
+    // Try reading from loose objects first
+    let loose_result = read_loose_object(repo, sha);
+    if loose_result.is_ok() {
+        return loose_result;
+    }
+
+    // Convert hex sha to bytes
+    let mut hash = [0u8; 20];
+    for i in 0..20 {
+        let byte = u8::from_str_radix(&sha[i * 2..(i * 2) + 2], 16)
+            .map_err(|_| format!("Invalid SHA digest: {sha}"))?;
+        hash[i] = byte;
+    }
+
+    // Try reading from packfiles
+    let packfiles = packfiles::find_packfiles(repo)?;
+    for mut packfile in packfiles {
+        let object = packfile.read_object(&hash);
+        if object.is_ok() {
+            return object;
+        }
+    }
+
+    Err(format!("Object {sha} not found in repository"))
 }
 
 /// Creates a object Hash from an object
