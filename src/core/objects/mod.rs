@@ -2,6 +2,7 @@
 
 pub mod blob;
 pub mod commit;
+pub mod packfiles;
 pub mod tag;
 pub mod traits;
 pub mod tree;
