@@ -41,14 +41,13 @@ use GitObject::{Blob, Commit, Tag, Tree};
 impl GitObject {
     /// Deserializes raw data to create a `GitObject`.
     ///
-    /// This method is a dispatches the deserialzer based on the current variant,
-    /// it needs to be called on the variant that the expected object is.
+    /// This method dispatches the deserializer based on the current variant.
     ///
     /// # Errors
     ///
-    /// Deserialization may fails if,
-    /// - Raw data was malformed
-    /// - It was attempted on an object of the wrong kind
+    /// Deserialization may fail if:
+    /// - Raw data is malformed.
+    /// - It's attempted on an object of the wrong kind.
     ///
     /// A [`String`] describing the error message is returned.
     ///
@@ -145,6 +144,7 @@ impl GitObject {
     pub fn from_raw_data(raw: &[u8]) -> Result<GitObject, String> {
         let total_size = raw.len();
         let mut raw_iter = raw.iter();
+
         // Read the object format
         let Some(space_idx) = raw_iter.position(|byte| *byte == SPACE_BYTE)
         else {
@@ -184,7 +184,6 @@ impl GitObject {
     }
 }
 
-#[allow(clippy::missing_errors_doc)]
 pub fn resolve_ref(
     repo: &GitRepository,
     r#ref: &str,
@@ -209,7 +208,6 @@ pub fn resolve_ref(
     }
 }
 
-#[allow(clippy::module_name_repetitions, clippy::missing_errors_doc)]
 pub fn find_object(
     repo: &GitRepository,
     name: &str,
@@ -246,12 +244,8 @@ fn read_loose_object(
         return Err(format!("failed to read object with digest {sha}"));
     };
     let raw = zlib::decompress(&raw)?;
-    let res = match GitObject::from_raw_data(&raw) {
-        Ok(obj) => obj,
-        Err(msg) => {
-            return Err(format!("malformed object with digest {sha}, {msg}"))
-        }
-    };
+    let res = GitObject::from_raw_data(&raw)
+        .map_err(|msg| format!("malformed object with digest {sha}, {msg}"))?;
     Ok(res)
 }
 
@@ -290,14 +284,17 @@ pub fn read_object(
 
     // Convert hex sha to bytes
     let mut hash = [0u8; 20];
-    for i in 0..20 {
+    for i in 0..(sha.len() / 2) {
         let byte = u8::from_str_radix(&sha[i * 2..(i * 2) + 2], 16)
             .map_err(|_| format!("Invalid SHA digest: {sha}"))?;
         hash[i] = byte;
     }
 
     // Try reading from packfiles
-    let packfiles = packfiles::find_packfiles(repo)?;
+    let Ok(packfiles) = packfiles::find_packfiles(repo) else {
+        return Err(format!("Object {sha} not found in repository"));
+    };
+
     for mut packfile in packfiles {
         let object = packfile.read_object(&hash);
         if object.is_ok() {
@@ -330,8 +327,14 @@ pub fn read_object(
 pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
     let data = obj.serialize();
     let len = data.len().to_string();
-    let len = len.as_bytes();
-    let res = [obj.format(), &[SPACE_BYTE], len, &[NULL_BYTE], &data].concat();
+    let res = [
+        obj.format(),
+        &[SPACE_BYTE],
+        len.as_bytes(),
+        &[NULL_BYTE],
+        &data,
+    ]
+    .concat();
 
     let mut hash = SHA1::new();
     let _ = hash.update(&res);
@@ -388,12 +391,9 @@ pub fn write_object(
 
     if !path.exists() {
         let compressed = zlib::compress(&res, &zlib::Strategy::Auto);
-        if fs::write(&path, compressed).is_err() {
-            return Err(format!(
-                "Failed to write to file {:?}",
-                path.as_os_str()
-            ));
-        };
+        fs::write(&path, compressed).map_err(|_| {
+            format!("Failed to write to file {:?}", path.as_os_str())
+        })?;
     }
 
     Ok(digest)
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn test_read_object_good_path() {
-        let tmp_dir = TempDir::<()>::create("test_read_object_bad_path");
+        let tmp_dir = TempDir::<()>::create("test_read_object_good_path");
         let sha = "deadbeefdecadedefacecafec0ffeedadfacade8";
 
         let repo = GitRepository::create(tmp_dir.tmp_dir())
@@ -469,7 +469,7 @@ mod tests {
 
     #[test]
     fn test_write_object_blob() {
-        let tmp_dir = TempDir::<()>::create("test_read_object_bad_path");
+        let tmp_dir = TempDir::<()>::create("test_write_object_blob");
 
         let repo = GitRepository::create(tmp_dir.tmp_dir())
             .expect("Should create repo");
