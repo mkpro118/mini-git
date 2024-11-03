@@ -130,12 +130,11 @@ impl PackFile {
                 pack_header[6],
                 pack_header[7],
             ]);
-            let pack_object_count = u32::from_be_bytes([
-                pack_header[8],
-                pack_header[9],
-                pack_header[10],
-                pack_header[11],
-            ]);
+            if pack_version != 2 {
+                return Err(format!(
+                    "Packfile version not supported: {pack_version}."
+                ));
+            }
 
             Ok(PackFile {
                 index,
