@@ -247,6 +247,77 @@ pub fn resolve_ref(
     }
 }
 
+/// Resolves a Git reference to an object ID.
+///
+/// This function attempts to resolve a given reference (e.g., `"HEAD"`, `"refs/heads/main"`)
+/// to an object ID (commit hash) within the specified `GitRepository`.
+///
+/// # Arguments
+///
+/// * `repo` - A reference to the `GitRepository` where the reference should be resolved.
+/// * `name` - The name of the reference to resolve.
+///
+/// # Returns
+///
+/// * `Ok(Vec<String>)` - A vector of object IDs that match the given reference.
+/// * `Err(error_message)` - If an error occurs during resolution.
+///
+/// # Errors
+///
+/// This function will return an error if:
+///
+/// * The reference file cannot be found or accessed.
+/// * Reading the reference file fails.
+/// * An I/O error occurs while accessing the filesystem.
+///
+pub fn resolve_object(
+    repo: &GitRepository,
+    name: &str,
+) -> Result<Vec<String>, String> {
+    let mut candidates = Vec::new();
+
+    // Handle the "HEAD" reference
+    if name == "HEAD" {
+        if let Some(oid) = resolve_ref(repo, name)? {
+            candidates.push(oid);
+            return Ok(candidates);
+        } else {
+            return Err("Could not find HEAD".to_owned());
+        }
+    }
+
+    // Check for a hex string (short or full hash)
+    if name.len() >= 4 && name.chars().all(|c| c.is_ascii_hexdigit()) {
+        let prefix = &name[..2];
+        let remainder = &name[2..];
+        if let Some(path) =
+            path::repo_dir(repo.gitdir(), &["objects", prefix], false)?
+        {
+            for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
+                let entry = entry.map_err(|e| e.to_string())?;
+                let file_name = entry.file_name().to_string_lossy().to_string();
+                if file_name.starts_with(remainder) {
+                    candidates.push(format!("{}{}", prefix, file_name));
+                }
+            }
+        }
+    }
+
+    // Check for tags
+    if let Some(tag_ref) = resolve_ref(repo, &format!("refs/tags/{}", name))? {
+        candidates.push(tag_ref);
+    }
+
+    // Check for branches
+    if let Some(branch_ref) =
+        resolve_ref(repo, &format!("refs/heads/{}", name))?
+    {
+        candidates.push(branch_ref);
+    }
+
+    Ok(candidates)
+}
+
 /// Finds an object in the repository.
 ///
 /// # Errors
@@ -276,17 +347,51 @@ pub fn resolve_ref(
 pub fn find_object(
     repo: &GitRepository,
     name: &str,
-    _format: Option<&str>,
-    _follow: bool,
+    format: Option<&str>,
+    follow: bool,
 ) -> Result<String, String> {
-    if name == "HEAD" {
-        let resolved = resolve_ref(repo, name)?;
-        if let Some(x) = resolved {
-            return Ok(x);
-        }
-        return Err("Could not find HEAD".to_owned());
+    let candidates = resolve_object(repo, name)?;
+
+    if candidates.is_empty() {
+        return Err(format!("No such reference {}", name));
     }
-    Ok(name.to_owned())
+
+    if candidates.len() > 1 {
+        let candidates_str = candidates.join("\n - ");
+        return Err(format!(
+            "Ambiguous reference {}: Candidates are:\n - {}",
+            name, candidates_str
+        ));
+    }
+
+    let object_id = candidates[0].clone();
+
+    if let Some(obj_format) = format {
+        let mut sha = object_id;
+        loop {
+            let obj = read_object(repo, &sha)?;
+            if obj.format() == obj_format.as_bytes() {
+                return Ok(sha);
+            }
+
+            if !follow {
+                return Ok(sha);
+            }
+
+            // Follow tags
+            if obj.format() == b"tag" {
+                sha = String::from_utf8_lossy(&obj.serialize()[8..28])
+                    .to_string();
+            } else if obj.format() == b"commit" && obj_format == "tree" {
+                sha = String::from_utf8_lossy(&obj.serialize()[12..32])
+                    .to_string();
+            } else {
+                return Ok(sha);
+            }
+        }
+    } else {
+        Ok(object_id)
+    }
 }
 
 #[allow(clippy::module_name_repetitions)]
