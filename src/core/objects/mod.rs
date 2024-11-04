@@ -281,9 +281,8 @@ pub fn resolve_object(
         if let Some(oid) = resolve_ref(repo, name)? {
             candidates.push(oid);
             return Ok(candidates);
-        } else {
-            return Err("Could not find HEAD".to_owned());
         }
+        return Err("Could not find HEAD".to_owned());
     }
 
     // Check for a hex string (short or full hash)
@@ -297,20 +296,19 @@ pub fn resolve_object(
                 let entry = entry.map_err(|e| e.to_string())?;
                 let file_name = entry.file_name().to_string_lossy().to_string();
                 if file_name.starts_with(remainder) {
-                    candidates.push(format!("{}{}", prefix, file_name));
+                    candidates.push(format!("{prefix}{file_name}"));
                 }
             }
         }
     }
 
     // Check for tags
-    if let Some(tag_ref) = resolve_ref(repo, &format!("refs/tags/{}", name))? {
+    if let Some(tag_ref) = resolve_ref(repo, &format!("refs/tags/{name}"))? {
         candidates.push(tag_ref);
     }
 
     // Check for branches
-    if let Some(branch_ref) =
-        resolve_ref(repo, &format!("refs/heads/{}", name))?
+    if let Some(branch_ref) = resolve_ref(repo, &format!("refs/heads/{name}"))?
     {
         candidates.push(branch_ref);
     }
@@ -353,14 +351,13 @@ pub fn find_object(
     let candidates = resolve_object(repo, name)?;
 
     if candidates.is_empty() {
-        return Err(format!("No such reference {}", name));
+        return Err(format!("No such reference {name}"));
     }
 
     if candidates.len() > 1 {
         let candidates_str = candidates.join("\n - ");
         return Err(format!(
-            "Ambiguous reference {}: Candidates are:\n - {}",
-            name, candidates_str
+            "Ambiguous reference {name}: Candidates are:\n - {candidates_str}"
         ));
     }
 
