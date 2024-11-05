@@ -464,14 +464,13 @@ pub fn read_object(
     }
 
     // Convert hex sha to bytes
-    let hash = hex::decode(sha)
-        .map_err(|_| format!("Invalid SHA digest: {sha}"))?
-        .iter()
-        .fold((0usize, [0u8; 20]), |(idx, mut buf), val| {
-            buf[idx] = *val;
-            (idx + 1, buf)
-        })
-        .1;
+    let hash = {
+        let decoded = hex::decode(sha)
+            .map_err(|_| format!("Invalid SHA digest: {sha}"))?;
+        let mut buf = [0u8; 20];
+        buf.copy_from_slice(&decoded);
+        buf
+    };
 
     // Try reading from packfiles
     let Ok(packfiles) = packfiles::find_packfiles(repo) else {

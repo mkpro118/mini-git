@@ -196,6 +196,11 @@ impl PackFile {
 
     /// Finds an object in the index whose hash matches the given hex-encoded prefix.
     ///
+    /// ## Note
+    ///
+    /// This function implicitly truncates the prefix to an even number of hex characters.
+    /// This may in rare cases lead to ambiguity in objects.
+    ///
     /// # Arguments
     ///
     /// * `prefix` - A hex-encoded string representing the beginning of the hash to search for.
@@ -454,7 +459,7 @@ impl PackFile {
                     Err("Base object not found in packfile".to_string())
                 }
             }
-            _ => Err("Unknown object type".to_string()),
+            _ => Err(format!("Unknown object type: {object_type}")),
         }
     }
 
