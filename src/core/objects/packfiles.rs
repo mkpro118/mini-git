@@ -194,6 +194,34 @@ impl PackFile {
         }
     }
 
+    /// Finds an object in the index whose hash matches the given hex-encoded prefix.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - A hex-encoded string representing the beginning of the hash to search for.
+    ///              If the length of the prefix is odd, it is truncated to make it even.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `Option<String>` containing the hex-encoded hash of the first object that matches
+    /// the prefix, or `None` if no match is found.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use mini_git::core::objects::packfiles::PackFile;
+    ///
+    /// let (pack_idx, pack_file) = (Path::new("packfile.idx"), Path::new("packfile.pack"));
+    /// let packfile = PackFile::from_files(pack_idx, pack_file)
+    ///     .expect("Should load packfile");
+    /// let prefix = "a3f";
+    /// if let Some(object_hash) = packfile.find_object_with_prefix(prefix) {
+    ///     println!("Found object with hash: {}", object_hash);
+    /// } else {
+    ///     println!("No matching object found.");
+    /// }
+    /// ```
     #[must_use]
     pub fn find_object_with_prefix(&self, prefix: &str) -> Option<String> {
         let prefix = if prefix.len() % 2 == 1 {
