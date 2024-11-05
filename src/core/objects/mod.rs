@@ -8,6 +8,7 @@ pub mod tree;
 use std::fs;
 
 use crate::core::GitRepository;
+use crate::utils::collections::ordered_map::OrderedMap;
 use crate::utils::path::{self, repo_file};
 use crate::utils::sha1::SHA1;
 use crate::utils::{hex, zlib};
@@ -252,80 +253,68 @@ fn resolve_ref_packed(
     repo: &GitRepository,
     r#ref: &str,
 ) -> Result<Option<String>, String> {
+    let packed_refs = parse_packed_refs(repo)?;
+    Ok(packed_refs.get(&r#ref.to_owned()).cloned())
+}
+
+pub fn parse_packed_refs(
+    repo: &GitRepository,
+) -> Result<OrderedMap<String, String>, String> {
     const COMMENT_CHAR: char = '#';
     const PEELED_TAG_CHAR: char = '^';
+
     let packed_refs_path = repo.gitdir().join("packed-refs");
     if !packed_refs_path.exists() {
-        return Ok(None);
+        return Ok(OrderedMap::new());
     }
     let contents = std::fs::read_to_string(&packed_refs_path)
         .map_err(|_| "Failed to read packed-refs file".to_owned())?;
 
     let mut lines = contents.lines().map(str::trim).peekable();
+    let mut res = OrderedMap::new();
 
     while let Some(line) = lines.next() {
         if line.is_empty() || line.starts_with(COMMENT_CHAR) {
             continue; // Skip empty lines and comments
         }
 
-        // Lines starting with '^' are peeled lines; they should be associated with the previous ref
+        // Lines starting with '^' are peeled lines; they are associated with the previous ref
         if line.starts_with(PEELED_TAG_CHAR) {
             continue; // We'll handle peeled lines after matching the ref
         }
 
-        // Parse the SHA, optional flags, and ref name
+        // Parse the SHA and ref name
         let mut tokens = line.split_whitespace();
         let Some(sha) = tokens.next() else {
             continue; // Skip invalid lines
         };
-
-        let mut token = tokens.next();
-        match token {
-            Some(t) if t.starts_with('{') && t.ends_with('}') => {
-                token = tokens.next();
-                Some(t)
-            }
-            _ => None,
-        };
-
-        let Some(refname) = token else {
+        let Some(refname) = tokens.next() else {
             continue; // Skip invalid lines
         };
 
-        if refname == r#ref {
-            // We have found the ref we're looking for
-            // Now check if the next line(s) are peeled lines
-            let mut peeled_sha = None;
-            while let Some(&next_line) = lines.peek() {
-                if next_line.trim().starts_with(PEELED_TAG_CHAR) {
-                    let line = lines.next().unwrap(); // Consume the peeled line
-                                                      // Extract the peeled SHA
-                    peeled_sha = Some(
-                        line.trim_start_matches(PEELED_TAG_CHAR).to_owned(),
-                    );
-                } else {
-                    break;
-                }
-            }
-            // Decide which SHA to return
-            if let Some(peeled_sha) = peeled_sha {
-                // Return the peeled SHA
-                return Ok(Some(peeled_sha));
-            }
-            // Return the SHA from the ref line
-            return Ok(Some(sha.to_owned()));
-        }
-        // Not the ref we're looking for
-        // Skip any peeled lines associated with this ref
+        // Handle peeled lines
+        let mut peeled_sha = None;
         while let Some(&next_line) = lines.peek() {
-            if next_line.trim().starts_with(PEELED_TAG_CHAR) {
-                let _ = lines.next(); // Consume and discard the peeled line
+            if next_line.starts_with(PEELED_TAG_CHAR) {
+                let line = lines.next().unwrap(); // Consume the peeled line
+                                                  // Extract the peeled SHA
+                peeled_sha =
+                    Some(line.trim_start_matches(PEELED_TAG_CHAR).to_owned());
             } else {
                 break;
             }
         }
+
+        // Decide which SHA to use
+        let final_sha = if let Some(peeled_sha) = peeled_sha {
+            peeled_sha
+        } else {
+            sha.to_owned()
+        };
+
+        res.insert(refname.to_owned(), final_sha);
     }
-    Ok(None)
+    Ok(res)
 }
 
 /// Resolves a Git reference to an object ID.
