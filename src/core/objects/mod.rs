@@ -232,7 +232,8 @@ pub fn resolve_ref(
     };
 
     if !path.is_file() {
-        return Ok(None);
+        // If not found, try packed-refs
+        return resolve_ref_packed(repo, r#ref);
     }
 
     let Ok(contents) = std::fs::read_to_string(&path) else {
@@ -245,6 +246,34 @@ pub fn resolve_ref(
     } else {
         Ok(Some(contents.to_owned()))
     }
+}
+
+fn resolve_ref_packed(
+    repo: &GitRepository,
+    r#ref: &str,
+) -> Result<Option<String>, String> {
+    const COMMENT_CHAR: char = '#';
+    let packed_refs_path = repo.gitdir().join("packed-refs");
+    if !packed_refs_path.exists() {
+        return Ok(None);
+    }
+    let Ok(contents) = std::fs::read_to_string(&packed_refs_path) else {
+        return Err("Failed to read packed-refs file".to_owned());
+    };
+
+    // Search through packed-refs file, skip comments (lines starting with #)
+    for line in contents
+        .lines()
+        .map(str::trim)
+        .filter(|&line| line.starts_with(COMMENT_CHAR))
+    {
+        // packed-refs entries are in format: "sha ref"
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() == 2 && parts[1] == r#ref {
+            return Ok(Some(parts[0].to_owned()));
+        }
+    }
+    Ok(None)
 }
 
 /// Resolves a Git reference to an object ID.
