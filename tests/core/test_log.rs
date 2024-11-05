@@ -206,7 +206,7 @@ Second commit"
     fn test_log_specific_commit() {
         setup();
 
-        let args: [&[&str]; 1] = [&["--treeish", &"a".repeat(40)]];
+        let args: [&[&str]; 1] = [&["--revision", &"a".repeat(40)]];
 
         let res = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
