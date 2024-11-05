@@ -10,7 +10,7 @@ use std::fs;
 use crate::core::GitRepository;
 use crate::utils::path::{self, repo_file};
 use crate::utils::sha1::SHA1;
-use crate::utils::zlib;
+use crate::utils::{hex, zlib};
 use traits::{Deserialize, Format, Serialize, KVLM};
 
 static OBJECTS_DIR: &str = "objects";
@@ -287,6 +287,7 @@ pub fn resolve_object(
 
     // Check for a hex string (short or full hash)
     if name.len() >= 4 && name.chars().all(|c| c.is_ascii_hexdigit()) {
+        // Check loose objects
         let prefix = &name[..2];
         let remainder = &name[2..];
         if let Some(path) =
@@ -298,6 +299,15 @@ pub fn resolve_object(
                 if file_name.starts_with(remainder) {
                     candidates.push(format!("{prefix}{file_name}"));
                 }
+            }
+        }
+    }
+
+    // Then check packfiles
+    if let Ok(packfiles) = packfiles::find_packfiles(repo) {
+        for packfile in packfiles {
+            if let Some(full_hash) = packfile.find_object_with_prefix(name) {
+                candidates.push(full_hash);
             }
         }
     }
@@ -443,6 +453,10 @@ pub fn read_object(
     repo: &GitRepository,
     sha: &str,
 ) -> Result<GitObject, String> {
+    if sha.len() > 40 {
+        return Err(format!("Invalid SHA digest: {sha}"));
+    }
+
     // Try reading from loose objects first
     let loose_result = read_loose_object(repo, sha);
     if loose_result.is_ok() {
@@ -450,12 +464,14 @@ pub fn read_object(
     }
 
     // Convert hex sha to bytes
-    let mut hash = [0u8; 20];
-    for i in 0..(sha.len() / 2) {
-        let byte = u8::from_str_radix(&sha[i * 2..(i * 2) + 2], 16)
-            .map_err(|_| format!("Invalid SHA digest: {sha}"))?;
-        hash[i] = byte;
-    }
+    let hash = hex::decode(sha)
+        .map_err(|_| format!("Invalid SHA digest: {sha}"))?
+        .iter()
+        .fold((0usize, [0u8; 20]), |(idx, mut buf), val| {
+            buf[idx] = *val;
+            (idx + 1, buf)
+        })
+        .1;
 
     // Try reading from packfiles
     let Ok(packfiles) = packfiles::find_packfiles(repo) else {
