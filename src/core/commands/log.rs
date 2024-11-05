@@ -61,9 +61,9 @@ pub fn log(args: &Namespace) -> Result<String, String> {
     let max_commits = option_to_int!(args.get("max"), usize::MAX, "max");
     let oneline = args.get("oneline").is_some();
     let show_author = args.get("no-author").is_none();
-    let treeish = &args["treeish"];
+    let revision = &args["revision"];
 
-    _log(&repo, treeish, max_commits, oneline, show_author)
+    _log(&repo, revision, max_commits, oneline, show_author)
 }
 
 fn format_commit(
@@ -143,12 +143,12 @@ fn extract_name(author_string: &str) -> Option<&str> {
 
 fn _log(
     repo: &GitRepository,
-    treeish: &str,
+    revision: &str,
     max_commits: usize,
     oneline: bool,
     show_author: bool,
 ) -> Result<String, String> {
-    let mut current = find_object(repo, treeish, None, false)?;
+    let mut current = find_object(repo, revision, None, false)?;
     let mut output = String::new();
     let mut count = 0;
 
@@ -204,7 +204,7 @@ pub fn make_parser() -> ArgumentParser {
         .optional()
         .add_help("Don't show author information");
     parser
-        .add_argument("treeish", ArgumentType::String)
+        .add_argument("revision", ArgumentType::String)
         .required()
         .default("HEAD")
         .add_help("Start from this commit or tag");
