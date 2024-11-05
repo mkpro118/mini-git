@@ -82,7 +82,7 @@ fn list_resolved_refs(
     let packed_refs = list_packed_refs(repo, filter)?;
 
     // Merge packed_refs into refs, ensuring loose refs take precedence
-    for (refname, sha) in packed_refs.into_iter() {
+    for (refname, sha) in &packed_refs {
         if !refs.contains_key(refname) {
             refs.insert(refname.clone(), sha.clone());
         }
