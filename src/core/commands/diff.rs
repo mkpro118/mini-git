@@ -96,16 +96,13 @@ fn _diff(
         }
         (Some(tree), None) => {
             // Compare working tree with specified tree
-            let tree_sha =
-                objects::find_object(repo, tree, Some("tree"), true)?;
+            let tree_sha = objects::find_object(repo, tree, None, true)?;
             (tree_sha, None)
         }
         (Some(tree1), Some(tree2)) => {
             // Compare two trees
-            let tree1_sha =
-                objects::find_object(repo, tree1, Some("tree"), true)?;
-            let tree2_sha =
-                objects::find_object(repo, tree2, Some("tree"), true)?;
+            let tree1_sha = objects::find_object(repo, tree1, None, true)?;
+            let tree2_sha = objects::find_object(repo, tree2, None, true)?;
             (tree1_sha, Some(tree2_sha))
         }
         _ => return Err("Invalid tree arguments".to_owned()),
