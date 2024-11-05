@@ -253,24 +253,76 @@ fn resolve_ref_packed(
     r#ref: &str,
 ) -> Result<Option<String>, String> {
     const COMMENT_CHAR: char = '#';
+    const PEELED_TAG_CHAR: char = '^';
     let packed_refs_path = repo.gitdir().join("packed-refs");
     if !packed_refs_path.exists() {
         return Ok(None);
     }
-    let Ok(contents) = std::fs::read_to_string(&packed_refs_path) else {
-        return Err("Failed to read packed-refs file".to_owned());
-    };
+    let contents = std::fs::read_to_string(&packed_refs_path)
+        .map_err(|_| "Failed to read packed-refs file".to_owned())?;
 
-    // Search through packed-refs file, skip comments (lines starting with #)
-    for line in contents
-        .lines()
-        .map(str::trim)
-        .filter(|&line| !line.starts_with(COMMENT_CHAR))
-    {
-        // packed-refs entries are in format: "sha ref"
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() == 2 && parts[1] == r#ref {
-            return Ok(Some(parts[0].to_owned()));
+    let mut lines = contents.lines().map(str::trim).peekable();
+
+    while let Some(line) = lines.next() {
+        if line.is_empty() || line.starts_with(COMMENT_CHAR) {
+            continue; // Skip empty lines and comments
+        }
+
+        // Lines starting with '^' are peeled lines; they should be associated with the previous ref
+        if line.starts_with(PEELED_TAG_CHAR) {
+            continue; // We'll handle peeled lines after matching the ref
+        }
+
+        // Parse the SHA, optional flags, and ref name
+        let mut tokens = line.split_whitespace();
+        let Some(sha) = tokens.next() else {
+            continue; // Skip invalid lines
+        };
+
+        let mut token = tokens.next();
+        match token {
+            Some(t) if t.starts_with('{') && t.ends_with('}') => {
+                token = tokens.next();
+                Some(t)
+            }
+            _ => None,
+        };
+
+        let Some(refname) = token else {
+            continue; // Skip invalid lines
+        };
+
+        if refname == r#ref {
+            // We have found the ref we're looking for
+            // Now check if the next line(s) are peeled lines
+            let mut peeled_sha = None;
+            while let Some(&next_line) = lines.peek() {
+                if next_line.trim().starts_with(PEELED_TAG_CHAR) {
+                    let line = lines.next().unwrap(); // Consume the peeled line
+                                                      // Extract the peeled SHA
+                    peeled_sha = Some(
+                        line.trim_start_matches(PEELED_TAG_CHAR).to_owned(),
+                    );
+                } else {
+                    break;
+                }
+            }
+            // Decide which SHA to return
+            if let Some(peeled_sha) = peeled_sha {
+                // Return the peeled SHA
+                return Ok(Some(peeled_sha));
+            }
+            // Return the SHA from the ref line
+            return Ok(Some(sha.to_owned()));
+        }
+        // Not the ref we're looking for
+        // Skip any peeled lines associated with this ref
+        while let Some(&next_line) = lines.peek() {
+            if next_line.trim().starts_with(PEELED_TAG_CHAR) {
+                let _ = lines.next(); // Consume and discard the peeled line
+            } else {
+                break;
+            }
         }
     }
     Ok(None)
