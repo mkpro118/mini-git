@@ -148,15 +148,34 @@ fn _log(
     oneline: bool,
     show_author: bool,
 ) -> Result<String, String> {
-    let mut current = find_object(repo, revision, None, false)?;
+    let mut current = find_object(repo, revision, None, true)?;
     let mut output = String::new();
     let mut count = 0;
 
     while count < max_commits {
         let object = read_object(repo, &current)?;
 
-        let GitObject::Commit(commit) = &object else {
-            break;
+        let commit = match &object {
+            GitObject::Blob(_) => {
+                return Err(format!(
+                    "Cannot show history for a blob (sha {current})"
+                ))
+            }
+            GitObject::Tree(_) => {
+                return Err(format!(
+                    "Cannot show history for a tree (sha {current})"
+                ))
+            }
+            GitObject::Commit(commit) => commit,
+            GitObject::Tag(tag) => {
+                let Some(object) = tag.kvlm().get_key(b"object") else {
+                    return Err(format!(
+                        "Bad tag {current} does not have an object"
+                    ));
+                };
+                current = kvlm_val_to_string!(object);
+                continue;
+            }
         };
 
         let mut parents = Vec::new();
