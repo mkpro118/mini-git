@@ -8,6 +8,7 @@ use std::path::Path;
 use crate::core::objects::traits::{Deserialize, KVLM};
 use crate::core::objects::{blob, commit, tag, tree, GitObject};
 use crate::core::GitRepository;
+use crate::utils::hex;
 use crate::utils::path;
 use crate::utils::zlib;
 
@@ -193,6 +194,22 @@ impl PackFile {
         }
     }
 
+    pub fn find_object_with_prefix(&self, prefix: &str) -> Option<String> {
+        let prefix = if prefix.len() % 2 == 1 {
+            &prefix[..(prefix.len() - 1)]
+        } else {
+            prefix
+        };
+
+        let prefix = hex::decode(prefix).unwrap();
+        for hash in self.index.keys() {
+            if prefix.iter().zip(hash.iter()).all(|(&a, &b)| a == b) {
+                return Some(hex::encode(hash));
+            }
+        }
+        None
+    }
+
     /// Reads a Git object from the packfile by its hash.
     ///
     /// This function locates the object in the packfile using the index and returns the corresponding `GitObject`.
@@ -239,22 +256,25 @@ impl PackFile {
 
         let data = self.read_object_at_offset(offset)?;
 
-        // Read object type
-        self.pack_file
-            .seek(SeekFrom::Start(offset))
-            .map_err(|e| e.to_string())?;
-        let mut reader = std::io::BufReader::new(&self.pack_file);
+        // Read object type and get base type in a separate scope
+        let base_object_type = {
+            self.pack_file
+                .seek(SeekFrom::Start(offset))
+                .map_err(|e| e.to_string())?;
 
-        // Read object header
-        let mut first_byte = [0u8; 1];
-        reader
-            .read_exact(&mut first_byte)
-            .map_err(|e| e.to_string())?;
-        let c = first_byte[0];
-        let object_type = (c >> 4) & 0x07;
+            let mut first_byte = [0u8; 1];
+            self.pack_file
+                .read_exact(&mut first_byte)
+                .map_err(|e| e.to_string())?;
+            let c = first_byte[0];
+            let object_type = (c >> 4) & 0x07;
+
+            // For delta objects, we need to get their base type
+            self.find_base_object_type_at_offset(offset)?
+        };
 
         // Create GitObject from data
-        let git_object = match object_type {
+        let git_object = match base_object_type {
             1 => {
                 // Commit
                 let commit = commit::Commit::deserialize(&data)?;
@@ -276,7 +296,7 @@ impl PackFile {
                 GitObject::Tag(tag)
             }
             _ => {
-                return Err(format!("Unknown object type: {object_type}"));
+                return Err(format!("Unknown object type: {base_object_type}"));
             }
         };
 
@@ -365,6 +385,82 @@ impl PackFile {
         self.object_cache.insert(offset, data.clone());
 
         Ok(data)
+    }
+
+    fn find_base_object_type_at_offset(
+        &mut self,
+        offset: u64,
+    ) -> Result<u8, String> {
+        // Seek to the object's offset in the packfile
+        self.pack_file
+            .seek(SeekFrom::Start(offset))
+            .map_err(|e| e.to_string())?;
+
+        // Read the first byte to get the object type and size
+        let mut first_byte = [0u8; 1];
+        self.pack_file
+            .read_exact(&mut first_byte)
+            .map_err(|e| e.to_string())?;
+        let mut c = first_byte[0];
+
+        let object_type = (c >> 4) & 0x07;
+
+        // Read the size (variable-length encoding)
+        while (c & 0x80) != 0 {
+            self.pack_file
+                .read_exact(&mut first_byte)
+                .map_err(|e| e.to_string())?;
+            c = first_byte[0];
+        }
+
+        match object_type {
+            1..=4 => Ok(object_type), // Base object types
+            6 => {
+                // OFS_DELTA: Read base object offset
+                let base_offset = self
+                    .read_ofs_delta_base_offset(offset)
+                    .map_err(|e| e.to_string())?;
+                self.find_base_object_type_at_offset(base_offset)
+            }
+            7 => {
+                // REF_DELTA: Read 20-byte base object hash
+                let mut base_hash = [0u8; 20];
+                self.pack_file
+                    .read_exact(&mut base_hash)
+                    .map_err(|e| e.to_string())?;
+
+                // Find the base object's offset using the index
+                if let Some(&base_offset) = self.index.get(&base_hash) {
+                    self.find_base_object_type_at_offset(base_offset)
+                } else {
+                    Err("Base object not found in packfile".to_string())
+                }
+            }
+            _ => Err("Unknown object type".to_string()),
+        }
+    }
+
+    fn read_ofs_delta_base_offset(
+        &mut self,
+        current_offset: u64,
+    ) -> Result<u64, std::io::Error> {
+        let mut buf = [0u8; 1];
+        let mut c;
+
+        self.pack_file.read_exact(&mut buf)?;
+        c = buf[0];
+        let mut value = (c & 0x7F) as u64;
+
+        while (c & 0x80) != 0 {
+            value += 1;
+            value <<= 7;
+            self.pack_file.read_exact(&mut buf)?;
+            c = buf[0];
+            value |= (c & 0x7F) as u64;
+        }
+
+        let base_offset = current_offset - value;
+        Ok(base_offset)
     }
 }
 
