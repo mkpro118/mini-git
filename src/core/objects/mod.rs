@@ -468,7 +468,7 @@ pub fn read_object(
         let decoded = hex::decode(sha)
             .map_err(|_| format!("Invalid SHA digest: {sha}"))?;
         let mut buf = [0u8; 20];
-        buf.copy_from_slice(&decoded);
+        buf[..decoded.len()].copy_from_slice(&decoded);
         buf
     };
 
