@@ -252,6 +252,38 @@ where
     }
 }
 
+impl<K, V> FromIterator<(K, V)> for OrderedMap<K, V>
+where
+    K: Hash + Eq + Clone,
+    V: Clone,
+{
+    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
+        let mut map = Self::new();
+
+        for (k, v) in iter.into_iter() {
+            map.insert(k.clone(), v.clone());
+        }
+
+        map
+    }
+}
+
+impl<'a, K, V> FromIterator<(&'a K, &'a V)> for OrderedMap<K, V>
+where
+    K: Hash + Eq + Clone,
+    V: Clone,
+{
+    fn from_iter<T: IntoIterator<Item = (&'a K, &'a V)>>(iter: T) -> Self {
+        let mut map = Self::new();
+
+        for (k, v) in iter.into_iter() {
+            map.insert(k.clone(), v.clone());
+        }
+
+        map
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,5 +364,50 @@ mod tests {
 
         assert_eq!(map.get(&"hello".to_string()), Some(&1));
         assert_eq!(map.get(&"world".to_string()), Some(&2));
+    }
+
+    #[test]
+    fn test_from_iterator_empty() {
+        let pairs: Vec<(&str, i32)> = vec![];
+        let map: OrderedMap<&str, i32> = pairs.into_iter().collect();
+        assert_eq!(map.iter().count(), 0);
+    }
+
+    #[test]
+    fn test_from_iterator_single_pair() {
+        let pairs = vec![("a", 1)];
+        let map: OrderedMap<&str, i32> = pairs.into_iter().collect();
+        assert_eq!(map.get(&"a"), Some(&1));
+        assert_eq!(map.iter().count(), 1);
+    }
+
+    #[test]
+    fn test_from_iterator_multiple_pairs() {
+        let pairs = vec![("a", 1), ("b", 2), ("c", 3)];
+        let map: OrderedMap<&str, i32> = pairs.into_iter().collect();
+
+        assert_eq!(map.get(&"a"), Some(&1));
+        assert_eq!(map.get(&"b"), Some(&2));
+        assert_eq!(map.get(&"c"), Some(&3));
+        assert_eq!(map.iter().count(), 3);
+    }
+
+    #[test]
+    fn test_from_iterator_duplicate_keys() {
+        let pairs = vec![("a", 1), ("b", 2), ("a", 3)];
+        let map: OrderedMap<&str, i32> = pairs.into_iter().collect();
+
+        assert_eq!(map.get(&"a"), Some(&3)); // Last inserted value should be present
+        assert_eq!(map.get(&"b"), Some(&2));
+        assert_eq!(map.iter().count(), 2); // "a" should only appear once
+    }
+
+    #[test]
+    fn test_from_iterator_order_preserved() {
+        let pairs = vec![("a", 1), ("b", 2), ("c", 3)];
+        let map: OrderedMap<&str, i32> = pairs.into_iter().collect();
+
+        let keys: Vec<_> = map.iter().map(|(k, _)| *k).collect();
+        assert_eq!(keys, vec!["a", "b", "c"]);
     }
 }
