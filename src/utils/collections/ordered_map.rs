@@ -260,7 +260,7 @@ where
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
         let mut map = Self::new();
 
-        for (k, v) in iter.into_iter() {
+        for (k, v) in iter {
             map.insert(k.clone(), v.clone());
         }
 
@@ -276,7 +276,7 @@ where
     fn from_iter<T: IntoIterator<Item = (&'a K, &'a V)>>(iter: T) -> Self {
         let mut map = Self::new();
 
-        for (k, v) in iter.into_iter() {
+        for (k, v) in iter {
             map.insert(k.clone(), v.clone());
         }
 

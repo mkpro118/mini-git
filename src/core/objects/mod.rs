@@ -257,6 +257,19 @@ fn resolve_ref_packed(
     Ok(packed_refs.get(&r#ref.to_owned()).cloned())
 }
 
+/// Parses the `packed-refs` file in the specified `GitRepository`.
+///
+/// # Arguments
+///
+/// * `repo` - A reference to the `GitRepository` where the `packed-refs` file should be parsed.
+///
+/// # Errors
+///
+/// This function will return an error if:
+///
+/// * Reading the reference file fails.
+/// * An I/O error occurs while accessing the filesystem.
+///
 pub fn parse_packed_refs(
     repo: &GitRepository,
 ) -> Result<OrderedMap<String, String>, String> {
@@ -296,8 +309,9 @@ pub fn parse_packed_refs(
         let mut peeled_sha = None;
         while let Some(&next_line) = lines.peek() {
             if next_line.starts_with(PEELED_TAG_CHAR) {
-                let line = lines.next().unwrap(); // Consume the peeled line
-                                                  // Extract the peeled SHA
+                let Some(line) = lines.next() else {
+                    unreachable!();
+                };
                 peeled_sha =
                     Some(line.trim_start_matches(PEELED_TAG_CHAR).to_owned());
             } else {
