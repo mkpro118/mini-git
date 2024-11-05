@@ -265,7 +265,7 @@ fn resolve_ref_packed(
     for line in contents
         .lines()
         .map(str::trim)
-        .filter(|&line| line.starts_with(COMMENT_CHAR))
+        .filter(|&line| !line.starts_with(COMMENT_CHAR))
     {
         // packed-refs entries are in format: "sha ref"
         let parts: Vec<&str> = line.split_whitespace().collect();
