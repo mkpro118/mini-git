@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use crate::core::objects::traits::KVLM;
-use crate::core::objects::GitObject;
-use crate::core::objects::{read_object, resolve_ref};
+use crate::core::objects::{self, read_object, resolve_ref, GitObject};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::collections::ordered_map::OrderedMap;
 use crate::utils::path::{self, repo_find};
@@ -76,7 +75,18 @@ fn list_resolved_refs(
         }
     }
 
-    let refs = list_refs(repo, filter)?;
+    // Get loose refs
+    let mut refs = list_refs(repo, filter)?;
+
+    // Get packed refs
+    let packed_refs = list_packed_refs(repo, filter)?;
+
+    // Merge packed_refs into refs, ensuring loose refs take precedence
+    for (refname, sha) in packed_refs.into_iter() {
+        if !refs.contains_key(refname) {
+            refs.insert(refname.clone(), sha.clone());
+        }
+    }
 
     let pred = make_predicate(args);
     let refs_iter = refs.into_iter().filter(move |(x, _)| pred(x));
@@ -177,7 +187,7 @@ fn list_refs(
             let resolved =
                 resolve_ref(repo, &rec_ref)?.unwrap_or(String::new());
 
-            // For display we use the posix path separator '/'.
+            // For display we use the POSIX path separator '/'.
             let key_ref = r#ref.join("/");
             res.insert(key_ref, resolved);
         }
@@ -198,6 +208,25 @@ fn sorted_dir(
         .collect::<Vec<std::path::PathBuf>>();
     ls.sort_unstable();
     Ok(ls)
+}
+
+fn list_packed_refs(
+    repo: &GitRepository,
+    filter: Option<&str>,
+) -> Result<OrderedMap<String, String>, String> {
+    let packed_refs = objects::parse_packed_refs(repo)?;
+
+    // Apply filter if specified
+    let filtered_refs = if let Some(filter) = filter {
+        packed_refs
+            .into_iter()
+            .filter(|(refname, _)| refname.rsplit('/').next() == Some(filter))
+            .collect()
+    } else {
+        packed_refs
+    };
+
+    Ok(filtered_refs)
 }
 
 /// Make `show-ref` parser
