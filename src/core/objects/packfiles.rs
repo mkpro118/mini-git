@@ -194,6 +194,7 @@ impl PackFile {
         }
     }
 
+    #[must_use]
     pub fn find_object_with_prefix(&self, prefix: &str) -> Option<String> {
         let prefix = if prefix.len() % 2 == 1 {
             &prefix[..(prefix.len() - 1)]
@@ -201,7 +202,9 @@ impl PackFile {
             prefix
         };
 
-        let prefix = hex::decode(prefix).unwrap();
+        let Ok(prefix) = hex::decode(prefix) else {
+            return None;
+        };
         for hash in self.index.keys() {
             if prefix.iter().zip(hash.iter()).all(|(&a, &b)| a == b) {
                 return Some(hex::encode(hash));
@@ -257,21 +260,8 @@ impl PackFile {
         let data = self.read_object_at_offset(offset)?;
 
         // Read object type and get base type in a separate scope
-        let base_object_type = {
-            self.pack_file
-                .seek(SeekFrom::Start(offset))
-                .map_err(|e| e.to_string())?;
-
-            let mut first_byte = [0u8; 1];
-            self.pack_file
-                .read_exact(&mut first_byte)
-                .map_err(|e| e.to_string())?;
-            let c = first_byte[0];
-            let object_type = (c >> 4) & 0x07;
-
-            // For delta objects, we need to get their base type
-            self.find_base_object_type_at_offset(offset)?
-        };
+        // For delta objects, we need to get their base type
+        let base_object_type = self.find_base_object_type_at_offset(offset)?;
 
         // Create GitObject from data
         let git_object = match base_object_type {
@@ -449,14 +439,14 @@ impl PackFile {
 
         self.pack_file.read_exact(&mut buf)?;
         c = buf[0];
-        let mut value = (c & 0x7F) as u64;
+        let mut value = u64::from(c & 0x7F);
 
         while (c & 0x80) != 0 {
             value += 1;
             value <<= 7;
             self.pack_file.read_exact(&mut buf)?;
             c = buf[0];
-            value |= (c & 0x7F) as u64;
+            value |= u64::from(c & 0x7F);
         }
 
         let base_offset = current_offset - value;
