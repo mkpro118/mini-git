@@ -22,14 +22,17 @@ const OPTION_MAP: &[(&str, PathFunc)] = &[
     ("show-toplevel", show_toplevel),
 ];
 
-/// List differences
+/// Parse revision (or other objects) identifiers
+///
 /// This handles the subcommand
 ///
 /// ```bash
 /// mini_git rev-parse [--type TREE] [ --revision REVISION ]
-/// mini_git rev-parse --show-toplevel
-/// mini_git rev-parse --git-dir
 /// mini_git rev-parse --all
+/// mini_git rev-parse --git-dir
+/// mini_git rev-parse --is-inside-git-dir
+/// mini_git rev-parse --is-inside-work-tree
+/// mini_git rev-parse --show-toplevel
 /// ```
 ///
 /// # Errors
