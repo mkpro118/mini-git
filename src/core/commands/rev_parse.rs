@@ -93,9 +93,7 @@ fn all_refs(repo: &GitRepository) -> Result<String, String> {
 }
 
 fn is_cwd_inside(top: &std::path::Path) -> Result<String, String> {
-    let cwd = path_to_string!(path::current_dir()?, "Could not determine cwd")?;
-    let top = path_to_string!(top, "Could not determine top")?;
-    Ok(format!("{}", cwd.starts_with(&top)))
+    Ok(format!("{}", path::current_dir()?.starts_with(top)))
 }
 
 /// Make `rev-parse` parser
