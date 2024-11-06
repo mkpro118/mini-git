@@ -25,6 +25,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub fn current_dir() -> Result<std::path::PathBuf, String> {
+    std::env::current_dir()
+        .map_err(|_| "Could not determine current working directory".to_owned())
+}
+
 /// Joins the given `paths` to the base `gitdir`
 /// This function does NOT create any files or directories
 ///
