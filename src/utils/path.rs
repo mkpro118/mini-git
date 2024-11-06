@@ -25,6 +25,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Determines the current working directory.
+///
+/// # Errors
+///
+/// This function only fails if `std::env::current_dir` fails.
 pub fn current_dir() -> Result<std::path::PathBuf, String> {
     std::env::current_dir()
         .map_err(|_| "Could not determine current working directory".to_owned())
