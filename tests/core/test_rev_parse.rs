@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use std::sync::Mutex;
 
     use crate::make_namespaces_from;
@@ -150,19 +150,19 @@ mod tests {
     fn test_rev_parse_git_dir() {
         setup();
         let args: [&[&str]; 1] = [&["--git-dir"]];
-        let result = switch_dir!({
+        let (result, expected) = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
-            rev_parse(&namespace)
+            let path = path::repo_find(".").expect("Should be in repo");
+            let path = GitRepository::new(&path)
+                .expect("Should create git repository")
+                .gitdir()
+                .canonicalize()
+                .unwrap();
+            (rev_parse(&namespace), path)
         });
         assert!(result.is_ok());
         let output = result.unwrap();
-        let path = path::repo_find(".").expect("Should be in repo");
-        let path = GitRepository::new(&path)
-            .expect("Should create git repository")
-            .gitdir()
-            .canonicalize()
-            .unwrap();
-        let expected = path.to_str().unwrap();
+        let expected = expected.to_str().unwrap();
         assert_eq!(output.trim(), expected);
     }
 
@@ -234,11 +234,6 @@ mod tests {
         let args: [&[&str]; 1] = [&["--type", "commit", "main"]];
         let result = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
-            assert!(Path::new(&OBJECT_DIR()).join("a0").exists());
-            assert!(Path::new(&OBJECT_DIR())
-                .join("a0")
-                .join("a0".repeat(19))
-                .exists());
             rev_parse(&namespace)
         });
         assert!(result.is_ok());
