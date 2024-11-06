@@ -1,8 +1,19 @@
+use crate::core::{objects, GitRepository};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
+use crate::utils::path;
 
 #[allow(clippy::module_name_repetitions)]
-pub fn rev_parse(_args: &Namespace) -> Result<String, String> {
-    todo!()
+pub fn rev_parse(args: &Namespace) -> Result<String, String> {
+    let Ok(cwd) = std::env::current_dir() else {
+        return Err("Could not determined current working directory".to_owned());
+    };
+    let path = path::repo_find(cwd)?;
+    let repo = GitRepository::new(&path)?;
+
+    let type_ = args.get("type").map(|x| x.as_str());
+    let revision = &args["revision"];
+
+    objects::find_object(&repo, revision, type_, true)
 }
 
 /// Make `rev-parse` parser
