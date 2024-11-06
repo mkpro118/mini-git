@@ -255,13 +255,12 @@ where
 impl<K, V> FromIterator<(K, V)> for OrderedMap<K, V>
 where
     K: Hash + Eq + Clone,
-    V: Clone,
 {
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
         let mut map = Self::new();
 
         for (k, v) in iter {
-            map.insert(k.clone(), v.clone());
+            map.insert(k, v);
         }
 
         map
