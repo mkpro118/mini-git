@@ -170,19 +170,16 @@ mod tests {
     fn test_rev_parse_show_toplevel() {
         setup();
         let args: [&[&str]; 1] = [&["--show-toplevel"]];
-        let result = switch_dir!({
+        let (result, expected) = switch_dir!({
             let namespace = make_namespaces(&args).next().unwrap();
-            rev_parse(&namespace)
+            let path = path::repo_find(".").expect("Should be in repo");
+            let path = path.canonicalize().unwrap();
+            (rev_parse(&namespace), path)
         });
         assert!(result.is_ok());
         let output = result.unwrap();
-        let path = path::repo_find(".").expect("Should be in repo");
-        let path = GitRepository::new(&path)
-            .expect("Should create git repository")
-            .worktree()
-            .canonicalize()
-            .unwrap();
-        let expected = path.to_str().unwrap();
+
+        let expected = expected.to_str().unwrap();
         assert_eq!(output.trim(), expected);
     }
 
