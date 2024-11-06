@@ -17,6 +17,8 @@ type PathFunc = fn(&GitRepository) -> Result<String, String>;
 const OPTION_MAP: &[(&str, PathFunc)] = &[
     ("all", all_refs),
     ("git-dir", gitdir),
+    ("is-inside-git-dir", |repo| is_cwd_inside(repo.gitdir())),
+    ("is-inside-work-tree", |repo| is_cwd_inside(repo.worktree())),
     ("show-toplevel", show_toplevel),
 ];
 
@@ -36,9 +38,7 @@ const OPTION_MAP: &[(&str, PathFunc)] = &[
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
 pub fn rev_parse(args: &Namespace) -> Result<String, String> {
-    let cwd = std::env::current_dir().map_err(|_| {
-        "Could not determine current working directory".to_owned()
-    })?;
+    let cwd = path::current_dir()?;
 
     let repo_path = path::repo_find(&cwd)?
         .canonicalize()
@@ -92,6 +92,12 @@ fn all_refs(repo: &GitRepository) -> Result<String, String> {
     })
 }
 
+fn is_cwd_inside(top: &std::path::Path) -> Result<String, String> {
+    let cwd = path_to_string!(path::current_dir()?, "Could not determine cwd")?;
+    let top = path_to_string!(top, "Could not determine top")?;
+    Ok(format!("{}", cwd.starts_with(&top)))
+}
+
 /// Make `rev-parse` parser
 #[must_use]
 pub fn make_parser() -> ArgumentParser {
@@ -100,6 +106,14 @@ pub fn make_parser() -> ArgumentParser {
     parser
         .add_argument("all", ArgumentType::Boolean)
         .add_help("Show all refs found in `refs/`");
+
+    parser
+        .add_argument("is-inside-git-dir", ArgumentType::Boolean)
+        .add_help("When the current working directory is below the repository directory print \"true\", otherwise \"false\"");
+
+    parser
+        .add_argument("is-inside-work-tree", ArgumentType::Boolean)
+        .add_help("When the current working directory is inside the work tree of the repository print \"true\", otherwise \"false\"");
 
     parser
         .add_argument("type", ArgumentType::String)
@@ -124,48 +138,3 @@ pub fn make_parser() -> ArgumentParser {
 
     parser
 }
-
-// The following code ensures that the Command array is sorted at compile time.
-// The Command array is required to be sorted to be binary-search friendly,
-// and we enforce this at compile time.
-#[allow(dead_code)]
-#[inline]
-const fn str_le(a: &'static str, b: &'static str) -> bool {
-    let (a, b) = (a.as_bytes(), b.as_bytes());
-    let mut i = 0;
-    let len = if a.len() < b.len() { a.len() } else { b.len() };
-
-    while i < len {
-        if a[i] < b[i] {
-            return true;
-        } else if a[i] > b[i] {
-            return false;
-        }
-        i += 1;
-    }
-    len == a.len()
-}
-
-#[allow(dead_code)]
-#[inline]
-const fn is_map_sorted() -> bool {
-    let len = OPTION_MAP.len();
-    assert!(len > 1, "OPTIONA MAP IS EMPTY");
-    let mut prev_name = &OPTION_MAP[0].0;
-    let mut i = 1;
-
-    while i < len {
-        if !str_le(prev_name, OPTION_MAP[i].0) {
-            return false;
-        }
-
-        prev_name = &OPTION_MAP[0].0;
-        i += 1;
-    }
-
-    true
-}
-
-// If this fails to compile, the command array is not sorted
-#[allow(clippy::erasing_op)]
-const _: u8 = 0 / is_map_sorted() as u8;
