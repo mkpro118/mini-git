@@ -41,7 +41,7 @@ This project is currently a work-in-progress
 - [x] `log`
 - [ ] `ls-files`
 - [x] `ls-tree`
-- [ ] `rev-parse`
+- [x] `rev-parse`
 - [ ] `rm`
 - [x] `show-ref`
 - [ ] `status`
