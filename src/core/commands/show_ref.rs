@@ -9,6 +9,8 @@ use crate::utils::path::{self, repo_find};
 use crate::core::GitRepository;
 
 const REF_DIR: &str = "refs";
+const HEAD_REFS: &str = "refs/heads";
+const TAG_REFS: &str = "refs/tags";
 
 /// List references
 /// This handles the subcommand
@@ -49,7 +51,10 @@ pub fn show_ref(args: &Namespace) -> Result<String, String> {
     if check_exists {
         let result = list_resolved_refs(args, &repo, None)?;
         let filter = filter.expect("Should exist, already checked");
-        if result.into_iter().any(|x| x.ends_with(filter)) {
+        if result
+            .into_iter()
+            .any(|x| x.split_whitespace().any(|s| s == filter))
+        {
             Ok(String::new())
         } else {
             Err("error: reference not found".to_owned())
@@ -126,10 +131,10 @@ fn list_resolved_refs(
 fn make_predicate(args: &Namespace) -> Box<dyn Fn(&str) -> bool + '_> {
     match (args.get("heads"), args.get("tags")) {
         (None, None) => Box::new(|_: &str| true),
-        (None, Some(_)) => Box::new(move |x: &str| x.starts_with("refs/tags")),
-        (Some(_), None) => Box::new(move |x: &str| x.starts_with("refs/heads")),
+        (None, Some(_)) => Box::new(move |x: &str| x.starts_with(TAG_REFS)),
+        (Some(_), None) => Box::new(move |x: &str| x.starts_with(HEAD_REFS)),
         (Some(_), Some(_)) => Box::new(move |x: &str| {
-            x.starts_with("refs/heads") || x.starts_with("refs/tags")
+            x.starts_with(HEAD_REFS) || x.starts_with(TAG_REFS)
         }),
     }
 }
@@ -214,19 +219,17 @@ fn list_packed_refs(
     repo: &GitRepository,
     filter: Option<&str>,
 ) -> Result<OrderedMap<String, String>, String> {
-    let packed_refs = objects::parse_packed_refs(repo)?;
-
-    // Apply filter if specified
-    let filtered_refs = if let Some(filter) = filter {
-        packed_refs
-            .into_iter()
-            .filter(|(refname, _)| refname.rsplit('/').next() == Some(filter))
-            .collect()
-    } else {
-        packed_refs
-    };
-
-    Ok(filtered_refs)
+    objects::parse_packed_refs(repo)
+        .map_err(|e| format!("Failed to parse packed-refs file: {e}"))
+        .map(|packed_refs| match filter {
+            Some(filter) => packed_refs
+                .into_iter()
+                .filter(|(refname, _)| {
+                    refname.rsplit('/').next() == Some(filter)
+                })
+                .collect(),
+            None => packed_refs,
+        })
 }
 
 /// Make `show-ref` parser
