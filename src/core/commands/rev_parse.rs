@@ -4,11 +4,21 @@ use crate::utils::path;
 
 #[allow(clippy::module_name_repetitions)]
 pub fn rev_parse(args: &Namespace) -> Result<String, String> {
-    let Ok(cwd) = std::env::current_dir() else {
-        return Err("Could not determined current working directory".to_owned());
-    };
-    let path = path::repo_find(cwd)?;
-    let repo = GitRepository::new(&path)?;
+    let cwd = std::env::current_dir().map_err(|_| {
+        "Could not determine current working directory".to_owned()
+    })?;
+
+    let repo_path = path::repo_find(&cwd)?
+        .canonicalize()
+        .map_err(|_| "Could not determine repository path".to_owned())?;
+    let repo = GitRepository::new(&repo_path)?;
+
+    if args.get("show-toplevel").is_some() {
+        return repo_path
+            .into_os_string()
+            .into_string()
+            .map_err(|_| "Could not determine repository toplevel".to_owned());
+    }
 
     let type_ = args.get("type").map(|x| x.as_str());
     let revision = &args["revision"];
@@ -27,8 +37,15 @@ pub fn make_parser() -> ArgumentParser {
         .add_help("Specify the type of object");
 
     parser
+        .add_argument("show-toplevel", ArgumentType::Boolean)
+        .add_help(
+        "Show the absolute path of the top-level directory of the working tree",
+    );
+
+    parser
         .add_argument("revision", ArgumentType::String)
         .required()
+        .default("*")
         .add_help("The revision to parse");
 
     parser
