@@ -169,9 +169,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_family = "windows",
-        ignore(
-            reason = "Fails on Windows, will debug in the future. Tracked by issue #66"
-        )
+        ignore = "Fails on Windows, will debug in the future. Tracked by issue #66"
     )]
     fn test_rev_parse_show_toplevel() {
         setup();
