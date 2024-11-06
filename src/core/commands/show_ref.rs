@@ -66,7 +66,7 @@ pub fn show_ref(args: &Namespace) -> Result<String, String> {
 }
 
 #[allow(clippy::similar_names)]
-fn list_resolved_refs(
+pub(crate) fn list_resolved_refs(
     args: &Namespace,
     repo: &GitRepository,
     filter: Option<&str>,
