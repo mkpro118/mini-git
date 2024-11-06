@@ -1,3 +1,4 @@
+use crate::core::commands::show_ref;
 use crate::core::{objects, GitRepository};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::path;
@@ -13,8 +14,11 @@ macro_rules! path_to_string {
 
 type PathFunc = fn(&GitRepository) -> Result<String, String>;
 
-const OPTION_MAP: [(&str, PathFunc); 2] =
-    [("git-dir", gitdir), ("show-toplevel", show_toplevel)];
+const OPTION_MAP: &[(&str, PathFunc)] = &[
+    ("all", all_refs),
+    ("git-dir", gitdir),
+    ("show-toplevel", show_toplevel),
+];
 
 /// List differences
 /// This handles the subcommand
@@ -23,6 +27,7 @@ const OPTION_MAP: [(&str, PathFunc); 2] =
 /// mini_git rev-parse [--type TREE] [ --revision REVISION ]
 /// mini_git rev-parse --show-toplevel
 /// mini_git rev-parse --git-dir
+/// mini_git rev-parse --all
 /// ```
 ///
 /// # Errors
@@ -78,11 +83,24 @@ fn gitdir(repo: &GitRepository) -> Result<String, String> {
     path_to_string!(repo.gitdir(), "Could not determine repository gitdir")
 }
 
+fn all_refs(repo: &GitRepository) -> Result<String, String> {
+    show_ref::list_resolved_refs(&Namespace::new(), repo, None).map(|x| {
+        x.iter()
+            .filter_map(|s| s.split_whitespace().next())
+            .collect::<Vec<_>>()
+            .join("\n")
+    })
+}
+
 /// Make `rev-parse` parser
 #[must_use]
 pub fn make_parser() -> ArgumentParser {
     let mut parser =
         ArgumentParser::new("Parse revision (or other objects) identifiers");
+    parser
+        .add_argument("all", ArgumentType::Boolean)
+        .add_help("Show all refs found in `refs/`");
+
     parser
         .add_argument("type", ArgumentType::String)
         .choices(&["blob", "commit", "tag", "tree"])
