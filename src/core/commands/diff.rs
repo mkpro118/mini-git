@@ -71,19 +71,16 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
         // Canonicalize the path to get the absolute path
         let abs_path = file_path
             .canonicalize()
-            .map_err(|_| format!("Could not canonicalize path {}", file))?;
+            .map_err(|_| format!("Could not canonicalize path {file}"))?;
 
         if !abs_path.exists() {
             {}
-            return Err(format!(
-                "File {} does not exist in the worktree",
-                file
-            ));
+            return Err(format!("File {file} does not exist in the worktree"));
         }
 
         // Get the relative path from the repository root to the file
         let rel_path = abs_path.strip_prefix(&repo_path).map_err(|_| {
-            format!("Could not get path relative to repo root for {}", file)
+            format!("Could not get path relative to repo root for {file}")
         })?;
 
         // Convert the relative path to a string and store it
@@ -91,7 +88,7 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
     }
 
     // Create a Vec<&str> from the adjusted file paths
-    let files: Vec<&str> = resolved_files.iter().map(|s| s.as_str()).collect();
+    let files: Vec<&str> = resolved_files.iter().map(String::as_str).collect();
 
     let (Some(tree1), Some(tree2)) = (args.get("tree1"), args.get("tree2"))
     else {
