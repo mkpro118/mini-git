@@ -86,6 +86,7 @@ pub struct ArgumentParser {
 #[derive(Debug)]
 pub struct Namespace {
     values: HashMap<String, String>,
+    pub order: Vec<String>,
     subcommand: Option<(String, Box<Namespace>)>,
 }
 
@@ -340,6 +341,7 @@ impl Namespace {
         Self {
             values: HashMap::new(),
             subcommand: None,
+            order: vec![],
         }
     }
 
@@ -817,6 +819,7 @@ impl ArgumentParser {
                 parsed
                     .values
                     .insert(argument.name.clone(), "true".to_string());
+                parsed.order.push(argument.name.clone());
             } else {
                 let Some(val) = args.next() else {
                     return err;
@@ -907,6 +910,7 @@ impl ArgumentParser {
         };
 
         parsed.values.insert(argument.name.clone(), value);
+        parsed.order.push(argument.name.clone());
         Ok(())
     }
 
