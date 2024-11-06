@@ -202,6 +202,24 @@ mod tests {
     use crate::utils::test::*;
 
     #[test]
+    fn test_current_dir() {
+        let tmp_dir = TempDir::<()>::create("test_current_dir");
+        let tmp_path = tmp_dir.tmp_dir().canonicalize().unwrap();
+
+        // Test from a valid directory
+        std::env::set_current_dir(&tmp_path).unwrap();
+        let result = current_dir().unwrap();
+        assert_eq!(result, tmp_path);
+
+        // Test from a deleted directory
+        let deleted_dir = tmp_path.join("deleted");
+        fs::create_dir(&deleted_dir).unwrap();
+        std::env::set_current_dir(&deleted_dir).unwrap();
+        fs::remove_dir(&deleted_dir).unwrap();
+        assert!(current_dir().is_err());
+    }
+
+    #[test]
     fn test_repo_path() {
         let base = Path::new(".git");
         let result = repo_path(base, &["refs", "heads"]);
