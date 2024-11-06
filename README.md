@@ -35,6 +35,7 @@ This project is currently a work-in-progress
 - [ ] `check-ignore`
 - [ ] `checkout`
 - [ ] `commit`
+- [x] `diff`
 - [x] `hash-object`
 - [x] `init`
 - [x] `log`
