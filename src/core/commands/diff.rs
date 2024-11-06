@@ -7,6 +7,7 @@ use crate::utils::path;
 const RESET: &str = "\x1b[0m";
 const RED: &str = "\x1b[31m";
 const GREEN: &str = "\x1b[32m";
+const CYAN: &str = "\x1b[36m";
 
 #[derive(Debug)]
 struct Hunk {
@@ -384,7 +385,8 @@ fn format_diff(
     hunk_context_lines: usize,
 ) -> String {
     let mut output = String::new();
-    output.push_str(&format!("diff --mini-git a/{path} b/{path}\n"));
+    output
+        .push_str(&format!("{CYAN}diff --mini-git a/{path} b/{path}{RESET}\n"));
 
     let str1 = String::from_utf8_lossy(content1);
     let str2 = String::from_utf8_lossy(content2);
@@ -400,10 +402,11 @@ fn format_diff(
 
     for hunk in hunks {
         output.push_str(&format!(
-            "@@ -{},{} +{},{} @@\n",
+            "{CYAN}@@ -{},{} +{},{} @@{RESET}\n",
             hunk.old_start, hunk.old_count, hunk.new_start, hunk.new_count
         ));
         output.push_str(&hunk.content);
+        output.push('\n');
     }
 
     output
