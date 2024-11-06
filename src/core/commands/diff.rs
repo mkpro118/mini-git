@@ -44,8 +44,10 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
         "Could not determine current working directory".to_owned()
     })?;
 
-    let repo = path::repo_find(cwd)?;
-    let repo = GitRepository::new(&repo)?;
+    let repo_path = path::repo_find(&cwd)?
+        .canonicalize()
+        .map_err(|_| "Could not determine repository path".to_owned())?;
+    let repo = GitRepository::new(&repo_path)?;
 
     // Parse arguments
     let name_only = args.get("name-only").is_some();
@@ -56,10 +58,40 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
         unreachable!()
     };
 
-    let files: Vec<&str> = args
+    // Resolve the file paths to be relative to the repository root
+    let mut resolved_files: Vec<String> = vec![];
+    for file in &args
         .get("files")
-        .map(|f| f.split(',').collect())
-        .unwrap_or_default();
+        .map(|f| f.split(',').collect::<Vec<_>>())
+        .unwrap_or_default()
+    {
+        // Create a path by joining the current working directory with the file path
+        let file_path = cwd.join(file);
+
+        // Canonicalize the path to get the absolute path
+        let abs_path = file_path
+            .canonicalize()
+            .map_err(|_| format!("Could not canonicalize path {}", file))?;
+
+        if !abs_path.exists() {
+            {}
+            return Err(format!(
+                "File {} does not exist in the worktree",
+                file
+            ));
+        }
+
+        // Get the relative path from the repository root to the file
+        let rel_path = abs_path.strip_prefix(&repo_path).map_err(|_| {
+            format!("Could not get path relative to repo root for {}", file)
+        })?;
+
+        // Convert the relative path to a string and store it
+        resolved_files.push(rel_path.to_string_lossy().to_string());
+    }
+
+    // Create a Vec<&str> from the adjusted file paths
+    let files: Vec<&str> = resolved_files.iter().map(|s| s.as_str()).collect();
 
     let (Some(tree1), Some(tree2)) = (args.get("tree1"), args.get("tree2"))
     else {
