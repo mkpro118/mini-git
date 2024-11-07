@@ -390,104 +390,19 @@ fn generate_hunks(
 ) -> Vec<Hunk> {
     let mut hunks = Vec::new();
     let mut i = 0;
+
     while i < changes.len() {
-        // Skip unchanged lines
-        while i < changes.len() {
-            match &changes[i] {
-                Change::Same(_) => i += 1,
-                _ => break,
-            }
-        }
+        i = skip_unchanged_lines(i, changes);
         if i >= changes.len() {
             break;
         }
 
-        let hunk_start = if i >= hunk_context_lines {
-            i - hunk_context_lines
-        } else {
-            0
-        };
-
-        let mut hunk_end = i;
-        let mut context_after = 0;
-
-        while hunk_end < changes.len() {
-            match &changes[hunk_end] {
-                Change::Same(_) => {
-                    context_after += 1;
-                    if context_after >= hunk_context_lines {
-                        hunk_end += 1; // Include enough context lines
-                        break;
-                    }
-                }
-                _ => {
-                    context_after = 0;
-                }
-            }
-            hunk_end += 1;
-        }
-
-        // Calculate hunk header positions
-        let mut old_start = 0;
-        let mut new_start = 0;
-        let mut old_count = 0;
-        let mut new_count = 0;
-        let mut hunk_content = String::new();
-
-        for change in changes.iter().take(hunk_end).skip(hunk_start) {
-            match change {
-                Change::Same(old_idx) => {
-                    if old_start == 0 {
-                        old_start = old_idx + 1;
-                        new_start = old_idx + 1;
-                    }
-                    old_count += 1;
-                    new_count += 1;
-                    hunk_content
-                        .push_str(&format!(" {}\n", old_lines[*old_idx]));
-                }
-                Change::Delete(old_idx) => {
-                    if old_start == 0 {
-                        old_start = old_idx + 1;
-                        new_start = old_idx + 1;
-                    }
-                    old_count += 1;
-                    hunk_content.push_str(&format!(
-                        "{}-{}\n",
-                        RED, old_lines[*old_idx]
-                    ));
-                }
-                Change::Insert(new_idx) => {
-                    if old_start == 0 {
-                        old_start = new_idx + 1;
-                        new_start = new_idx + 1;
-                    }
-                    new_count += 1;
-                    hunk_content.push_str(&format!(
-                        "{}+{}\n",
-                        GREEN, new_lines[*new_idx]
-                    ));
-                }
-                Change::Replace(old_idx, new_idx) => {
-                    if old_start == 0 {
-                        old_start = old_idx + 1;
-                        new_start = new_idx + 1;
-                    }
-                    old_count += 1;
-                    new_count += 1;
-                    hunk_content.push_str(&format!(
-                        "{}-{}\n",
-                        RED, old_lines[*old_idx]
-                    ));
-                    hunk_content.push_str(&format!(
-                        "{}+{}\n",
-                        GREEN, new_lines[*new_idx]
-                    ));
-                }
-            }
-        }
-
-        hunk_content.push_str(RESET);
+        let (hunk_start, hunk_end) =
+            calculate_hunk_range(i, changes, hunk_context_lines);
+        let (old_start, old_count, new_start, new_count, hunk_content) =
+            generate_hunk_content(
+                hunk_start, hunk_end, changes, old_lines, new_lines,
+            );
 
         hunks.push(Hunk {
             old_start,
@@ -501,6 +416,110 @@ fn generate_hunks(
     }
 
     hunks
+}
+
+fn skip_unchanged_lines(mut i: usize, changes: &[Change]) -> usize {
+    while i < changes.len() {
+        match &changes[i] {
+            Change::Same(_) => i += 1,
+            _ => break,
+        }
+    }
+    i
+}
+
+fn calculate_hunk_range(
+    start_idx: usize,
+    changes: &[Change],
+    hunk_context_lines: usize,
+) -> (usize, usize) {
+    let hunk_start = if start_idx >= hunk_context_lines {
+        start_idx - hunk_context_lines
+    } else {
+        0
+    };
+
+    let mut hunk_end = start_idx;
+    let mut context_after = 0;
+
+    while hunk_end < changes.len() {
+        match &changes[hunk_end] {
+            Change::Same(_) => {
+                context_after += 1;
+                if context_after >= hunk_context_lines {
+                    hunk_end += 1; // Include enough context lines
+                    break;
+                }
+            }
+            _ => {
+                context_after = 0;
+            }
+        }
+        hunk_end += 1;
+    }
+
+    (hunk_start, hunk_end)
+}
+
+fn generate_hunk_content(
+    hunk_start: usize,
+    hunk_end: usize,
+    changes: &[Change],
+    old_lines: &[&str],
+    new_lines: &[&str],
+) -> (usize, usize, usize, usize, String) {
+    let mut old_start = 0;
+    let mut new_start = 0;
+    let mut old_count = 0;
+    let mut new_count = 0;
+    let mut hunk_content = String::new();
+
+    for change in changes.iter().take(hunk_end).skip(hunk_start) {
+        match change {
+            Change::Same(old_idx) => {
+                if old_start == 0 {
+                    old_start = old_idx + 1;
+                    new_start = old_idx + 1;
+                }
+                old_count += 1;
+                new_count += 1;
+                hunk_content.push_str(&format!(" {}\n", old_lines[*old_idx]));
+            }
+            Change::Delete(old_idx) => {
+                if old_start == 0 {
+                    old_start = old_idx + 1;
+                    new_start = old_idx + 1;
+                }
+                old_count += 1;
+                hunk_content
+                    .push_str(&format!("{}-{}\n", RED, old_lines[*old_idx]));
+            }
+            Change::Insert(new_idx) => {
+                if old_start == 0 {
+                    old_start = new_idx + 1;
+                    new_start = new_idx + 1;
+                }
+                new_count += 1;
+                hunk_content
+                    .push_str(&format!("{}+{}\n", GREEN, new_lines[*new_idx]));
+            }
+            Change::Replace(old_idx, new_idx) => {
+                if old_start == 0 {
+                    old_start = old_idx + 1;
+                    new_start = new_idx + 1;
+                }
+                old_count += 1;
+                new_count += 1;
+                hunk_content
+                    .push_str(&format!("{}-{}\n", RED, old_lines[*old_idx]));
+                hunk_content
+                    .push_str(&format!("{}+{}\n", GREEN, new_lines[*new_idx]));
+            }
+        }
+    }
+
+    hunk_content.push_str(RESET);
+    (old_start, old_count, new_start, new_count, hunk_content)
 }
 
 fn format_diff(
@@ -534,7 +553,9 @@ fn format_diff(
     };
 
     let mut output = String::new();
-    output.push_str(&format!("diff --mini-git {src_path} {dst_path}\n"));
+    output.push_str(&format!(
+        "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}\n"
+    ));
     output.push_str("index ....\n"); // Simplified index line
     output.push_str(&format!("--- {src_path}\n"));
     output.push_str(&format!("+++ {dst_path}\n"));
@@ -582,12 +603,15 @@ fn format_addition(
     };
 
     let mut output = String::new();
-    output.push_str(&format!("diff --mini-git {src_path} {dst_path}\n"));
+    output.push_str(&format!(
+        "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}\n"
+    ));
     output.push_str("new file mode 100644\n");
     output.push_str(&format!("--- {src_path}\n"));
     output.push_str(&format!("+++ {dst_path}\n"));
 
-    output.push_str(&format!("@@ -0,0 +1,{} @@\n", new_lines.len()));
+    output
+        .push_str(&format!("{CYAN}@@ -0,0 +1,{} @@{RESET}\n", new_lines.len()));
     for line in new_lines {
         output.push_str(&format!("{GREEN}+{line}\n"));
     }
@@ -627,12 +651,15 @@ fn format_deletion(
     };
 
     let mut output = String::new();
-    output.push_str(&format!("diff --mini-git {src_path} {dst_path}\n"));
+    output.push_str(&format!(
+        "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}\n"
+    ));
     output.push_str("deleted file mode 100644\n");
     output.push_str(&format!("--- {src_path}\n"));
     output.push_str(&format!("+++ {dst_path}\n"));
 
-    output.push_str(&format!("@@ -1,{} +0,0 @@\n", old_lines.len()));
+    output
+        .push_str(&format!("{CYAN}@@ -1,{} +0,0 @@{RESET}\n", old_lines.len()));
     for line in old_lines {
         output.push_str(&format!("{RED}-{line}\n"));
     }
