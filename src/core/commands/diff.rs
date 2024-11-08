@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::core::objects::{self, tree::Tree};
+use crate::core::objects::{self, blob::Blob, tree::Tree};
 use crate::core::GitRepository;
 
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
@@ -497,6 +497,10 @@ fn generate_hunks(
     hunks
 }
 
+fn format_binary_diff(src_path: &str, dst_path: &str) -> String {
+    format!("diff --mini-git {src_path} {dst_path}\nBinary files differ\n")
+}
+
 fn format_diff(
     path: &str,
     content1: &[u8],
@@ -506,16 +510,6 @@ fn format_diff(
     dst_prefix: &str,
     no_prefix: bool,
 ) -> String {
-    let old_str = String::from_utf8_lossy(content1);
-    let new_str = String::from_utf8_lossy(content2);
-
-    let old_lines: Vec<&str> = old_str.lines().collect();
-    let new_lines: Vec<&str> = new_str.lines().collect();
-
-    let changes = compute_diff(&old_lines, &new_lines);
-    let hunks =
-        generate_hunks(&old_lines, &new_lines, &changes, hunk_context_lines);
-
     let src_path = if no_prefix {
         path.to_string()
     } else {
@@ -526,6 +520,20 @@ fn format_diff(
     } else {
         format!("{dst_prefix}{path}")
     };
+
+    if Blob::is_binary(content1) || Blob::is_binary(content2) {
+        return format_binary_diff(&src_path, &dst_path);
+    }
+
+    let old_str = String::from_utf8_lossy(content1);
+    let new_str = String::from_utf8_lossy(content2);
+
+    let old_lines: Vec<&str> = old_str.lines().collect();
+    let new_lines: Vec<&str> = new_str.lines().collect();
+
+    let changes = compute_diff(&old_lines, &new_lines);
+    let hunks =
+        generate_hunks(&old_lines, &new_lines, &changes, hunk_context_lines);
 
     let mut output = String::new();
     output.push_str(&format!(
@@ -548,6 +556,10 @@ fn format_diff(
     output
 }
 
+fn format_binary_addition(src_path: &str, dst_path: &str) -> String {
+    format!("diff --mini-git {src_path} {dst_path}\nBinary file added\n")
+}
+
 fn format_addition(
     path: &str,
     content: &[u8],
@@ -555,9 +567,6 @@ fn format_addition(
     dst_prefix: &str,
     no_prefix: bool,
 ) -> String {
-    let new_str = String::from_utf8_lossy(content);
-    let new_lines: Vec<&str> = new_str.lines().collect();
-
     let src_path = if no_prefix {
         "/dev/null".to_string()
     } else {
@@ -576,6 +585,13 @@ fn format_addition(
     } else {
         format!("{dst_prefix}{path}")
     };
+
+    if Blob::is_binary(content) {
+        return format_binary_addition(&src_path, &dst_path);
+    }
+
+    let new_str = String::from_utf8_lossy(content);
+    let new_lines: Vec<&str> = new_str.lines().collect();
 
     let mut output = String::new();
     output.push_str(&format!(
@@ -596,6 +612,10 @@ fn format_addition(
     output
 }
 
+fn format_binary_deletion(src_path: &str, dst_path: &str) -> String {
+    format!("diff --mini-git {src_path} {dst_path}\nBinary file deleted\n")
+}
+
 fn format_deletion(
     path: &str,
     content: &[u8],
@@ -603,9 +623,6 @@ fn format_deletion(
     dst_prefix: &str,
     no_prefix: bool,
 ) -> String {
-    let old_str = String::from_utf8_lossy(content);
-    let old_lines: Vec<&str> = old_str.lines().collect();
-
     let src_path = if no_prefix {
         path.to_string()
     } else {
@@ -624,6 +641,13 @@ fn format_deletion(
             }
         )
     };
+
+    if Blob::is_binary(content) {
+        return format_binary_deletion(&src_path, &dst_path);
+    }
+
+    let old_str = String::from_utf8_lossy(content);
+    let old_lines: Vec<&str> = old_str.lines().collect();
 
     let mut output = String::new();
     output.push_str(&format!(
