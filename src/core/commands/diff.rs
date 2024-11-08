@@ -15,6 +15,8 @@ const CYAN: &str = "\x1b[36m";
 const STAT_WIDTH: usize = 80;
 const MAX_THREADS: usize = 8;
 
+type FilesContents = (HashMap<String, Vec<u8>>, HashMap<String, Vec<u8>>);
+
 #[allow(clippy::struct_excessive_bools)]
 struct DiffOpts {
     files: Vec<String>,
@@ -139,164 +141,265 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
     _diff(&repo, tree1, tree2, opts)
 }
 
+// Main function simplified to orchestrate the workflow
 fn _diff(
     repo: &GitRepository,
     tree1: Option<&str>,
     tree2: Option<&str>,
     opts: DiffOpts,
 ) -> Result<String, String> {
-    let (tree1, tree2) = match (tree1, tree2) {
+    let (tree1, tree2) = resolve_trees(repo, tree1, tree2)?;
+    let (files1, files2) =
+        get_file_contents(repo, tree1.as_deref(), tree2.as_deref())?;
+    let all_files = collect_files_to_process(&files1, &files2, &opts.files);
+
+    process_files_in_parallel(files1, files2, all_files, opts)
+}
+
+// Resolves the tree references based on input parameters
+fn resolve_trees<'a>(
+    repo: &GitRepository,
+    tree1: Option<&'a str>,
+    tree2: Option<&'a str>,
+) -> Result<(Option<String>, Option<String>), String> {
+    match (tree1, tree2) {
         (None, None) => {
-            // Compare working tree with HEAD
             let head = Tree::get_head_tree_sha(repo)?;
-            (Some(head), None)
+            Ok((Some(head), None))
         }
         (Some(tree), None) => {
-            // Compare working tree with specified tree
             let tree_sha = objects::find_object(repo, tree, None, true)?;
-            (Some(tree_sha), None)
+            Ok((Some(tree_sha), None))
         }
         (Some(tree1), Some(tree2)) => {
-            // Compare two trees
             let tree1_sha = objects::find_object(repo, tree1, None, true)?;
             let tree2_sha = objects::find_object(repo, tree2, None, true)?;
-            (Some(tree1_sha), Some(tree2_sha))
+            Ok((Some(tree1_sha), Some(tree2_sha)))
         }
-        _ => return Err("Invalid tree arguments".to_owned()),
-    };
+        _ => Err("Invalid tree arguments".to_owned()),
+    }
+}
 
-    // Get the files from tree1 and tree2
-    let files1 = get_files(repo, tree1.as_deref())?;
-    let files2 = get_files(repo, tree2.as_deref())?;
+// Gets file contents from both trees
+fn get_file_contents(
+    repo: &GitRepository,
+    tree1: Option<&str>,
+    tree2: Option<&str>,
+) -> Result<FilesContents, String> {
+    let files1 = get_files(repo, tree1)?;
+    let files2 = get_files(repo, tree2)?;
+    Ok((files1, files2))
+}
 
-    // Build the list of all files to consider
+// Collects all files that need to be processed
+fn collect_files_to_process(
+    files1: &HashMap<String, Vec<u8>>,
+    files2: &HashMap<String, Vec<u8>>,
+    specified_files: &[String],
+) -> Vec<String> {
     let mut all_files = HashSet::new();
 
-    if opts.files.is_empty() {
+    if specified_files.is_empty() {
         all_files.extend(files1.keys().cloned());
         all_files.extend(files2.keys().cloned());
     } else {
-        all_files.extend(opts.files.iter().cloned());
+        all_files.extend(specified_files.iter().cloned());
     }
 
-    let all_files: Vec<String> = all_files.into_iter().collect();
+    all_files.into_iter().collect()
+}
 
-    // Determine the number of threads (up to MAX_THREADS)
+// Processes files in parallel using threads
+fn process_files_in_parallel(
+    files1: HashMap<String, Vec<u8>>,
+    files2: HashMap<String, Vec<u8>>,
+    all_files: Vec<String>,
+    opts: DiffOpts,
+) -> Result<String, String> {
     let num_threads = usize::min(MAX_THREADS, all_files.len());
     let chunk_size = (all_files.len() + num_threads - 1) / num_threads;
 
-    // Partition the files into chunks
     let file_chunks: Vec<Vec<String>> = all_files
         .chunks(chunk_size)
         .map(|chunk| chunk.to_vec())
         .collect();
 
-    // Shared data (read-only)
-    let files1_ref = Arc::new(files1);
-    let files2_ref = Arc::new(files2);
+    let files1_ref = Arc::new(files1.clone());
+    let files2_ref = Arc::new(files2.clone());
     let opts_ref = Arc::new(opts);
 
-    // Spawn threads
+    let handles =
+        spawn_worker_threads(&file_chunks, &files1_ref, &files2_ref, &opts_ref);
+    collect_thread_results(handles)
+}
+
+// Spawns worker threads to process file chunks
+fn spawn_worker_threads(
+    file_chunks: &[Vec<String>],
+    files1: &Arc<HashMap<String, Vec<u8>>>,
+    files2: &Arc<HashMap<String, Vec<u8>>>,
+    opts: &Arc<DiffOpts>,
+) -> Vec<thread::JoinHandle<Vec<String>>> {
     let mut handles = Vec::new();
+
     for chunk in file_chunks {
-        let files1 = files1_ref.clone();
-        let files2 = files2_ref.clone();
-        let opts = opts_ref.clone();
+        let files1 = files1.clone();
+        let files2 = files2.clone();
+        let opts = opts.clone();
+        let chunk = chunk.clone();
+
         let handle = thread::spawn(move || {
-            let mut results = Vec::new();
-            for file in chunk {
-                // If files are specified, only consider those files
-                if !opts.files.is_empty() && !opts.files.contains(&file) {
-                    continue;
-                }
-
-                let content1 = files1.get(&file);
-                let content2 = files2.get(&file);
-
-                let status = match (content1, content2) {
-                    (Some(_), None) => 'D', // Deleted
-                    (None, Some(_)) => 'A', // Added
-                    (Some(c1), Some(c2)) => {
-                        if c1 == c2 {
-                            continue; // No change
-                        }
-                        'M' // Modified
-                    }
-                    (None, None) => continue, // Should not happen
-                };
-
-                // Apply diff_filter
-                if let Some(ref filter) = opts.diff_filter {
-                    if !status_matches_filter(status, filter) {
-                        continue;
-                    }
-                }
-
-                // Now, depending on options, generate output
-                if opts.name_only {
-                    results.push(file.to_string());
-                } else if opts.name_status {
-                    results.push(format!("{status}\t{file}"));
-                } else if opts.stat {
-                    // Generate diffstat output
-                    let stat_output = format_diffstat(
-                        &file,
-                        content1.unwrap_or(&vec![]),
-                        content2.unwrap_or(&vec![]),
-                    );
-                    results.push(stat_output);
-                } else {
-                    // Generate full diff
-                    let diff_output = match status {
-                        'A' => format_addition(
-                            &file,
-                            content2.unwrap(),
-                            &opts.src_prefix,
-                            &opts.dst_prefix,
-                            opts.no_prefix,
-                        ),
-                        'D' => format_deletion(
-                            &file,
-                            content1.unwrap(),
-                            &opts.src_prefix,
-                            &opts.dst_prefix,
-                            opts.no_prefix,
-                        ),
-                        'M' => format_diff(
-                            &file,
-                            content1.unwrap(),
-                            content2.unwrap(),
-                            opts.hunk_context_lines,
-                            &opts.src_prefix,
-                            &opts.dst_prefix,
-                            opts.no_prefix,
-                        ),
-                        _ => String::new(),
-                    };
-                    results.push(diff_output);
-                }
-            }
-            results
+            process_file_chunk(&chunk, &files1, &files2, &opts)
         });
 
         handles.push(handle);
     }
 
-    // Collect results
-    let mut final_results = Vec::new();
-    for handle in handles {
-        match handle.join() {
-            Ok(thread_results) => final_results.extend(thread_results),
-            Err(_) => {
-                return Err("A thread panicked during execution".to_string())
-            }
+    handles
+}
+
+// Processes a chunk of files in a single thread
+fn process_file_chunk(
+    chunk: &[String],
+    files1: &HashMap<String, Vec<u8>>,
+    files2: &HashMap<String, Vec<u8>>,
+    opts: &DiffOpts,
+) -> Vec<String> {
+    let mut results = Vec::new();
+
+    for file in chunk {
+        if !opts.files.is_empty() && !opts.files.contains(file) {
+            continue;
+        }
+
+        if let Some(output) = process_single_file(file, files1, files2, opts) {
+            results.push(output);
         }
     }
 
-    // This should sort by first line, so should be pretty
-    final_results.sort();
+    results
+}
 
-    Ok(final_results.join("\n"))
+// Processes a single file and returns its diff output
+fn process_single_file(
+    file: &str,
+    files1: &HashMap<String, Vec<u8>>,
+    files2: &HashMap<String, Vec<u8>>,
+    opts: &DiffOpts,
+) -> Option<String> {
+    let content1 = files1.get(file);
+    let content2 = files2.get(file);
+
+    let status = determine_file_status(content1, content2)?;
+
+    if !should_process_file(status, &opts.diff_filter) {
+        return None;
+    }
+
+    Some(generate_output(file, status, content1, content2, opts))
+}
+
+// Determines the status of a file (Added, Modified, Deleted)
+fn determine_file_status(
+    content1: Option<&Vec<u8>>,
+    content2: Option<&Vec<u8>>,
+) -> Option<char> {
+    match (content1, content2) {
+        (Some(_), None) => Some('D'),
+        (None, Some(_)) => Some('A'),
+        (Some(c1), Some(c2)) => {
+            if c1 == c2 {
+                None
+            } else {
+                Some('M')
+            }
+        }
+        (None, None) => None,
+    }
+}
+
+// Checks if a file should be processed based on diff filter
+fn should_process_file(status: char, diff_filter: &Option<String>) -> bool {
+    if let Some(ref filter) = diff_filter {
+        status_matches_filter(status, filter)
+    } else {
+        true
+    }
+}
+
+// Generates appropriate output based on options and file status
+fn generate_output(
+    file: &str,
+    status: char,
+    content1: Option<&Vec<u8>>,
+    content2: Option<&Vec<u8>>,
+    opts: &DiffOpts,
+) -> String {
+    if opts.name_only {
+        file.to_string()
+    } else if opts.name_status {
+        format!("{status}\t{file}")
+    } else if opts.stat {
+        format_diffstat(
+            file,
+            content1.unwrap_or(&vec![]),
+            content2.unwrap_or(&vec![]),
+        )
+    } else {
+        generate_full_diff(file, status, content1, content2, opts)
+    }
+}
+
+// Generates full diff output based on file status
+fn generate_full_diff(
+    file: &str,
+    status: char,
+    content1: Option<&Vec<u8>>,
+    content2: Option<&Vec<u8>>,
+    opts: &DiffOpts,
+) -> String {
+    match status {
+        'A' => format_addition(
+            file,
+            content2.unwrap(),
+            &opts.src_prefix,
+            &opts.dst_prefix,
+            opts.no_prefix,
+        ),
+        'D' => format_deletion(
+            file,
+            content1.unwrap(),
+            &opts.src_prefix,
+            &opts.dst_prefix,
+            opts.no_prefix,
+        ),
+        'M' => format_diff(
+            file,
+            content1.unwrap(),
+            content2.unwrap(),
+            opts.hunk_context_lines,
+            &opts.src_prefix,
+            &opts.dst_prefix,
+            opts.no_prefix,
+        ),
+        _ => String::new(),
+    }
+}
+
+// Collects and sorts results from all threads
+fn collect_thread_results(
+    handles: Vec<thread::JoinHandle<Vec<String>>>,
+) -> Result<String, String> {
+    handles
+        .into_iter()
+        .try_fold(vec![], |mut results, handle| match handle.join() {
+            Ok(thread_results) => {
+                results.extend(thread_results);
+                Ok(results)
+            }
+            Err(_) => Err("A thread panicked during execution".to_string()),
+        })
+        .map(|results| results.join("\n"))
 }
 
 fn status_matches_filter(status: char, filter: &str) -> bool {
