@@ -10,6 +10,7 @@ const RESET: &str = "\x1b[0m";
 const RED: &str = "\x1b[31m";
 const GREEN: &str = "\x1b[32m";
 const CYAN: &str = "\x1b[36m";
+const STAT_WIDTH: usize = 80;
 
 #[allow(clippy::struct_excessive_bools)]
 struct DiffOpts<'a> {
@@ -37,7 +38,7 @@ struct Hunk {
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 enum Change {
-    Same(usize),           // old_idx
+    Same(usize, usize),    // (old_idx, new_idx)
     Delete(usize),         // old_idx
     Insert(usize),         // new_idx
     Replace(usize, usize), // (old_idx, new_idx)
@@ -297,91 +298,78 @@ fn get_files(
 }
 
 fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
-    let mut changes = Vec::new();
-    let lcs = longest_common_subsequence(old_lines, new_lines);
+    let old_len = old_lines.len();
+    let new_len = new_lines.len();
 
-    let mut old_index = 0;
-    let mut new_index = 0;
+    // Create a matrix for the shortest edit sequence
+    let mut dp = vec![vec![0; new_len + 1]; old_len + 1];
+    let mut backtrace = vec![vec![(0, 0); new_len + 1]; old_len + 1];
 
-    for &(i, j) in &lcs {
-        while old_index < i && new_index < j {
-            // Lines are different; treat as replacement
-            changes.push(Change::Replace(old_index, new_index));
-            old_index += 1;
-            new_index += 1;
+    // Initialize first row and column
+    for i in 0..=old_len {
+        dp[i][0] = i;
+        if i > 0 {
+            backtrace[i][0] = (i - 1, 0);
         }
-
-        while old_index < i {
-            changes.push(Change::Delete(old_index));
-            old_index += 1;
+    }
+    for j in 0..=new_len {
+        dp[0][j] = j;
+        if j > 0 {
+            backtrace[0][j] = (0, j - 1);
         }
-        while new_index < j {
-            changes.push(Change::Insert(new_index));
-            new_index += 1;
-        }
-
-        // Lines are the same
-        changes.push(Change::Same(old_index));
-        old_index += 1;
-        new_index += 1;
     }
 
-    // Handle remaining lines
-    while old_index < old_lines.len() && new_index < new_lines.len() {
-        changes.push(Change::Replace(old_index, new_index));
-        old_index += 1;
-        new_index += 1;
-    }
-    while old_index < old_lines.len() {
-        changes.push(Change::Delete(old_index));
-        old_index += 1;
-    }
-    while new_index < new_lines.len() {
-        changes.push(Change::Insert(new_index));
-        new_index += 1;
-    }
-
-    changes
-}
-
-fn longest_common_subsequence<'a>(
-    old_lines: &[&'a str],
-    new_lines: &[&'a str],
-) -> Vec<(usize, usize)> {
-    let m = old_lines.len();
-    let n = new_lines.len();
-    let mut lcs_lengths = vec![vec![0; n + 1]; m + 1];
-
-    for (i, &old_line) in old_lines.iter().enumerate() {
-        for (j, &new_line) in new_lines.iter().enumerate() {
-            if old_line == new_line {
-                lcs_lengths[i + 1][j + 1] = lcs_lengths[i][j] + 1;
+    // Fill the matrices
+    for i in 1..=old_len {
+        for j in 1..=new_len {
+            if old_lines[i - 1] == new_lines[j - 1] {
+                dp[i][j] = dp[i - 1][j - 1];
+                backtrace[i][j] = (i - 1, j - 1);
             } else {
-                lcs_lengths[i + 1][j + 1] =
-                    std::cmp::max(lcs_lengths[i + 1][j], lcs_lengths[i][j + 1]);
+                let delete_cost = dp[i - 1][j] + 1;
+                let insert_cost = dp[i][j - 1] + 1;
+                let replace_cost = dp[i - 1][j - 1] + 1;
+
+                dp[i][j] = delete_cost.min(insert_cost.min(replace_cost));
+
+                if dp[i][j] == delete_cost {
+                    backtrace[i][j] = (i - 1, j);
+                } else if dp[i][j] == insert_cost {
+                    backtrace[i][j] = (i, j - 1);
+                } else {
+                    backtrace[i][j] = (i - 1, j - 1);
+                }
             }
         }
     }
 
-    let mut result = Vec::new();
-    let mut i = m;
-    let mut j = n;
-    while i > 0 && j > 0 {
-        if old_lines[i - 1] == new_lines[j - 1] {
-            result.push((i - 1, j - 1));
-            i -= 1;
-            j -= 1;
-        } else if lcs_lengths[i - 1][j] >= lcs_lengths[i][j - 1] {
-            i -= 1;
+    // Reconstruct the changes
+    let mut changes = Vec::new();
+    let mut i = old_len;
+    let mut j = new_len;
+
+    while i > 0 || j > 0 {
+        let (prev_i, prev_j) = backtrace[i][j];
+
+        if i == prev_i {
+            changes.push(Change::Insert(j - 1));
+        } else if j == prev_j {
+            changes.push(Change::Delete(i - 1));
+        } else if old_lines[i - 1] == new_lines[j - 1] {
+            changes.push(Change::Same(i - 1, j - 1));
         } else {
-            j -= 1;
+            changes.push(Change::Replace(i - 1, j - 1));
         }
+
+        i = prev_i;
+        j = prev_j;
     }
 
-    result.reverse();
-    result
+    changes.reverse();
+    changes
 }
 
+#[allow(clippy::too_many_lines)]
 fn generate_hunks(
     old_lines: &[&str],
     new_lines: &[&str],
@@ -389,115 +377,121 @@ fn generate_hunks(
     hunk_context_lines: usize,
 ) -> Vec<Hunk> {
     let mut hunks = Vec::new();
-    let mut i = 0;
-    while i < changes.len() {
-        // Skip unchanged lines
-        while i < changes.len() {
-            match &changes[i] {
-                Change::Same(_) => i += 1,
-                _ => break,
-            }
-        }
-        if i >= changes.len() {
-            break;
-        }
+    let mut current_hunk = String::new();
+    let mut old_start = 1;
+    let mut new_start = 1;
+    let mut old_count = 0;
+    let mut new_count = 0;
+    let mut last_change_idx = None;
 
-        let hunk_start = if i >= hunk_context_lines {
-            i - hunk_context_lines
-        } else {
-            0
-        };
+    // Keep track of context lines before changes
+    let mut context_buffer = Vec::new();
 
-        let mut hunk_end = i;
-        let mut context_after = 0;
+    for (i, change) in changes.iter().enumerate() {
+        match change {
+            Change::Same(old_idx, new_idx) => {
+                let line = old_lines[*old_idx];
 
-        while hunk_end < changes.len() {
-            match &changes[hunk_end] {
-                Change::Same(_) => {
-                    context_after += 1;
-                    if context_after >= hunk_context_lines {
-                        hunk_end += 1; // Include enough context lines
-                        break;
+                if last_change_idx.is_none() {
+                    // Before any changes, store in context buffer
+                    if context_buffer.len() < hunk_context_lines {
+                        context_buffer.push(line);
+                    } else {
+                        context_buffer.remove(0);
+                        context_buffer.push(line);
                     }
-                }
-                _ => {
-                    context_after = 0;
-                }
-            }
-            hunk_end += 1;
-        }
-
-        // Calculate hunk header positions
-        let mut old_start = 0;
-        let mut new_start = 0;
-        let mut old_count = 0;
-        let mut new_count = 0;
-        let mut hunk_content = String::new();
-
-        for change in changes.iter().take(hunk_end).skip(hunk_start) {
-            match change {
-                Change::Same(old_idx) => {
-                    if old_start == 0 {
-                        old_start = old_idx + 1;
-                        new_start = old_idx + 1;
+                } else if let Some(last_idx) = last_change_idx {
+                    if i - last_idx <= hunk_context_lines {
+                        // Within range of last change
+                        current_hunk.push_str(&format!(" {line}\n"));
+                        old_count += 1;
+                        new_count += 1;
+                    } else {
+                        // End current hunk if exists
+                        if !current_hunk.is_empty() {
+                            hunks.push(Hunk {
+                                old_start,
+                                old_count,
+                                new_start,
+                                new_count,
+                                content: current_hunk,
+                            });
+                            current_hunk = String::new();
+                            context_buffer.clear();
+                        }
+                        // Start storing context for next potential hunk
+                        context_buffer.push(line);
+                        old_start = old_idx + 1 - context_buffer.len();
+                        new_start = new_idx + 1 - context_buffer.len();
+                        old_count = 0;
+                        new_count = 0;
                     }
-                    old_count += 1;
-                    new_count += 1;
-                    hunk_content
-                        .push_str(&format!(" {}\n", old_lines[*old_idx]));
-                }
-                Change::Delete(old_idx) => {
-                    if old_start == 0 {
-                        old_start = old_idx + 1;
-                        new_start = old_idx + 1;
-                    }
-                    old_count += 1;
-                    hunk_content.push_str(&format!(
-                        "{}-{}\n",
-                        RED, old_lines[*old_idx]
-                    ));
-                }
-                Change::Insert(new_idx) => {
-                    if old_start == 0 {
-                        old_start = new_idx + 1;
-                        new_start = new_idx + 1;
-                    }
-                    new_count += 1;
-                    hunk_content.push_str(&format!(
-                        "{}+{}\n",
-                        GREEN, new_lines[*new_idx]
-                    ));
-                }
-                Change::Replace(old_idx, new_idx) => {
-                    if old_start == 0 {
-                        old_start = old_idx + 1;
-                        new_start = new_idx + 1;
-                    }
-                    old_count += 1;
-                    new_count += 1;
-                    hunk_content.push_str(&format!(
-                        "{}-{}\n",
-                        RED, old_lines[*old_idx]
-                    ));
-                    hunk_content.push_str(&format!(
-                        "{}+{}\n",
-                        GREEN, new_lines[*new_idx]
-                    ));
                 }
             }
+            Change::Delete(old_idx) | Change::Replace(old_idx, _) => {
+                // Add context buffer if this is the start of a new hunk
+                if last_change_idx.is_none() {
+                    for line in &context_buffer {
+                        current_hunk.push_str(&format!(" {line}\n"));
+                        old_count += 1;
+                        new_count += 1;
+                    }
+                    // Adjust start positions
+                    old_start = old_idx + 1 - context_buffer.len();
+                    new_start = old_start;
+                }
+
+                if let Change::Delete(idx) = change {
+                    current_hunk.push_str(&format!(
+                        "{RED}-{}{RESET}\n",
+                        old_lines[*idx]
+                    ));
+                    old_count += 1;
+                } else if let Change::Replace(old_idx, new_idx) = change {
+                    current_hunk.push_str(&format!(
+                        "{RED}-{}{RESET}\n",
+                        old_lines[*old_idx]
+                    ));
+                    current_hunk.push_str(&format!(
+                        "{GREEN}+{}{RESET}\n",
+                        new_lines[*new_idx]
+                    ));
+                    old_count += 1;
+                    new_count += 1;
+                }
+                last_change_idx = Some(i);
+            }
+            Change::Insert(new_idx) => {
+                // Add context buffer if this is the start of a new hunk
+                if last_change_idx.is_none() {
+                    for line in &context_buffer {
+                        current_hunk.push_str(&format!(" {line}\n"));
+                        old_count += 1;
+                        new_count += 1;
+                    }
+                    old_start = *new_idx + 1 - context_buffer.len();
+                    new_start = old_start;
+                }
+
+                current_hunk.push_str(&format!(
+                    "{GREEN}+{}{RESET}\n",
+                    new_lines[*new_idx]
+                ));
+                new_count += 1;
+                last_change_idx = Some(i);
+            }
         }
+    }
 
-        hunk_content.push_str(RESET);
-
+    // Add the last hunk if there is one
+    if !current_hunk.is_empty() {
         hunks.push(Hunk {
             old_start,
             old_count,
             new_start,
             new_count,
-            content: hunk_content,
+            content: current_hunk,
         });
-
-        i = hunk_end;
     }
 
     hunks
@@ -659,30 +653,37 @@ fn format_diffstat(path: &str, content1: &[u8], content2: &[u8]) -> String {
 
     let changes = compute_diff(&old_lines, &new_lines);
 
-    let mut additions = 0;
-    let mut deletions = 0;
+    let (mut additions, mut deletions) = changes
+        .iter()
+        .filter(|x| !matches!(x, Change::Same(..)))
+        .fold(
+            (0usize, 0usize),
+            |(additions, deletions), change| match change {
+                Change::Insert(_) => (additions + 1, deletions),
+                Change::Delete(_) => (additions, deletions + 1),
+                Change::Replace(_, _) => (additions + 1, deletions + 1),
+                Change::Same(..) => unreachable!(),
+            },
+        );
 
-    for change in changes {
-        match change {
-            Change::Insert(_) => additions += 1,
-            Change::Delete(_) => deletions += 1,
-            Change::Replace(_, _) => {
-                deletions += 1;
-                additions += 1;
-            }
-            Change::Same(_) => {}
-        }
+    // +3 for " | "
+    let available_columns = STAT_WIDTH - (path.len() + 3);
+    let total_changes = additions + deletions;
+
+    if total_changes > available_columns {
+        let p = (additions as f64 / total_changes as f64)
+            * available_columns as f64;
+        additions = p as usize;
+        deletions = available_columns - additions;
     }
 
     format!(
-        "{:<40} | {} {}\n",
-        path,
+        "{path} | {total_changes} {GREEN}{}{RED}{}{RESET}",
         "+".repeat(additions),
         "-".repeat(deletions)
     )
 }
 
-// DO NOT CHANGE THIS FUNCTION
 /// Make parser for the diff command
 #[must_use]
 pub fn make_parser() -> ArgumentParser {
