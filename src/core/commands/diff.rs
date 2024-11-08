@@ -946,7 +946,7 @@ pub fn make_parser() -> ArgumentParser {
     parser
         .add_argument("diff-filter", ArgumentType::String)
         .optional()
-        .add_help("Select only files that are Added (A), Deleted (D), Modified (M) or Renamed (R). Also, these upper-case letters can be downcased to exclude");
+        .add_help("Select only files that are Added (A), Deleted (D), or Modified (M). Also, these upper-case letters can be downcased to exclude");
 
     parser
         .add_argument("files", ArgumentType::String)
@@ -995,6 +995,88 @@ pub fn make_parser() -> ArgumentParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Mock function or struct setups for testing purposes
+    fn setup_dummy_files(
+    ) -> (HashMap<String, Vec<u8>>, HashMap<String, Vec<u8>>) {
+        let mut files1 = HashMap::new();
+        let mut files2 = HashMap::new();
+        files1.insert("file".to_string(), b"Hello".to_vec());
+        files2.insert("file".to_string(), b"Hello World".to_vec());
+        (files1, files2)
+    }
+
+    #[test]
+    fn test_determine_file_status() {
+        let (files1, files2) = setup_dummy_files();
+
+        let status_same =
+            determine_file_status(files1.get("file"), files1.get("file"));
+        assert_eq!(status_same, None);
+
+        let status_insert = determine_file_status(None, files2.get("file"));
+        assert_eq!(status_insert, Some('A'));
+
+        let status_delete = determine_file_status(files1.get("file"), None);
+        assert_eq!(status_delete, Some('D'));
+
+        let status_replace =
+            determine_file_status(files1.get("file"), files2.get("file"));
+        assert_eq!(status_replace, Some('M'));
+    }
+
+    #[test]
+    fn test_status_matches_filter() {
+        fn generate_permutations(
+            letters: &[char],
+            current: &mut Vec<char>,
+            result: &mut HashSet<String>,
+            max_length: usize,
+        ) {
+            if current.len() == max_length {
+                result.insert(current.iter().collect());
+                return;
+            }
+
+            for &letter in letters {
+                current.push(letter);
+                let new_letters = letters
+                    .iter()
+                    .filter(|&c| *c != letter)
+                    .copied()
+                    .collect::<Vec<_>>();
+                generate_permutations(
+                    &new_letters,
+                    current,
+                    result,
+                    max_length,
+                );
+                current.pop();
+            }
+        }
+
+        let letters = vec!['A', 'D', 'M'];
+
+        let mut combos = HashSet::new();
+
+        // Generate combinations of lengths 0, 1, 2, and 3
+        for length in 0..=3 {
+            let mut current = vec![];
+            generate_permutations(&letters, &mut current, &mut combos, length);
+        }
+
+        for letter in "ADMLPI".chars() {
+            for combo in &combos {
+                assert_eq!(
+                    status_matches_filter(letter, combo),
+                    combo.contains(letter) || combo.is_empty(),
+                    "{letter} '{combo}' | '{}' '{}'",
+                    combo.contains(letter),
+                    combo.is_empty(),
+                )
+            }
+        }
+    }
 
     #[test]
     fn test_compute_diff_same_content() {
