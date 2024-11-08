@@ -13,6 +13,7 @@ const RED: &str = "\x1b[31m";
 const GREEN: &str = "\x1b[32m";
 const CYAN: &str = "\x1b[36m";
 const STAT_WIDTH: usize = 80;
+const MAX_THREADS: usize = 8;
 
 #[allow(clippy::struct_excessive_bools)]
 struct DiffOpts {
@@ -168,7 +169,7 @@ fn _diff(
     let files1 = get_files(repo, tree1.as_deref())?;
     let files2 = get_files(repo, tree2.as_deref())?;
 
-    // Build the set of all files to consider
+    // Build the list of all files to consider
     let mut all_files = HashSet::new();
 
     if opts.files.is_empty() {
@@ -180,25 +181,27 @@ fn _diff(
 
     let all_files: Vec<String> = all_files.into_iter().collect();
 
-    // Wrap files1 and files2 in Arc to share between threads
-    let files1 = Arc::new(files1);
-    let files2 = Arc::new(files2);
-
-    // Determine the number of threads
-    let num_threads = 8.min(all_files.len());
+    // Determine the number of threads (up to MAX_THREADS)
+    let num_threads = usize::min(MAX_THREADS, all_files.len());
     let chunk_size = (all_files.len() + num_threads - 1) / num_threads;
 
+    // Partition the files into chunks
+    let file_chunks: Vec<Vec<String>> = all_files
+        .chunks(chunk_size)
+        .map(|chunk| chunk.to_vec())
+        .collect();
+
+    // Shared data (read-only)
+    let files1_ref = Arc::new(files1);
+    let files2_ref = Arc::new(files2);
+    let opts_ref = Arc::new(opts);
+
+    // Spawn threads
     let mut handles = Vec::new();
-
-    // Since DiffOpts contains references, we need to wrap it in Arc as well
-    let opts = Arc::new(opts);
-
-    for chunk in all_files.chunks(chunk_size) {
-        let files1 = Arc::clone(&files1);
-        let files2 = Arc::clone(&files2);
-        let opts = Arc::clone(&opts);
-        let chunk = chunk.to_vec();
-
+    for chunk in file_chunks {
+        let files1 = files1_ref.clone();
+        let files2 = files2_ref.clone();
+        let opts = opts_ref.clone();
         let handle = thread::spawn(move || {
             let mut results = Vec::new();
             for file in chunk {
@@ -223,7 +226,7 @@ fn _diff(
                 };
 
                 // Apply diff_filter
-                if let Some(filter) = &opts.diff_filter {
+                if let Some(ref filter) = opts.diff_filter {
                     if !status_matches_filter(status, filter) {
                         continue;
                     }
@@ -279,17 +282,21 @@ fn _diff(
         handles.push(handle);
     }
 
-    let mut results = Vec::new();
+    // Collect results
+    let mut final_results = Vec::new();
     for handle in handles {
         match handle.join() {
-            Ok(thread_results) => results.extend(thread_results),
+            Ok(thread_results) => final_results.extend(thread_results),
             Err(_) => {
                 return Err("A thread panicked during execution".to_string())
             }
         }
     }
 
-    Ok(results.join("\n"))
+    // This should sort by first line, so should be pretty
+    final_results.sort();
+
+    Ok(final_results.join("\n"))
 }
 
 fn status_matches_filter(status: char, filter: &str) -> bool {
