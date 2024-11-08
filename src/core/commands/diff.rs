@@ -399,7 +399,10 @@ fn collect_thread_results(
             }
             Err(_) => Err("A thread panicked during execution".to_string()),
         })
-        .map(|results| results.join("\n"))
+        .map(|mut results| {
+            results.sort();
+            results.join("\n")
+        })
 }
 
 fn status_matches_filter(status: char, filter: &str) -> bool {
@@ -471,7 +474,9 @@ fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
             } else {
                 let delete_cost = dp[i - 1][j] + 1;
                 let insert_cost = dp[i][j - 1] + 1;
-                let replace_cost = dp[i - 1][j - 1] + 1;
+
+                // Increase replacement cost to discourage splitting related changes
+                let replace_cost = dp[i - 1][j - 1] + 2;
 
                 dp[i][j] = delete_cost.min(insert_cost.min(replace_cost));
 
@@ -491,21 +496,60 @@ fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
     let mut i = old_len;
     let mut j = new_len;
 
+    // Keep track of consecutive operations to help group them
+    let mut pending_deletes = Vec::new();
+    let mut pending_inserts = Vec::new();
+
     while i > 0 || j > 0 {
         let (prev_i, prev_j) = backtrace[i][j];
 
         if i == prev_i {
-            changes.push(Change::Insert);
+            // Insert
+            pending_inserts.push(j - 1);
         } else if j == prev_j {
-            changes.push(Change::Delete);
+            // Delete
+            pending_deletes.push(i - 1);
         } else if old_lines[i - 1] == new_lines[j - 1] {
+            // Flush any pending operations
+            if !pending_deletes.is_empty() {
+                for _ in 0..pending_deletes.len() {
+                    changes.push(Change::Delete);
+                }
+                pending_deletes.clear();
+            }
+            if !pending_inserts.is_empty() {
+                for _ in 0..pending_inserts.len() {
+                    changes.push(Change::Insert);
+                }
+                pending_inserts.clear();
+            }
             changes.push(Change::Same);
         } else {
-            changes.push(Change::Replace);
+            // Try to group related changes
+            if pending_deletes.len() == 1 && pending_inserts.len() == 1 {
+                changes.push(Change::Replace);
+                pending_deletes.clear();
+                pending_inserts.clear();
+            } else {
+                pending_deletes.push(i - 1);
+                pending_inserts.push(j - 1);
+            }
         }
 
         i = prev_i;
         j = prev_j;
+    }
+
+    // Flush any remaining pending operations
+    if !pending_deletes.is_empty() {
+        for _ in 0..pending_deletes.len() {
+            changes.push(Change::Delete);
+        }
+    }
+    if !pending_inserts.is_empty() {
+        for _ in 0..pending_inserts.len() {
+            changes.push(Change::Insert);
+        }
     }
 
     changes.reverse();
@@ -529,22 +573,51 @@ fn generate_hunks(
 
     // Keep track of context lines before changes
     let mut context_buffer = Vec::new();
+    // Buffer for storing additions until we can write them after deletions
+    let mut additions_buffer = String::new();
 
     let mut old_line_num = 1;
     let mut new_line_num = 1;
 
     for (i, change) in changes.iter().enumerate() {
+        // Helper function to write context buffer if needed
+        let write_context_buffer =
+            |current_hunk: &mut String,
+             context_buffer: &[(String, usize, usize)],
+             old_count: &mut usize,
+             new_count: &mut usize| {
+                for (line, _, _) in context_buffer {
+                    current_hunk.push_str(&format!(" {line}\n"));
+                    *old_count += 1;
+                    *new_count += 1;
+                }
+            };
+
         match change {
             Change::Same => {
+                // If we have buffered additions, write them now
+                if !additions_buffer.is_empty() {
+                    current_hunk.push_str(&additions_buffer);
+                    additions_buffer.clear();
+                }
+
                 let line = old_lines[old_line_num - 1];
 
                 if last_change_idx.is_none() {
                     // Before any changes, store in context buffer
                     if context_buffer.len() < hunk_context_lines {
-                        context_buffer.push((line, old_line_num, new_line_num));
+                        context_buffer.push((
+                            line.to_string(),
+                            old_line_num,
+                            new_line_num,
+                        ));
                     } else {
                         context_buffer.remove(0);
-                        context_buffer.push((line, old_line_num, new_line_num));
+                        context_buffer.push((
+                            line.to_string(),
+                            old_line_num,
+                            new_line_num,
+                        ));
                     }
                 } else if let Some(last_idx) = last_change_idx {
                     if i - last_idx <= hunk_context_lines {
@@ -565,7 +638,11 @@ fn generate_hunks(
                             current_hunk = String::new();
                             context_buffer.clear();
                         }
-                        context_buffer.push((line, old_line_num, new_line_num));
+                        context_buffer.push((
+                            line.to_string(),
+                            old_line_num,
+                            new_line_num,
+                        ));
                         old_start = old_line_num - context_buffer.len() + 1;
                         new_start = new_line_num - context_buffer.len() + 1;
                         old_count = 0;
@@ -579,11 +656,12 @@ fn generate_hunks(
             Change::Delete => {
                 // Add context buffer if this is the start of a new hunk
                 if last_change_idx.is_none() {
-                    for (line, _, _) in &context_buffer {
-                        current_hunk.push_str(&format!(" {line}\n"));
-                        old_count += 1;
-                        new_count += 1;
-                    }
+                    write_context_buffer(
+                        &mut current_hunk,
+                        &context_buffer,
+                        &mut old_count,
+                        &mut new_count,
+                    );
                     old_start = old_line_num - context_buffer.len();
                     new_start = new_line_num - context_buffer.len();
                 }
@@ -596,17 +674,19 @@ fn generate_hunks(
             }
             Change::Insert => {
                 if last_change_idx.is_none() {
-                    for (line, _, _) in &context_buffer {
-                        current_hunk.push_str(&format!(" {line}\n"));
-                        old_count += 1;
-                        new_count += 1;
-                    }
+                    write_context_buffer(
+                        &mut current_hunk,
+                        &context_buffer,
+                        &mut old_count,
+                        &mut new_count,
+                    );
                     old_start = old_line_num - context_buffer.len();
                     new_start = new_line_num - context_buffer.len();
                 }
 
                 let line = new_lines[new_line_num - 1];
-                current_hunk.push_str(&format!("{GREEN}+{line}{RESET}\n"));
+                // Buffer the addition instead of writing it immediately
+                additions_buffer.push_str(&format!("{GREEN}+{line}{RESET}\n"));
                 new_count += 1;
                 new_line_num += 1;
                 last_change_idx = Some(i);
@@ -614,11 +694,12 @@ fn generate_hunks(
             Change::Replace => {
                 // Add context buffer if this is the start of a new hunk
                 if last_change_idx.is_none() {
-                    for (line, _, _) in &context_buffer {
-                        current_hunk.push_str(&format!(" {line}\n"));
-                        old_count += 1;
-                        new_count += 1;
-                    }
+                    write_context_buffer(
+                        &mut current_hunk,
+                        &context_buffer,
+                        &mut old_count,
+                        &mut new_count,
+                    );
                     old_start = old_line_num - context_buffer.len();
                     new_start = new_line_num - context_buffer.len();
                 }
@@ -626,7 +707,8 @@ fn generate_hunks(
                 let old_line = old_lines[old_line_num - 1];
                 let new_line = new_lines[new_line_num - 1];
                 current_hunk.push_str(&format!("{RED}-{old_line}{RESET}\n"));
-                current_hunk.push_str(&format!("{GREEN}+{new_line}{RESET}\n"));
+                additions_buffer
+                    .push_str(&format!("{GREEN}+{new_line}{RESET}\n"));
                 old_count += 1;
                 new_count += 1;
                 old_line_num += 1;
@@ -634,10 +716,22 @@ fn generate_hunks(
                 last_change_idx = Some(i);
             }
         }
+
+        // If this is a Same change or the last change, write any buffered additions
+        if (matches!(change, Change::Same) || i == changes.len() - 1)
+            && !additions_buffer.is_empty()
+        {
+            current_hunk.push_str(&additions_buffer);
+            additions_buffer.clear();
+        }
     }
 
     // Add the last hunk if there is one
     if !current_hunk.is_empty() {
+        // Make sure to write any remaining buffered additions
+        if !additions_buffer.is_empty() {
+            current_hunk.push_str(&additions_buffer);
+        }
         hunks.push(Hunk {
             old_start,
             old_count,
