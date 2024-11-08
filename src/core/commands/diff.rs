@@ -38,10 +38,10 @@ struct Hunk {
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 enum Change {
-    Same(usize, usize),    // (old_idx, new_idx)
-    Delete(usize),         // old_idx
-    Insert(usize),         // new_idx
-    Replace(usize, usize), // (old_idx, new_idx)
+    Same,
+    Delete,
+    Insert,
+    Replace,
 }
 
 /// List differences
@@ -352,13 +352,13 @@ fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
         let (prev_i, prev_j) = backtrace[i][j];
 
         if i == prev_i {
-            changes.push(Change::Insert(j - 1));
+            changes.push(Change::Insert);
         } else if j == prev_j {
-            changes.push(Change::Delete(i - 1));
+            changes.push(Change::Delete);
         } else if old_lines[i - 1] == new_lines[j - 1] {
-            changes.push(Change::Same(i - 1, j - 1));
+            changes.push(Change::Same);
         } else {
-            changes.push(Change::Replace(i - 1, j - 1));
+            changes.push(Change::Replace);
         }
 
         i = prev_i;
@@ -378,8 +378,8 @@ fn generate_hunks(
 ) -> Vec<Hunk> {
     let mut hunks = Vec::new();
     let mut current_hunk = String::new();
-    let mut old_start = 1;
-    let mut new_start = 1;
+    let mut old_start = 0;
+    let mut new_start = 0;
     let mut old_count = 0;
     let mut new_count = 0;
     let mut last_change_idx = None;
@@ -387,18 +387,21 @@ fn generate_hunks(
     // Keep track of context lines before changes
     let mut context_buffer = Vec::new();
 
+    let mut old_line_num = 1;
+    let mut new_line_num = 1;
+
     for (i, change) in changes.iter().enumerate() {
         match change {
-            Change::Same(old_idx, new_idx) => {
-                let line = old_lines[*old_idx];
+            Change::Same => {
+                let line = old_lines[old_line_num - 1];
 
                 if last_change_idx.is_none() {
                     // Before any changes, store in context buffer
                     if context_buffer.len() < hunk_context_lines {
-                        context_buffer.push(line);
+                        context_buffer.push((line, old_line_num, new_line_num));
                     } else {
                         context_buffer.remove(0);
-                        context_buffer.push(line);
+                        context_buffer.push((line, old_line_num, new_line_num));
                     }
                 } else if let Some(last_idx) = last_change_idx {
                     if i - last_idx <= hunk_context_lines {
@@ -419,65 +422,73 @@ fn generate_hunks(
                             current_hunk = String::new();
                             context_buffer.clear();
                         }
-                        // Start storing context for next potential hunk
-                        context_buffer.push(line);
-                        old_start = old_idx + 1 - context_buffer.len();
-                        new_start = new_idx + 1 - context_buffer.len();
+                        context_buffer.push((line, old_line_num, new_line_num));
+                        old_start = old_line_num - context_buffer.len() + 1;
+                        new_start = new_line_num - context_buffer.len() + 1;
                         old_count = 0;
                         new_count = 0;
+                        last_change_idx = None;
                     }
                 }
+                old_line_num += 1;
+                new_line_num += 1;
             }
-            Change::Delete(old_idx) | Change::Replace(old_idx, _) => {
+            Change::Delete => {
                 // Add context buffer if this is the start of a new hunk
                 if last_change_idx.is_none() {
-                    for line in &context_buffer {
+                    for (line, _, _) in &context_buffer {
                         current_hunk.push_str(&format!(" {line}\n"));
                         old_count += 1;
                         new_count += 1;
                     }
-                    // Adjust start positions
-                    old_start = old_idx + 1 - context_buffer.len();
-                    new_start = old_start;
+                    old_start = old_line_num - context_buffer.len();
+                    new_start = new_line_num - context_buffer.len();
                 }
 
-                if let Change::Delete(idx) = change {
-                    current_hunk.push_str(&format!(
-                        "{RED}-{}{RESET}\n",
-                        old_lines[*idx]
-                    ));
-                    old_count += 1;
-                } else if let Change::Replace(old_idx, new_idx) = change {
-                    current_hunk.push_str(&format!(
-                        "{RED}-{}{RESET}\n",
-                        old_lines[*old_idx]
-                    ));
-                    current_hunk.push_str(&format!(
-                        "{GREEN}+{}{RESET}\n",
-                        new_lines[*new_idx]
-                    ));
-                    old_count += 1;
-                    new_count += 1;
-                }
+                let line = old_lines[old_line_num - 1];
+                current_hunk.push_str(&format!("{RED}-{}{RESET}\n", line));
+                old_count += 1;
+                old_line_num += 1;
                 last_change_idx = Some(i);
             }
-            Change::Insert(new_idx) => {
-                // Add context buffer if this is the start of a new hunk
+            Change::Insert => {
                 if last_change_idx.is_none() {
-                    for line in &context_buffer {
+                    for (line, _, _) in &context_buffer {
                         current_hunk.push_str(&format!(" {line}\n"));
                         old_count += 1;
                         new_count += 1;
                     }
-                    old_start = *new_idx + 1 - context_buffer.len();
-                    new_start = old_start;
+                    old_start = old_line_num - context_buffer.len();
+                    new_start = new_line_num - context_buffer.len();
                 }
 
-                current_hunk.push_str(&format!(
-                    "{GREEN}+{}{RESET}\n",
-                    new_lines[*new_idx]
-                ));
+                let line = new_lines[new_line_num - 1];
+                current_hunk.push_str(&format!("{GREEN}+{}{RESET}\n", line));
                 new_count += 1;
+                new_line_num += 1;
+                last_change_idx = Some(i);
+            }
+            Change::Replace => {
+                // Add context buffer if this is the start of a new hunk
+                if last_change_idx.is_none() {
+                    for (line, _, _) in &context_buffer {
+                        current_hunk.push_str(&format!(" {line}\n"));
+                        old_count += 1;
+                        new_count += 1;
+                    }
+                    old_start = old_line_num - context_buffer.len();
+                    new_start = new_line_num - context_buffer.len();
+                }
+
+                let old_line = old_lines[old_line_num - 1];
+                let new_line = new_lines[new_line_num - 1];
+                current_hunk.push_str(&format!("{RED}-{}{RESET}\n", old_line));
+                current_hunk
+                    .push_str(&format!("{GREEN}+{}{RESET}\n", new_line));
+                old_count += 1;
+                new_count += 1;
+                old_line_num += 1;
+                new_line_num += 1;
                 last_change_idx = Some(i);
             }
         }
@@ -677,16 +688,14 @@ fn format_diffstat(path: &str, content1: &[u8], content2: &[u8]) -> String {
 
     let changes = compute_diff(&old_lines, &new_lines);
 
-    let (mut additions, mut deletions) = changes
-        .iter()
-        .filter(|x| !matches!(x, Change::Same(..)))
-        .fold(
+    let (mut additions, mut deletions) =
+        changes.iter().filter(|x| !matches!(x, Change::Same)).fold(
             (0usize, 0usize),
             |(additions, deletions), change| match change {
-                Change::Insert(_) => (additions + 1, deletions),
-                Change::Delete(_) => (additions, deletions + 1),
-                Change::Replace(_, _) => (additions + 1, deletions + 1),
-                Change::Same(..) => unreachable!(),
+                Change::Insert => (additions + 1, deletions),
+                Change::Delete => (additions, deletions + 1),
+                Change::Replace => (additions + 1, deletions + 1),
+                Change::Same => unreachable!(),
             },
         );
 
@@ -793,9 +802,7 @@ mod tests {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Line 2", "Line 3"];
         let changes = compute_diff(&old_lines, &new_lines);
-        assert!(changes
-            .iter()
-            .all(|change| matches!(change, Change::Same(_, _))));
+        assert!(changes.iter().all(|change| matches!(change, Change::Same)));
     }
 
     #[test]
@@ -804,9 +811,9 @@ mod tests {
         let new_lines = ["Line 1", "Line 3"];
         let changes = compute_diff(&old_lines, &new_lines);
         assert_eq!(changes.len(), 3);
-        assert_eq!(changes[0], Change::Same(0, 0));
-        assert_eq!(changes[1], Change::Delete(1));
-        assert_eq!(changes[2], Change::Same(2, 1));
+        assert_eq!(changes[0], Change::Same);
+        assert_eq!(changes[1], Change::Delete);
+        assert_eq!(changes[2], Change::Same);
     }
 
     #[test]
@@ -815,9 +822,9 @@ mod tests {
         let new_lines = ["Line 1", "Line 2", "Line 3"];
         let changes = compute_diff(&old_lines, &new_lines);
         assert_eq!(changes.len(), 3);
-        assert_eq!(changes[0], Change::Same(0, 0));
-        assert_eq!(changes[1], Change::Insert(1));
-        assert_eq!(changes[2], Change::Same(1, 2));
+        assert_eq!(changes[0], Change::Same);
+        assert_eq!(changes[1], Change::Insert);
+        assert_eq!(changes[2], Change::Same);
     }
 
     #[test]
@@ -826,9 +833,9 @@ mod tests {
         let new_lines = ["Line 1", "New Line 2", "Line 3"];
         let changes = compute_diff(&old_lines, &new_lines);
         assert_eq!(changes.len(), 3);
-        assert_eq!(changes[0], Change::Same(0, 0));
-        assert_eq!(changes[1], Change::Replace(1, 1));
-        assert_eq!(changes[2], Change::Same(2, 2));
+        assert_eq!(changes[0], Change::Same);
+        assert_eq!(changes[1], Change::Replace);
+        assert_eq!(changes[2], Change::Same);
     }
 
     #[test]
@@ -944,8 +951,8 @@ mod tests {
         let new_lines = ["Line 1", "Line 2"];
         let changes = compute_diff(&old_lines, &new_lines);
         assert_eq!(changes.len(), 2);
-        assert_eq!(changes[0], Change::Insert(0));
-        assert_eq!(changes[1], Change::Insert(1));
+        assert_eq!(changes[0], Change::Insert);
+        assert_eq!(changes[1], Change::Insert);
     }
 
     #[test]
@@ -954,8 +961,8 @@ mod tests {
         let new_lines: [&str; 0] = [];
         let changes = compute_diff(&old_lines, &new_lines);
         assert_eq!(changes.len(), 2);
-        assert_eq!(changes[0], Change::Delete(0));
-        assert_eq!(changes[1], Change::Delete(1));
+        assert_eq!(changes[0], Change::Delete);
+        assert_eq!(changes[1], Change::Delete);
     }
 
     #[test]
