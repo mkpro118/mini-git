@@ -446,7 +446,7 @@ fn generate_hunks(
                 }
 
                 let line = old_lines[old_line_num - 1];
-                current_hunk.push_str(&format!("{RED}-{}{RESET}\n", line));
+                current_hunk.push_str(&format!("{RED}-{line}{RESET}\n"));
                 old_count += 1;
                 old_line_num += 1;
                 last_change_idx = Some(i);
@@ -463,7 +463,7 @@ fn generate_hunks(
                 }
 
                 let line = new_lines[new_line_num - 1];
-                current_hunk.push_str(&format!("{GREEN}+{}{RESET}\n", line));
+                current_hunk.push_str(&format!("{GREEN}+{line}{RESET}\n"));
                 new_count += 1;
                 new_line_num += 1;
                 last_change_idx = Some(i);
@@ -482,9 +482,8 @@ fn generate_hunks(
 
                 let old_line = old_lines[old_line_num - 1];
                 let new_line = new_lines[new_line_num - 1];
-                current_hunk.push_str(&format!("{RED}-{}{RESET}\n", old_line));
-                current_hunk
-                    .push_str(&format!("{GREEN}+{}{RESET}\n", new_line));
+                current_hunk.push_str(&format!("{RED}-{old_line}{RESET}\n"));
+                current_hunk.push_str(&format!("{GREEN}+{new_line}{RESET}\n"));
                 old_count += 1;
                 new_count += 1;
                 old_line_num += 1;
