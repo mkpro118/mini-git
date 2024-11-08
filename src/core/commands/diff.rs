@@ -783,3 +783,193 @@ pub fn make_parser() -> ArgumentParser {
 
     parser
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_diff_same_content() {
+        let old_lines = ["Line 1", "Line 2", "Line 3"];
+        let new_lines = ["Line 1", "Line 2", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert!(changes
+            .iter()
+            .all(|change| matches!(change, Change::Same(_, _))));
+    }
+
+    #[test]
+    fn test_compute_diff_with_deletion() {
+        let old_lines = ["Line 1", "Line 2", "Line 3"];
+        let new_lines = ["Line 1", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0], Change::Same(0, 0));
+        assert_eq!(changes[1], Change::Delete(1));
+        assert_eq!(changes[2], Change::Same(2, 1));
+    }
+
+    #[test]
+    fn test_compute_diff_with_insertion() {
+        let old_lines = ["Line 1", "Line 3"];
+        let new_lines = ["Line 1", "Line 2", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0], Change::Same(0, 0));
+        assert_eq!(changes[1], Change::Insert(1));
+        assert_eq!(changes[2], Change::Same(1, 2));
+    }
+
+    #[test]
+    fn test_compute_diff_with_replacement() {
+        let old_lines = ["Line 1", "Old Line 2", "Line 3"];
+        let new_lines = ["Line 1", "New Line 2", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0], Change::Same(0, 0));
+        assert_eq!(changes[1], Change::Replace(1, 1));
+        assert_eq!(changes[2], Change::Same(2, 2));
+    }
+
+    #[test]
+    fn test_generate_hunks_simple_change() {
+        let old_lines = ["Line 1", "Line 2", "Line 3"];
+        let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        let hunks = generate_hunks(&old_lines, &new_lines, &changes, 3);
+        assert_eq!(hunks.len(), 1);
+        let hunk = &hunks[0];
+        assert_eq!(hunk.old_start, 1);
+        assert_eq!(hunk.old_count, 3);
+        assert_eq!(hunk.new_start, 1);
+        assert_eq!(hunk.new_count, 3);
+        assert!(hunk.content.contains("-Line 2"));
+        assert!(hunk.content.contains("+Changed Line 2"));
+    }
+
+    #[test]
+    fn test_format_diff_simple_change() {
+        let path = "test.txt";
+        let content1 = b"Line 1\nLine 2\nLine 3\n";
+        let content2 = b"Line 1\nChanged Line 2\nLine 3\n";
+        let hunk_context_lines = 3;
+        let diff_output = format_diff(
+            path,
+            content1,
+            content2,
+            hunk_context_lines,
+            "a/",
+            "b/",
+            false,
+        );
+        assert!(diff_output.contains("diff --mini-git a/test.txt b/test.txt"));
+        assert!(diff_output.contains("--- a/"));
+        assert!(diff_output.contains("+++ b/"));
+        assert!(diff_output.contains("@@ -1,3 +1,3 @@"));
+        assert!(diff_output.contains("-Line 2"));
+        assert!(diff_output.contains("+Changed Line 2"));
+    }
+
+    #[test]
+    fn test_format_binary_diff() {
+        let path = "binary_file.bin";
+        let output =
+            format_binary_diff(&format!("a/{path}"), &format!("b/{path}"));
+        assert!(output
+            .contains("diff --mini-git a/binary_file.bin b/binary_file.bin"));
+        assert!(output.contains("Binary files differ"));
+    }
+
+    #[test]
+    fn test_format_binary_addition() {
+        let path = "binary_file.bin";
+        let output =
+            format_binary_addition(&format!("a/{path}"), &format!("b/{path}"));
+        assert!(output
+            .contains("diff --mini-git a/binary_file.bin b/binary_file.bin"));
+        assert!(output.contains("Binary file added"));
+    }
+
+    #[test]
+    fn test_format_binary_deletion() {
+        let path = "binary_file.bin";
+        let output =
+            format_binary_deletion(&format!("a/{path}"), &format!("b/{path}"));
+        assert!(output
+            .contains("diff --mini-git a/binary_file.bin b/binary_file.bin"));
+        assert!(output.contains("Binary file deleted"));
+    }
+
+    #[test]
+    fn test_format_addition() {
+        let path = "new_file.txt";
+        let content = b"New content\nLine 2\n";
+        let output = format_addition(path, content, "a/", "b/", false);
+        assert!(output.contains("diff --mini-git a/dev/null b/new_file.txt"),);
+        assert!(output.contains("new file"));
+        assert!(output.contains("+++ b/"));
+        assert!(output.contains("+New content"));
+        assert!(output.contains("+Line 2"));
+    }
+
+    #[test]
+    fn test_format_deletion() {
+        let path = "old_file.txt";
+        let content = b"Old content\nLine 2\n";
+        let output = format_deletion(path, content, "a/", "b/", false);
+        assert!(output.contains("diff --mini-git a/old_file.txt b/dev/null"),);
+        assert!(output.contains("deleted file"));
+        assert!(output.contains("--- a/"));
+        assert!(output.contains("-Old content"));
+        assert!(output.contains("-Line 2"));
+    }
+
+    #[test]
+    fn test_generate_hunks_with_multiple_changes() {
+        let old_lines = ["Line 1", "Line 2", "Line 3", "Line 4"];
+        let new_lines = ["Line 1", "Changed Line 2", "Line 3", "New Line 4"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        let hunks = generate_hunks(&old_lines, &new_lines, &changes, 2);
+        assert_eq!(hunks.len(), 1);
+        let hunk = &hunks[0];
+        assert!(hunk.content.contains("-Line 2"));
+        assert!(hunk.content.contains("+Changed Line 2"));
+        assert!(hunk.content.contains("-Line 4"));
+        assert!(hunk.content.contains("+New Line 4"));
+    }
+
+    #[test]
+    fn test_compute_diff_with_empty_old_lines() {
+        let old_lines: [&str; 0] = [];
+        let new_lines = ["Line 1", "Line 2"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], Change::Insert(0));
+        assert_eq!(changes[1], Change::Insert(1));
+    }
+
+    #[test]
+    fn test_compute_diff_with_empty_new_lines() {
+        let old_lines = ["Line 1", "Line 2"];
+        let new_lines: [&str; 0] = [];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], Change::Delete(0));
+        assert_eq!(changes[1], Change::Delete(1));
+    }
+
+    #[test]
+    fn test_format_diff_with_no_changes() {
+        let path = "unchanged.txt";
+        let content = b"Line 1\nLine 2\n";
+        let diff_output =
+            format_diff(path, content, content, 3, "a/", "b/", false);
+        // Since there are no changes, diff output should be minimal
+        assert!(diff_output
+            .contains("diff --mini-git a/unchanged.txt b/unchanged.txt"));
+        assert!(diff_output.contains("--- a/"));
+        assert!(diff_output.contains("+++ b/"));
+        // No hunks should be present
+        assert!(!diff_output.contains("@@"));
+    }
+}
