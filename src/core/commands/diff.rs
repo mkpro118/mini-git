@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::thread;
 
 use crate::core::objects::{self, blob::Blob, tree::Tree};
 use crate::core::GitRepository;
@@ -13,15 +15,15 @@ const CYAN: &str = "\x1b[36m";
 const STAT_WIDTH: usize = 80;
 
 #[allow(clippy::struct_excessive_bools)]
-struct DiffOpts<'a> {
-    files: Vec<&'a str>,
+struct DiffOpts {
+    files: Vec<String>,
     name_only: bool,
     name_status: bool,
     stat: bool,
-    diff_filter: Option<&'a str>,
+    diff_filter: Option<String>,
     hunk_context_lines: usize,
-    src_prefix: &'a str,
-    dst_prefix: &'a str,
+    src_prefix: String,
+    dst_prefix: String,
     no_prefix: bool,
 }
 
@@ -112,14 +114,14 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
     let files: Vec<&str> = resolved_files.iter().map(String::as_str).collect();
 
     let opts = DiffOpts {
-        files,
+        files: files.into_iter().map(String::from).collect(),
         name_only,
         name_status,
         stat,
-        diff_filter,
+        diff_filter: diff_filter.map(String::from),
         hunk_context_lines,
-        src_prefix,
-        dst_prefix,
+        src_prefix: src_prefix.to_owned(),
+        dst_prefix: dst_prefix.to_owned(),
         no_prefix,
     };
 
@@ -133,14 +135,14 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
         .filter(|s| *s != "*")
         .map(std::string::String::as_str);
 
-    _diff(&repo, tree1, tree2, &opts)
+    _diff(&repo, tree1, tree2, opts)
 }
 
 fn _diff(
     repo: &GitRepository,
     tree1: Option<&str>,
     tree2: Option<&str>,
-    opts: &DiffOpts,
+    opts: DiffOpts,
 ) -> Result<String, String> {
     let (tree1, tree2) = match (tree1, tree2) {
         (None, None) => {
@@ -173,86 +175,117 @@ fn _diff(
         all_files.extend(files1.keys().cloned());
         all_files.extend(files2.keys().cloned());
     } else {
-        all_files.extend(
-            opts.files
-                .iter()
-                .copied()
-                .map(std::string::ToString::to_string),
-        );
+        all_files.extend(opts.files.iter().cloned());
+    }
+
+    let all_files: Vec<String> = all_files.into_iter().collect();
+
+    // Wrap files1 and files2 in Arc to share between threads
+    let files1 = Arc::new(files1);
+    let files2 = Arc::new(files2);
+
+    // Determine the number of threads
+    let num_threads = 8.min(all_files.len());
+    let chunk_size = (all_files.len() + num_threads - 1) / num_threads;
+
+    let mut handles = Vec::new();
+
+    // Since DiffOpts contains references, we need to wrap it in Arc as well
+    let opts = Arc::new(opts);
+
+    for chunk in all_files.chunks(chunk_size) {
+        let files1 = Arc::clone(&files1);
+        let files2 = Arc::clone(&files2);
+        let opts = Arc::clone(&opts);
+        let chunk = chunk.to_vec();
+
+        let handle = thread::spawn(move || {
+            let mut results = Vec::new();
+            for file in chunk {
+                // If files are specified, only consider those files
+                if !opts.files.is_empty() && !opts.files.contains(&file) {
+                    continue;
+                }
+
+                let content1 = files1.get(&file);
+                let content2 = files2.get(&file);
+
+                let status = match (content1, content2) {
+                    (Some(_), None) => 'D', // Deleted
+                    (None, Some(_)) => 'A', // Added
+                    (Some(c1), Some(c2)) => {
+                        if c1 == c2 {
+                            continue; // No change
+                        }
+                        'M' // Modified
+                    }
+                    (None, None) => continue, // Should not happen
+                };
+
+                // Apply diff_filter
+                if let Some(filter) = &opts.diff_filter {
+                    if !status_matches_filter(status, filter) {
+                        continue;
+                    }
+                }
+
+                // Now, depending on options, generate output
+                if opts.name_only {
+                    results.push(file.to_string());
+                } else if opts.name_status {
+                    results.push(format!("{status}\t{file}"));
+                } else if opts.stat {
+                    // Generate diffstat output
+                    let stat_output = format_diffstat(
+                        &file,
+                        content1.unwrap_or(&vec![]),
+                        content2.unwrap_or(&vec![]),
+                    );
+                    results.push(stat_output);
+                } else {
+                    // Generate full diff
+                    let diff_output = match status {
+                        'A' => format_addition(
+                            &file,
+                            content2.unwrap(),
+                            &opts.src_prefix,
+                            &opts.dst_prefix,
+                            opts.no_prefix,
+                        ),
+                        'D' => format_deletion(
+                            &file,
+                            content1.unwrap(),
+                            &opts.src_prefix,
+                            &opts.dst_prefix,
+                            opts.no_prefix,
+                        ),
+                        'M' => format_diff(
+                            &file,
+                            content1.unwrap(),
+                            content2.unwrap(),
+                            opts.hunk_context_lines,
+                            &opts.src_prefix,
+                            &opts.dst_prefix,
+                            opts.no_prefix,
+                        ),
+                        _ => String::new(),
+                    };
+                    results.push(diff_output);
+                }
+            }
+            results
+        });
+
+        handles.push(handle);
     }
 
     let mut results = Vec::new();
-
-    for file in all_files {
-        // If files are specified, only consider those files
-        if !opts.files.is_empty() && !opts.files.contains(&file.as_str()) {
-            continue;
-        }
-
-        let content1 = files1.get(&file);
-        let content2 = files2.get(&file);
-
-        let status = match (content1, content2) {
-            (Some(_), None) => 'D', // Deleted
-            (None, Some(_)) => 'A', // Added
-            (Some(c1), Some(c2)) => {
-                if c1 == c2 {
-                    continue; // No change
-                }
-                'M' // Modified
+    for handle in handles {
+        match handle.join() {
+            Ok(thread_results) => results.extend(thread_results),
+            Err(_) => {
+                return Err("A thread panicked during execution".to_string())
             }
-            (None, None) => continue, // Should not happen
-        };
-
-        // Apply diff_filter
-        if let Some(filter) = opts.diff_filter {
-            if !status_matches_filter(status, filter) {
-                continue;
-            }
-        }
-
-        // Now, depending on options, generate output
-        if opts.name_only {
-            results.push(file.to_string());
-        } else if opts.name_status {
-            results.push(format!("{status}\t{file}"));
-        } else if opts.stat {
-            // Generate diffstat output
-            let stat_output = format_diffstat(
-                &file,
-                content1.unwrap_or(&vec![]),
-                content2.unwrap_or(&vec![]),
-            );
-            results.push(stat_output);
-        } else {
-            // Generate full diff
-            let diff_output = match status {
-                'A' => format_addition(
-                    &file,
-                    content2.unwrap(),
-                    opts.src_prefix,
-                    opts.dst_prefix,
-                    opts.no_prefix,
-                ),
-                'D' => format_deletion(
-                    &file,
-                    content1.unwrap(),
-                    opts.src_prefix,
-                    opts.dst_prefix,
-                    opts.no_prefix,
-                ),
-                'M' => format_diff(
-                    &file,
-                    content1.unwrap(),
-                    content2.unwrap(),
-                    opts.hunk_context_lines,
-                    opts.src_prefix,
-                    opts.dst_prefix,
-                    opts.no_prefix,
-                ),
-                _ => String::new(),
-            };
-            results.push(diff_output);
         }
     }
 
