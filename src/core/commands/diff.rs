@@ -670,6 +670,11 @@ fn format_diffstat(path: &str, content1: &[u8], content2: &[u8]) -> String {
     let available_columns = STAT_WIDTH - (path.len() + 3);
     let total_changes = additions + deletions;
 
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss,
+        clippy::cast_possible_truncation
+    )]
     if total_changes > available_columns {
         let p = (additions as f64 / total_changes as f64)
             * available_columns as f64;
