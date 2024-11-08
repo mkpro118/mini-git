@@ -153,7 +153,7 @@ fn _diff(
         get_file_contents(repo, tree1.as_deref(), tree2.as_deref())?;
     let all_files = collect_files_to_process(&files1, &files2, &opts.files);
 
-    process_files_in_parallel(files1, files2, all_files, opts)
+    process_files_in_parallel(files1, files2, &all_files, opts)
 }
 
 // Resolves the tree references based on input parameters
@@ -213,7 +213,7 @@ fn collect_files_to_process(
 fn process_files_in_parallel(
     files1: HashMap<String, Vec<u8>>,
     files2: HashMap<String, Vec<u8>>,
-    all_files: Vec<String>,
+    all_files: &[String],
     opts: DiffOpts,
 ) -> Result<String, String> {
     let num_threads = usize::min(MAX_THREADS, all_files.len());
@@ -221,11 +221,11 @@ fn process_files_in_parallel(
 
     let file_chunks: Vec<Vec<String>> = all_files
         .chunks(chunk_size)
-        .map(|chunk| chunk.to_vec())
+        .map(<[String]>::to_vec)
         .collect();
 
-    let files1_ref = Arc::new(files1.clone());
-    let files2_ref = Arc::new(files2.clone());
+    let files1_ref = Arc::new(files1);
+    let files2_ref = Arc::new(files2);
     let opts_ref = Arc::new(opts);
 
     let handles =
