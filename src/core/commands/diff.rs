@@ -474,7 +474,7 @@ fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
             } else {
                 let delete_cost = dp[i - 1][j] + 1;
                 let insert_cost = dp[i][j - 1] + 1;
-                let replace_cost = dp[i - 1][j - 1] + 1; // Changed from 2 to 1
+                let replace_cost = dp[i - 1][j - 1] + 1;
 
                 dp[i][j] = delete_cost.min(insert_cost.min(replace_cost));
 
@@ -492,29 +492,27 @@ fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
 
     // Reconstruct the changes
     let mut changes = Vec::new();
-    let mut i = old_len;
-    let mut j = new_len;
+    let mut current = (old_len, new_len);
 
-    while i > 0 || j > 0 {
-        let (prev_i, prev_j) = backtrace[i][j];
+    while current.0 > 0 || current.1 > 0 {
+        let prev = backtrace[current.0][current.1];
 
-        if i > 0 && prev_i == i - 1 && j > 0 && prev_j == j - 1 {
+        if current.0 > prev.0 && current.1 > prev.1 {
             // Diagonal move
-            if old_lines[i - 1] == new_lines[j - 1] {
+            if old_lines[current.0 - 1] == new_lines[current.1 - 1] {
                 changes.push(Change::Same);
             } else {
                 changes.push(Change::Replace);
             }
-        } else if i > 0 && prev_i == i - 1 {
+        } else if current.0 > prev.0 {
             // Vertical move (deletion)
             changes.push(Change::Delete);
-        } else {
+        } else if current.1 > prev.1 {
             // Horizontal move (insertion)
             changes.push(Change::Insert);
         }
 
-        i = prev_i;
-        j = prev_j;
+        current = prev;
     }
 
     changes.reverse();
