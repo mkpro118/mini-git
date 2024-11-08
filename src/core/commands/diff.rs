@@ -1073,7 +1073,7 @@ mod tests {
                     "{letter} '{combo}' | '{}' '{}'",
                     combo.contains(letter),
                     combo.is_empty(),
-                )
+                );
             }
         }
     }
