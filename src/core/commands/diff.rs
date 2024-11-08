@@ -474,18 +474,17 @@ fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
             } else {
                 let delete_cost = dp[i - 1][j] + 1;
                 let insert_cost = dp[i][j - 1] + 1;
-
-                // Increase replacement cost to discourage splitting related changes
-                let replace_cost = dp[i - 1][j - 1] + 2;
+                let replace_cost = dp[i - 1][j - 1] + 1; // Changed from 2 to 1
 
                 dp[i][j] = delete_cost.min(insert_cost.min(replace_cost));
 
-                if dp[i][j] == delete_cost {
-                    backtrace[i][j] = (i - 1, j);
-                } else if dp[i][j] == insert_cost {
-                    backtrace[i][j] = (i, j - 1);
-                } else {
+                // Prefer replacement when costs are equal
+                if dp[i][j] == replace_cost {
                     backtrace[i][j] = (i - 1, j - 1);
+                } else if dp[i][j] == delete_cost {
+                    backtrace[i][j] = (i - 1, j);
+                } else {
+                    backtrace[i][j] = (i, j - 1);
                 }
             }
         }
@@ -496,60 +495,26 @@ fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
     let mut i = old_len;
     let mut j = new_len;
 
-    // Keep track of consecutive operations to help group them
-    let mut pending_deletes = Vec::new();
-    let mut pending_inserts = Vec::new();
-
     while i > 0 || j > 0 {
         let (prev_i, prev_j) = backtrace[i][j];
 
-        if i == prev_i {
-            // Insert
-            pending_inserts.push(j - 1);
-        } else if j == prev_j {
-            // Delete
-            pending_deletes.push(i - 1);
-        } else if old_lines[i - 1] == new_lines[j - 1] {
-            // Flush any pending operations
-            if !pending_deletes.is_empty() {
-                for _ in 0..pending_deletes.len() {
-                    changes.push(Change::Delete);
-                }
-                pending_deletes.clear();
-            }
-            if !pending_inserts.is_empty() {
-                for _ in 0..pending_inserts.len() {
-                    changes.push(Change::Insert);
-                }
-                pending_inserts.clear();
-            }
-            changes.push(Change::Same);
-        } else {
-            // Try to group related changes
-            if pending_deletes.len() == 1 && pending_inserts.len() == 1 {
-                changes.push(Change::Replace);
-                pending_deletes.clear();
-                pending_inserts.clear();
+        if i > 0 && prev_i == i - 1 && j > 0 && prev_j == j - 1 {
+            // Diagonal move
+            if old_lines[i - 1] == new_lines[j - 1] {
+                changes.push(Change::Same);
             } else {
-                pending_deletes.push(i - 1);
-                pending_inserts.push(j - 1);
+                changes.push(Change::Replace);
             }
+        } else if i > 0 && prev_i == i - 1 {
+            // Vertical move (deletion)
+            changes.push(Change::Delete);
+        } else {
+            // Horizontal move (insertion)
+            changes.push(Change::Insert);
         }
 
         i = prev_i;
         j = prev_j;
-    }
-
-    // Flush any remaining pending operations
-    if !pending_deletes.is_empty() {
-        for _ in 0..pending_deletes.len() {
-            changes.push(Change::Delete);
-        }
-    }
-    if !pending_inserts.is_empty() {
-        for _ in 0..pending_inserts.len() {
-            changes.push(Change::Insert);
-        }
     }
 
     changes.reverse();
@@ -1068,6 +1033,7 @@ mod tests {
         let old_lines = ["Line 1", "Old Line 2", "Line 3"];
         let new_lines = ["Line 1", "New Line 2", "Line 3"];
         let changes = compute_diff(&old_lines, &new_lines);
+        dbg!(&changes);
         assert_eq!(changes.len(), 3);
         assert_eq!(changes[0], Change::Same);
         assert_eq!(changes[1], Change::Replace);
