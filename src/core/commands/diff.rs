@@ -1534,6 +1534,58 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_large_mixed_changes() {
+        let size = 10_000;
+        let mut rng = Rng::with(0xdeadbeef, 0xc0ffee, 0xfacade);
+
+        let old_lines: Vec<_> =
+            (0..size).map(|i| format!("Line {}", i)).collect();
+        let mut new_lines = Vec::with_capacity(size);
+
+        for (i, old_line) in old_lines.iter().enumerate().take(size) {
+            let change_type = rng.gen_range(0..3);
+            match change_type {
+                0 => {
+                    // Keep the line the same
+                    new_lines.push(old_line.clone());
+                }
+                1 => {
+                    // Modify the line
+                    new_lines.push(format!("Modified Line {}", i));
+                }
+                2 => {
+                    // Skip the line (deletion)
+                    // Do not push to new_lines
+                    continue;
+                }
+                _ => {}
+            }
+        }
+
+        // Convert to &str slices
+        let old_refs: Vec<&str> =
+            old_lines.iter().map(|s| s.as_str()).collect();
+        let new_refs: Vec<&str> =
+            new_lines.iter().map(|s| s.as_str()).collect();
+
+        let changes = compute_diff(&old_refs, &new_refs);
+
+        // Check that the changes vector reflects the operations
+        assert_eq!(changes.len(), old_refs.len());
+
+        // Verify that there are some of each type of change
+        let num_sames = changes.iter().filter(|&c| *c == Change::Same).count();
+        let num_replaces =
+            changes.iter().filter(|&c| *c == Change::Replace).count();
+        let num_deletions =
+            changes.iter().filter(|&c| *c == Change::Delete).count();
+
+        assert!(num_sames > 0);
+        assert!(num_replaces > 0);
+        assert!(num_deletions > 0);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
