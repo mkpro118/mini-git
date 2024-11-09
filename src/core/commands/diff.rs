@@ -1305,6 +1305,14 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_both_empty_sequences() {
+        let old_lines: [&str; 0] = [];
+        let new_lines: [&str; 0] = [];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 0);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
