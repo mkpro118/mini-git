@@ -40,7 +40,7 @@ struct Hunk {
     content: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 enum Change {
     Same,
@@ -442,17 +442,22 @@ fn find_matches_optimized(
     old_lines: &[&str],
     new_lines: &[&str],
 ) -> Vec<(usize, usize)> {
-    let mut new_line_positions: HashMap<&str, usize> = HashMap::new();
+    let mut new_line_positions: HashMap<&str, Vec<usize>> = HashMap::new();
+
+    // Store all positions for each line
     for (j, &line) in new_lines.iter().enumerate() {
-        // Record only the first occurrence
-        new_line_positions.entry(line).or_insert(j);
+        new_line_positions.entry(line).or_default().push(j);
     }
 
     let mut matches = Vec::new();
     let mut matched_in_new: HashSet<usize> = HashSet::new();
+
     for (i, &line) in old_lines.iter().enumerate() {
-        if let Some(&j) = new_line_positions.get(line) {
-            if !matched_in_new.contains(&j) {
+        if let Some(positions) = new_line_positions.get(line) {
+            // Find the first unmatched position
+            if let Some(&j) =
+                positions.iter().find(|&&j| !matched_in_new.contains(&j))
+            {
                 matches.push((i, j));
                 matched_in_new.insert(j);
             }
@@ -507,17 +512,23 @@ fn generate_changes(
     while i < old_lines.len() || j < new_lines.len() {
         if let Some(&(lcs_i, lcs_j)) = lcs_iter.peek() {
             if i == *lcs_i && j == *lcs_j {
+                // Always compare the actual lines here
                 if old_lines[i] == new_lines[j] {
                     changes.push(Change::Same);
                 } else {
+                    // This case should rarely happen now with improved matching
                     changes.push(Change::Replace);
                 }
                 i += 1;
                 j += 1;
                 lcs_iter.next();
             } else if i < *lcs_i && j < *lcs_j {
-                // Replace
-                changes.push(Change::Replace);
+                // Only mark as Replace if lines are actually different
+                if old_lines[i] == new_lines[j] {
+                    changes.push(Change::Same);
+                } else {
+                    changes.push(Change::Replace);
+                }
                 i += 1;
                 j += 1;
             } else if i < *lcs_i {
@@ -549,7 +560,23 @@ fn generate_changes(
         }
     }
 
-    changes
+    // Post-process changes to merge adjacent replacements
+    let mut optimized_changes = Vec::with_capacity(changes.len());
+    let mut i = 0;
+    while i < changes.len() {
+        if i + 1 < changes.len()
+            && matches!(changes[i], Change::Delete)
+            && matches!(changes[i + 1], Change::Insert)
+        {
+            optimized_changes.push(Change::Replace);
+            i += 2;
+        } else {
+            optimized_changes.push(changes[i].clone());
+            i += 1;
+        }
+    }
+
+    optimized_changes
 }
 
 #[allow(clippy::too_many_lines)]
