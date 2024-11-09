@@ -444,78 +444,134 @@ fn get_files(
 }
 
 fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
-    let old_len = old_lines.len();
-    let new_len = new_lines.len();
+    let matches = find_matches(old_lines, new_lines);
+    let edits = build_edit_script(&matches);
+    generate_changes(old_lines, new_lines, &edits)
+}
 
-    // Create a matrix for the shortest edit sequence
-    let mut dp = vec![vec![0; new_len + 1]; old_len + 1];
-    let mut backtrace = vec![vec![(0, 0); new_len + 1]; old_len + 1];
-
-    // Initialize first row and column
-    for i in 0..=old_len {
-        dp[i][0] = i;
-        if i > 0 {
-            backtrace[i][0] = (i - 1, 0);
-        }
-    }
-    for j in 0..=new_len {
-        dp[0][j] = j;
-        if j > 0 {
-            backtrace[0][j] = (0, j - 1);
-        }
+fn find_matches(old_lines: &[&str], new_lines: &[&str]) -> Vec<(usize, usize)> {
+    let mut line_positions: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (i, &line) in new_lines.iter().enumerate() {
+        line_positions.entry(line).or_default().push(i);
     }
 
-    // Fill the matrices
-    for i in 1..=old_len {
-        for j in 1..=new_len {
-            if old_lines[i - 1] == new_lines[j - 1] {
-                dp[i][j] = dp[i - 1][j - 1];
-                backtrace[i][j] = (i - 1, j - 1);
+    let mut matches = Vec::new();
+    for (i, &line) in old_lines.iter().enumerate() {
+        if let Some(positions) = line_positions.get(line) {
+            for &j in positions {
+                matches.push((i, j));
+            }
+        }
+    }
+
+    matches.sort_unstable_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+    matches
+}
+
+fn build_edit_script(matches: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    use std::cmp::Ordering;
+
+    let mut paths: Vec<Vec<(usize, usize)>> = vec![Vec::new()];
+    for &(i, j) in matches {
+        let k = match paths.binary_search_by(|path| {
+            if path.is_empty() {
+                Ordering::Less
             } else {
-                let delete_cost = dp[i - 1][j] + 1;
-                let insert_cost = dp[i][j - 1] + 1;
-                let replace_cost = dp[i - 1][j - 1] + 1;
+                path.last().unwrap().1.cmp(&j)
+            }
+        }) {
+            Ok(idx) => idx,
+            Err(idx) => idx,
+        };
 
-                dp[i][j] = delete_cost.min(insert_cost.min(replace_cost));
+        if k == paths.len() {
+            paths.push(Vec::new());
+        }
 
-                // Prefer replacement when costs are equal
-                if dp[i][j] == replace_cost {
-                    backtrace[i][j] = (i - 1, j - 1);
-                } else if dp[i][j] == delete_cost {
-                    backtrace[i][j] = (i - 1, j);
-                } else {
-                    backtrace[i][j] = (i, j - 1);
+        if k == 0
+            || (paths[k - 1].is_empty() || paths[k - 1].last().unwrap().1 < j)
+        {
+            let mut new_path = if k > 0 {
+                paths[k - 1].clone()
+            } else {
+                Vec::new()
+            };
+            new_path.push((i, j));
+            paths[k] = new_path;
+        }
+    }
+
+    if let Some(lcs) = paths.last() {
+        lcs.clone()
+    } else {
+        Vec::new()
+    }
+}
+
+fn generate_changes(
+    old_lines: &[&str],
+    new_lines: &[&str],
+    lcs: &[(usize, usize)],
+) -> Vec<Change> {
+    let mut changes = Vec::new();
+    let mut i = 0;
+    let mut j = 0;
+    let mut lcs_iter = lcs.iter().peekable();
+
+    while i < old_lines.len() || j < new_lines.len() {
+        if let Some(&(lcs_i, lcs_j)) = lcs_iter.peek() {
+            if i == *lcs_i && j == *lcs_j {
+                // At LCS match
+                changes.push(Change::Same);
+                i += 1;
+                j += 1;
+                lcs_iter.next();
+            } else {
+                // Handle differences before the next LCS match
+                while i < *lcs_i && j < *lcs_j {
+                    if old_lines[i] == new_lines[j] {
+                        changes.push(Change::Same);
+                    } else {
+                        changes.push(Change::Replace);
+                    }
+                    i += 1;
+                    j += 1;
+                }
+                // Handle remaining deletions
+                while i < *lcs_i {
+                    changes.push(Change::Delete);
+                    i += 1;
+                }
+                // Handle remaining insertions
+                while j < *lcs_j {
+                    changes.push(Change::Insert);
+                    j += 1;
                 }
             }
-        }
-    }
-
-    // Reconstruct the changes
-    let mut changes = Vec::new();
-    let mut current = (old_len, new_len);
-
-    while current.0 > 0 || current.1 > 0 {
-        let prev = backtrace[current.0][current.1];
-
-        if current.0 > prev.0 && current.1 > prev.1 {
-            // Diagonal move
-            if old_lines[current.0 - 1] == new_lines[current.1 - 1] {
-                changes.push(Change::Same);
-            } else {
-                changes.push(Change::Replace);
+        } else {
+            // No more LCS matches; handle remaining lines
+            while i < old_lines.len() && j < new_lines.len() {
+                if old_lines[i] == new_lines[j] {
+                    changes.push(Change::Same);
+                } else {
+                    changes.push(Change::Replace);
+                }
+                i += 1;
+                j += 1;
             }
-        } else if current.0 > prev.0 {
-            // Vertical move (deletion)
-            changes.push(Change::Delete);
-        } else if current.1 > prev.1 {
-            // Horizontal move (insertion)
-            changes.push(Change::Insert);
+            // Handle any remaining deletions
+            while i < old_lines.len() {
+                changes.push(Change::Delete);
+                i += 1;
+            }
+            // Handle any remaining insertions
+            while j < new_lines.len() {
+                changes.push(Change::Insert);
+                j += 1;
+            }
         }
-
-        current = prev;
     }
 
-    changes.reverse();
     changes
 }
 
