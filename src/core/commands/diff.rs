@@ -91,7 +91,7 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
         || Err("Failed to determined files to diff".to_owned()),
         |x| Ok(String::from(x)),
     );
-    let files = args.get("files").map(Ok).unwrap_or(all_files.as_ref())?;
+    let files = args.get("files").map_or(all_files.as_ref(), Ok)?;
     let resolved_files: Vec<String> = resolve_cla_files(&repo, &cwd, files)?;
 
     // Create a Vec<&str> from the adjusted file paths
