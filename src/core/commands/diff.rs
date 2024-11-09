@@ -1294,6 +1294,17 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_leading_trailing_deletions() {
+        let old_lines = ["Start", "Middle", "End"];
+        let new_lines = ["Middle"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0], Change::Delete);
+        assert_eq!(changes[1], Change::Same);
+        assert_eq!(changes[2], Change::Delete);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
