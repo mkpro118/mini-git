@@ -75,7 +75,7 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
     let name_only = args.get("name-only").is_some();
     let name_status = args.get("name-status").is_some();
     let stat = args.get("stat").is_some();
-    let diff_filter = args.get("diff-filter").map(std::string::String::as_str);
+    let diff_filter = args.get("diff-filter").map(String::as_str);
     let hunk_context_lines = &args["n-context-lines"];
     let src_prefix = &args["src-prefix"];
     let dst_prefix = &args["dst-prefix"];
@@ -129,14 +129,8 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
     };
 
     // Parse tree1 and tree2
-    let tree1 = args
-        .get("tree1")
-        .filter(|s| *s != "*")
-        .map(std::string::String::as_str);
-    let tree2 = args
-        .get("tree2")
-        .filter(|s| *s != "*")
-        .map(std::string::String::as_str);
+    let tree1 = args.get("tree1").filter(|s| *s != "*").map(String::as_str);
+    let tree2 = args.get("tree2").filter(|s| *s != "*").map(String::as_str);
 
     _diff(&repo, tree1, tree2, opts)
 }
@@ -481,8 +475,7 @@ fn build_lcs(matches: &[(usize, usize)]) -> Vec<(usize, usize)> {
         let k = match paths
             .binary_search_by(|path| path.last().unwrap().1.cmp(&j))
         {
-            Ok(k) => k,
-            Err(k) => k,
+            Err(k) | Ok(k) => k,
         };
 
         let mut new_path = if k > 0 {
@@ -1233,12 +1226,12 @@ mod tests {
     #[test]
     fn test_compute_diff_large_similar_sequences() {
         let old_lines: Vec<_> =
-            (0..1000).map(|i| format!("Line {}", i)).collect();
+            (0..1000).map(|i| format!("Line {i}")).collect();
         let mut new_lines = old_lines.clone();
         new_lines[500] = "Modified Line".to_string();
 
-        let old_refs: Vec<_> = old_lines.iter().map(|s| s.as_str()).collect();
-        let new_refs: Vec<_> = new_lines.iter().map(|s| s.as_str()).collect();
+        let old_refs: Vec<_> = old_lines.iter().map(String::as_str).collect();
+        let new_refs: Vec<_> = new_lines.iter().map(String::as_str).collect();
 
         let changes = compute_diff(&old_refs, &new_refs);
         assert_eq!(changes.len(), old_lines.len());
@@ -1438,23 +1431,23 @@ mod tests {
     #[test]
     fn test_compute_diff_large_random_differences() {
         let size = 10_000;
-        let mut rng = Rng::with(0xdeadbeef, 0xc0ffee, 0xfacade);
+        let mut rng = Rng::with(0xdead_beef, 0x00c0_ffee, 0x00fa_cade);
 
         let old_lines: Vec<_> =
-            (0..size).map(|i| format!("Line {}", i)).collect();
+            (0..size).map(|i| format!("Line {i}")).collect();
         let mut new_lines = old_lines.clone();
 
         // Introduce random replacements
         for _ in 0..(size / 100) {
             let index = rng.gen_range(0..size);
-            new_lines[index] = format!("Modified Line {}", index);
+            new_lines[index] = format!("Modified Line {index}");
         }
 
         // Convert to &str slices
         let old_refs: Vec<&str> =
-            old_lines.iter().map(|s| s.as_str()).collect();
+            old_lines.iter().map(String::as_str).collect();
         let new_refs: Vec<&str> =
-            new_lines.iter().map(|s| s.as_str()).collect();
+            new_lines.iter().map(String::as_str).collect();
 
         let changes = compute_diff(&old_refs, &new_refs);
 
@@ -1472,22 +1465,22 @@ mod tests {
         let size = 10_000;
 
         let old_lines: Vec<_> =
-            (0..size).map(|i| format!("Line {}", i)).collect();
+            (0..size).map(|i| format!("Line {i}")).collect();
         let mut new_lines = Vec::with_capacity(size + size / 10);
 
         // Insert a new line every 10 lines
         for i in 0..size {
             if i % 10 == 0 {
-                new_lines.push(format!("Inserted Line {}", i));
+                new_lines.push(format!("Inserted Line {i}"));
             }
-            new_lines.push(format!("Line {}", i));
+            new_lines.push(format!("Line {i}"));
         }
 
         // Convert to &str slices
         let old_refs: Vec<&str> =
-            old_lines.iter().map(|s| s.as_str()).collect();
+            old_lines.iter().map(String::as_str).collect();
         let new_refs: Vec<&str> =
-            new_lines.iter().map(|s| s.as_str()).collect();
+            new_lines.iter().map(String::as_str).collect();
 
         let changes = compute_diff(&old_refs, &new_refs);
 
@@ -1506,21 +1499,21 @@ mod tests {
 
         let mut old_lines: Vec<_> = Vec::with_capacity(size + size / 10);
         let new_lines: Vec<_> =
-            (0..size).map(|i| format!("Line {}", i)).collect();
+            (0..size).map(|i| format!("Line {i}")).collect();
 
         // Insert a line every 10 lines in the old sequence
         for i in 0..size {
             if i % 10 == 0 {
-                old_lines.push(format!("Deleted Line {}", i));
+                old_lines.push(format!("Deleted Line {i}"));
             }
-            old_lines.push(format!("Line {}", i));
+            old_lines.push(format!("Line {i}"));
         }
 
         // Convert to &str slices
         let old_refs: Vec<&str> =
-            old_lines.iter().map(|s| s.as_str()).collect();
+            old_lines.iter().map(String::as_str).collect();
         let new_refs: Vec<&str> =
-            new_lines.iter().map(|s| s.as_str()).collect();
+            new_lines.iter().map(String::as_str).collect();
 
         let changes = compute_diff(&old_refs, &new_refs);
 
@@ -1536,10 +1529,10 @@ mod tests {
     #[test]
     fn test_compute_diff_large_mixed_changes() {
         let size = 10_000;
-        let mut rng = Rng::with(0xdeadbeef, 0xc0ffee, 0xfacade);
+        let mut rng = Rng::with(0xdead_beef, 0x00c0_ffee, 0x00fa_cade);
 
         let old_lines: Vec<_> =
-            (0..size).map(|i| format!("Line {}", i)).collect();
+            (0..size).map(|i| format!("Line {i}")).collect();
         let mut new_lines = Vec::with_capacity(size);
 
         for (i, old_line) in old_lines.iter().enumerate().take(size) {
@@ -1551,7 +1544,7 @@ mod tests {
                 }
                 1 => {
                     // Modify the line
-                    new_lines.push(format!("Modified Line {}", i));
+                    new_lines.push(format!("Modified Line {i}"));
                 }
                 2 => {
                     // Skip the line (deletion)
@@ -1564,9 +1557,9 @@ mod tests {
 
         // Convert to &str slices
         let old_refs: Vec<&str> =
-            old_lines.iter().map(|s| s.as_str()).collect();
+            old_lines.iter().map(String::as_str).collect();
         let new_refs: Vec<&str> =
-            new_lines.iter().map(|s| s.as_str()).collect();
+            new_lines.iter().map(String::as_str).collect();
 
         let changes = compute_diff(&old_refs, &new_refs);
 
@@ -1594,29 +1587,29 @@ mod tests {
 
         // Common prefix
         for i in 0..(size / 4) {
-            let line = format!("Common Line {}", i);
+            let line = format!("Common Line {i}");
             old_lines.push(line.clone());
             new_lines.push(line);
         }
 
         // Diverging part
         for i in (size / 4)..(size / 2) {
-            old_lines.push(format!("Old Unique Line {}", i));
-            new_lines.push(format!("New Unique Line {}", i));
+            old_lines.push(format!("Old Unique Line {i}"));
+            new_lines.push(format!("New Unique Line {i}"));
         }
 
         // Common suffix
         for i in (size / 2)..size {
-            let line = format!("Common Line {}", i);
+            let line = format!("Common Line {i}");
             old_lines.push(line.clone());
             new_lines.push(line);
         }
 
         // Convert to &str slices
         let old_refs: Vec<&str> =
-            old_lines.iter().map(|s| s.as_str()).collect();
+            old_lines.iter().map(String::as_str).collect();
         let new_refs: Vec<&str> =
-            new_lines.iter().map(|s| s.as_str()).collect();
+            new_lines.iter().map(String::as_str).collect();
 
         let changes = compute_diff(&old_refs, &new_refs);
 
@@ -1624,16 +1617,16 @@ mod tests {
         assert_eq!(changes.len(), size);
 
         // Check that the middle part is correctly identified as replacements
-        for i in (size / 4)..(size / 2) {
-            assert_eq!(changes[i], Change::Replace);
+        for change in changes.iter().take(size / 2).skip(size / 4) {
+            assert_eq!(*change, Change::Replace);
         }
 
         // Check that the common prefix and suffix are identified as same
-        for i in 0..(size / 4) {
-            assert_eq!(changes[i], Change::Same);
+        for change in changes.iter().take(size / 4) {
+            assert_eq!(*change, Change::Same);
         }
-        for i in (size / 2)..size {
-            assert_eq!(changes[i], Change::Same);
+        for change in changes.iter().take(size).skip(size / 2) {
+            assert_eq!(*change, Change::Same);
         }
     }
 
