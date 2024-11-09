@@ -444,60 +444,58 @@ fn get_files(
 }
 
 fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
-    let matches = find_matches(old_lines, new_lines);
-    let edits = build_edit_script(&matches);
-    generate_changes(old_lines, new_lines, &edits)
+    let matches = find_matches_optimized(old_lines, new_lines);
+    let lcs = build_lcs(&matches);
+    generate_changes(old_lines, new_lines, &lcs)
 }
 
-fn find_matches(old_lines: &[&str], new_lines: &[&str]) -> Vec<(usize, usize)> {
-    let mut line_positions: HashMap<&str, Vec<usize>> = HashMap::new();
-    for (i, &line) in new_lines.iter().enumerate() {
-        line_positions.entry(line).or_default().push(i);
+fn find_matches_optimized(
+    old_lines: &[&str],
+    new_lines: &[&str],
+) -> Vec<(usize, usize)> {
+    let mut new_line_positions: HashMap<&str, usize> = HashMap::new();
+    for (j, &line) in new_lines.iter().enumerate() {
+        // Record only the first occurrence
+        new_line_positions.entry(line).or_insert(j);
     }
 
     let mut matches = Vec::new();
+    let mut matched_in_new: HashSet<usize> = HashSet::new();
     for (i, &line) in old_lines.iter().enumerate() {
-        if let Some(positions) = line_positions.get(line) {
-            for &j in positions {
+        if let Some(&j) = new_line_positions.get(line) {
+            if !matched_in_new.contains(&j) {
                 matches.push((i, j));
+                matched_in_new.insert(j);
             }
         }
     }
 
-    matches.sort_unstable_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+    matches.sort_unstable_by(|a, b| a.0.cmp(&b.0));
     matches
 }
 
-fn build_edit_script(matches: &[(usize, usize)]) -> Vec<(usize, usize)> {
-    use std::cmp::Ordering;
+fn build_lcs(matches: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    let mut paths: Vec<Vec<(usize, usize)>> = Vec::new();
 
-    let mut paths: Vec<Vec<(usize, usize)>> = vec![Vec::new()];
     for &(i, j) in matches {
-        let k = match paths.binary_search_by(|path| {
-            if path.is_empty() {
-                Ordering::Less
-            } else {
-                path.last().unwrap().1.cmp(&j)
-            }
-        }) {
-            Ok(idx) => idx,
-            Err(idx) => idx,
+        let k = match paths
+            .binary_search_by(|path| path.last().unwrap().1.cmp(&j))
+        {
+            Ok(k) => k,
+            Err(k) => k,
         };
 
-        if k == paths.len() {
-            paths.push(Vec::new());
-        }
+        let mut new_path = if k > 0 {
+            paths[k - 1].clone()
+        } else {
+            Vec::new()
+        };
+        new_path.push((i, j));
 
-        if k == 0
-            || (paths[k - 1].is_empty() || paths[k - 1].last().unwrap().1 < j)
-        {
-            let mut new_path = if k > 0 {
-                paths[k - 1].clone()
-            } else {
-                Vec::new()
-            };
-            new_path.push((i, j));
+        if k < paths.len() {
             paths[k] = new_path;
+        } else {
+            paths.push(new_path);
         }
     }
 
@@ -521,36 +519,6 @@ fn generate_changes(
     while i < old_lines.len() || j < new_lines.len() {
         if let Some(&(lcs_i, lcs_j)) = lcs_iter.peek() {
             if i == *lcs_i && j == *lcs_j {
-                // At LCS match
-                changes.push(Change::Same);
-                i += 1;
-                j += 1;
-                lcs_iter.next();
-            } else {
-                // Handle differences before the next LCS match
-                while i < *lcs_i && j < *lcs_j {
-                    if old_lines[i] == new_lines[j] {
-                        changes.push(Change::Same);
-                    } else {
-                        changes.push(Change::Replace);
-                    }
-                    i += 1;
-                    j += 1;
-                }
-                // Handle remaining deletions
-                while i < *lcs_i {
-                    changes.push(Change::Delete);
-                    i += 1;
-                }
-                // Handle remaining insertions
-                while j < *lcs_j {
-                    changes.push(Change::Insert);
-                    j += 1;
-                }
-            }
-        } else {
-            // No more LCS matches; handle remaining lines
-            while i < old_lines.len() && j < new_lines.len() {
                 if old_lines[i] == new_lines[j] {
                     changes.push(Change::Same);
                 } else {
@@ -558,14 +526,35 @@ fn generate_changes(
                 }
                 i += 1;
                 j += 1;
-            }
-            // Handle any remaining deletions
-            while i < old_lines.len() {
+                lcs_iter.next();
+            } else if i < *lcs_i && j < *lcs_j {
+                // Replace
+                changes.push(Change::Replace);
+                i += 1;
+                j += 1;
+            } else if i < *lcs_i {
+                // Delete
                 changes.push(Change::Delete);
                 i += 1;
+            } else if j < *lcs_j {
+                // Insert
+                changes.push(Change::Insert);
+                j += 1;
             }
-            // Handle any remaining insertions
-            while j < new_lines.len() {
+        } else {
+            // No more LCS matches
+            if i < old_lines.len() && j < new_lines.len() {
+                if old_lines[i] == new_lines[j] {
+                    changes.push(Change::Same);
+                } else {
+                    changes.push(Change::Replace);
+                }
+                i += 1;
+                j += 1;
+            } else if i < old_lines.len() {
+                changes.push(Change::Delete);
+                i += 1;
+            } else if j < new_lines.len() {
                 changes.push(Change::Insert);
                 j += 1;
             }
