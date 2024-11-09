@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
 
-use crate::core::objects::{self, blob::Blob, tree::Tree};
+use crate::core::objects::{self, blob::Blob, tree::Tree, worktree};
 use crate::core::GitRepository;
 
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
@@ -104,13 +104,32 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
             return Err(format!("File {file} does not exist in the worktree"));
         }
 
-        // Get the relative path from the repository root to the file
-        let rel_path = abs_path.strip_prefix(&repo_path).map_err(|_| {
-            format!("Could not get path relative to repo root for {file}")
-        })?;
+        if abs_path.is_file() {
+            // Get the relative path from the repository root to the file
+            let rel_path = abs_path.strip_prefix(&repo_path).map_err(|_| {
+                format!("Could not get path relative to repo root for {file}")
+            })?;
 
-        // Convert the relative path to a string and store it
-        resolved_files.push(rel_path.to_string_lossy().to_string());
+            // Convert the relative path to a string and store it
+            resolved_files.push(rel_path.to_string_lossy().to_string());
+        } else if abs_path.is_dir() {
+            // Get all files under this directory
+            let worktree_files =
+                worktree::get_worktree_files(&repo, Some(&abs_path))?;
+            for worktree_file in worktree_files {
+                // worktree_file is relative to abs_path, so we need to get the absolute path
+                let file_abs_path = abs_path.join(&worktree_file);
+
+                // Get the relative path from the repository root
+                let rel_path = file_abs_path.strip_prefix(&repo_path).map_err(|_| {
+                    format!("Could not get path relative to repo root for {file}")
+                })?;
+
+                resolved_files.push(rel_path.to_string_lossy().to_string());
+            }
+        } else {
+            return Err(format!("{file} is neither a file nor a directory"));
+        }
     }
 
     // Create a Vec<&str> from the adjusted file paths
@@ -1010,6 +1029,7 @@ pub fn make_parser() -> ArgumentParser {
 
     parser
         .add_argument("files", ArgumentType::String)
+        .short('f')
         .optional()
         .add_help("Comma-separated list of files to diff");
 
