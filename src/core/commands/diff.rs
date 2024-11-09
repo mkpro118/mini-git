@@ -1313,6 +1313,23 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_one_empty_one_non_empty() {
+        let old_lines: [&str; 0] = [];
+        let new_lines = ["Line 1", "Line 2"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], Change::Insert);
+        assert_eq!(changes[1], Change::Insert);
+
+        let old_lines = ["Line 1", "Line 2"];
+        let new_lines: [&str; 0] = [];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], Change::Delete);
+        assert_eq!(changes[1], Change::Delete);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
