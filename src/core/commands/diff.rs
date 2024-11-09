@@ -1426,7 +1426,7 @@ mod tests {
     #[test]
     fn test_compute_diff_large_random_differences() {
         let size = 10_000;
-        let mut rng = Rng::with(0xdead_beef, 0x00c0_ffee, 0x00fa_cade);
+        let mut rng = Rng::with(0xdead_beef, 0xdead_feed, 0xdead_bea7);
 
         let old_lines: Vec<_> =
             (0..size).map(|i| format!("Line {i}")).collect();
@@ -1524,7 +1524,7 @@ mod tests {
     #[test]
     fn test_compute_diff_large_mixed_changes() {
         let size = 10_000;
-        let mut rng = Rng::with(0xdead_beef, 0x00c0_ffee, 0x00fa_cade);
+        let mut rng = Rng::with(0xdead_beef, 0xdead_feed, 0xdead_bea7);
 
         let old_lines: Vec<_> =
             (0..size).map(|i| format!("Line {i}")).collect();
