@@ -1041,6 +1041,51 @@ pub fn make_parser() -> ArgumentParser {
 mod tests {
     use super::*;
 
+    struct Rng {
+        seed: usize,
+        multiplier: usize,
+        increment: usize,
+    }
+
+    impl Rng {
+        #[allow(clippy::cast_possible_truncation)]
+        pub fn with(seed: usize, multiplier: usize, increment: usize) -> Self {
+            Self {
+                seed,
+                multiplier,
+                increment,
+            }
+        }
+
+        pub fn gen_range<R>(&mut self, range: R) -> usize
+        where
+            R: std::ops::RangeBounds<usize>,
+        {
+            let start = match range.start_bound() {
+                std::ops::Bound::Included(x) => *x,
+                std::ops::Bound::Excluded(x) => x + 1,
+                std::ops::Bound::Unbounded => usize::MIN,
+            };
+            let end = match range.end_bound() {
+                std::ops::Bound::Included(x) => x + 1,
+                std::ops::Bound::Excluded(x) => *x,
+                std::ops::Bound::Unbounded => usize::MAX,
+            };
+            let (start, end) = if start <= end {
+                (start, end)
+            } else {
+                (end, start)
+            };
+
+            self.seed = self
+                .seed
+                .wrapping_mul(self.multiplier)
+                .wrapping_add(self.increment);
+
+            (start.min(end) + self.seed) % start.abs_diff(end)
+        }
+    }
+
     // Mock function or struct setups for testing purposes
     fn setup_dummy_files(
     ) -> (HashMap<String, Vec<u8>>, HashMap<String, Vec<u8>>) {
@@ -1388,6 +1433,38 @@ mod tests {
         assert_eq!(changes.len(), 2);
         assert_eq!(changes[0], Change::Replace);
         assert_eq!(changes[1], Change::Replace);
+    }
+
+    #[test]
+    fn test_compute_diff_large_random_differences() {
+        let size = 10_000;
+        let mut rng = Rng::with(0xdeadbeef, 0xc0ffee, 0xfacade);
+
+        let old_lines: Vec<_> =
+            (0..size).map(|i| format!("Line {}", i)).collect();
+        let mut new_lines = old_lines.clone();
+
+        // Introduce random replacements
+        for _ in 0..(size / 100) {
+            let index = rng.gen_range(0..size);
+            new_lines[index] = format!("Modified Line {}", index);
+        }
+
+        // Convert to &str slices
+        let old_refs: Vec<&str> =
+            old_lines.iter().map(|s| s.as_str()).collect();
+        let new_refs: Vec<&str> =
+            new_lines.iter().map(|s| s.as_str()).collect();
+
+        let changes = compute_diff(&old_refs, &new_refs);
+
+        // Check that the changes vector has the correct length
+        assert_eq!(changes.len(), size);
+
+        // Count the number of replacements
+        let num_replacements =
+            changes.iter().filter(|&c| *c == Change::Replace).count();
+        assert!(num_replacements > 0);
     }
 
     #[test]
