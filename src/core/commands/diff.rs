@@ -424,16 +424,11 @@ fn get_files(
     tree: Option<&str>,
 ) -> Result<HashMap<String, Vec<u8>>, String> {
     match tree {
-        Some(treeish) => {
-            // Resolve the tree-ish to a tree SHA
-            let tree_sha =
-                objects::find_object(repo, treeish, Some("tree"), true)?;
-            Tree::get_tree_contents(repo, &tree_sha)
-        }
-        None => {
-            // Get contents from the working directory
-            Tree::get_working_tree_contents(repo)
-        }
+        // Get contents from the specified tree
+        Some(treeish) => Tree::get_tree_contents(repo, treeish),
+
+        // Get contents from the working directory
+        None => Tree::get_working_tree_contents(repo),
     }
 }
 
