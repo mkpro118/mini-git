@@ -1501,6 +1501,39 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_large_deletions() {
+        let size = 10_000;
+
+        let mut old_lines: Vec<_> = Vec::with_capacity(size + size / 10);
+        let new_lines: Vec<_> =
+            (0..size).map(|i| format!("Line {}", i)).collect();
+
+        // Insert a line every 10 lines in the old sequence
+        for i in 0..size {
+            if i % 10 == 0 {
+                old_lines.push(format!("Deleted Line {}", i));
+            }
+            old_lines.push(format!("Line {}", i));
+        }
+
+        // Convert to &str slices
+        let old_refs: Vec<&str> =
+            old_lines.iter().map(|s| s.as_str()).collect();
+        let new_refs: Vec<&str> =
+            new_lines.iter().map(|s| s.as_str()).collect();
+
+        let changes = compute_diff(&old_refs, &new_refs);
+
+        // Check that the changes vector has the correct length
+        assert_eq!(changes.len(), old_lines.len());
+
+        // Check that the number of deletions is as expected
+        let num_deletions =
+            changes.iter().filter(|&c| *c == Change::Delete).count();
+        assert_eq!(num_deletions, size / 10);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
