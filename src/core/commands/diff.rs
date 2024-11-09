@@ -1248,6 +1248,30 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_large_similar_sequences() {
+        let old_lines: Vec<_> =
+            (0..1000).map(|i| format!("Line {}", i)).collect();
+        let mut new_lines = old_lines.clone();
+        new_lines[500] = "Modified Line".to_string();
+
+        let old_refs: Vec<_> = old_lines.iter().map(|s| s.as_str()).collect();
+        let new_refs: Vec<_> = new_lines.iter().map(|s| s.as_str()).collect();
+
+        let changes = compute_diff(&old_refs, &new_refs);
+        assert_eq!(changes.len(), old_lines.len());
+        assert_eq!(changes[500], Change::Replace);
+    }
+
+    #[test]
+    fn test_compute_diff_with_long_common_prefix_suffix() {
+        let old_lines = ["A", "B", "C", "D", "E"];
+        let new_lines = ["A", "B", "X", "D", "E"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 5);
+        assert_eq!(changes[2], Change::Replace);
+    }
+
+    #[test]
     fn test_format_diff_with_no_changes() {
         let path = "unchanged.txt";
         let content = b"Line 1\nLine 2\n";
