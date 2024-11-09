@@ -1371,6 +1371,16 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_with_unicode_characters() {
+        let old_lines = ["こんにちは", "世界"];
+        let new_lines = ["こんにちは", "世界！"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0], Change::Same);
+        assert_eq!(changes[1], Change::Replace);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
