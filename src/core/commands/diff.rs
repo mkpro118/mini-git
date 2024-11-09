@@ -1257,6 +1257,17 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_completely_different_sequences() {
+        let old_lines = ["A", "B", "C"];
+        let new_lines = ["X", "Y", "Z"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes[0], Change::Replace);
+        assert_eq!(changes[1], Change::Replace);
+        assert_eq!(changes[2], Change::Replace);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
