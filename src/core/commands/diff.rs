@@ -1268,6 +1268,19 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_reversed_sequences() {
+        let old_lines = ["Line 1", "Line 2", "Line 3"];
+        let new_lines = ["Line 3", "Line 2", "Line 1"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 5);
+        assert_eq!(changes[0], Change::Delete);
+        assert_eq!(changes[1], Change::Delete);
+        assert_eq!(changes[2], Change::Same);
+        assert_eq!(changes[3], Change::Insert);
+        assert_eq!(changes[4], Change::Insert);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
