@@ -1586,6 +1586,58 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_large_common_subsequence() {
+        let size = 10_000;
+
+        let mut old_lines: Vec<_> = Vec::new();
+        let mut new_lines: Vec<_> = Vec::new();
+
+        // Common prefix
+        for i in 0..(size / 4) {
+            let line = format!("Common Line {}", i);
+            old_lines.push(line.clone());
+            new_lines.push(line);
+        }
+
+        // Diverging part
+        for i in (size / 4)..(size / 2) {
+            old_lines.push(format!("Old Unique Line {}", i));
+            new_lines.push(format!("New Unique Line {}", i));
+        }
+
+        // Common suffix
+        for i in (size / 2)..size {
+            let line = format!("Common Line {}", i);
+            old_lines.push(line.clone());
+            new_lines.push(line);
+        }
+
+        // Convert to &str slices
+        let old_refs: Vec<&str> =
+            old_lines.iter().map(|s| s.as_str()).collect();
+        let new_refs: Vec<&str> =
+            new_lines.iter().map(|s| s.as_str()).collect();
+
+        let changes = compute_diff(&old_refs, &new_refs);
+
+        // Check that the changes vector has the correct length
+        assert_eq!(changes.len(), size);
+
+        // Check that the middle part is correctly identified as replacements
+        for i in (size / 4)..(size / 2) {
+            assert_eq!(changes[i], Change::Replace);
+        }
+
+        // Check that the common prefix and suffix are identified as same
+        for i in 0..(size / 4) {
+            assert_eq!(changes[i], Change::Same);
+        }
+        for i in (size / 2)..size {
+            assert_eq!(changes[i], Change::Same);
+        }
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
