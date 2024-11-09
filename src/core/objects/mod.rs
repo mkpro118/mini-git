@@ -4,6 +4,7 @@ pub mod packfiles;
 pub mod tag;
 pub mod traits;
 pub mod tree;
+pub mod worktree;
 
 use std::fs;
 
