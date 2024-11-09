@@ -1281,6 +1281,19 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_diff_interleaved_changes() {
+        let old_lines = ["A", "B", "C", "D", "E"];
+        let new_lines = ["A", "X", "C", "Y", "E"];
+        let changes = compute_diff(&old_lines, &new_lines);
+        assert_eq!(changes.len(), 5);
+        assert_eq!(changes[0], Change::Same);
+        assert_eq!(changes[1], Change::Replace);
+        assert_eq!(changes[2], Change::Same);
+        assert_eq!(changes[3], Change::Replace);
+        assert_eq!(changes[4], Change::Same);
+    }
+
+    #[test]
     fn test_generate_hunks_simple_change() {
         let old_lines = ["Line 1", "Line 2", "Line 3"];
         let new_lines = ["Line 1", "Changed Line 2", "Line 3"];
