@@ -86,7 +86,7 @@ fn collect_worktree_files(
             let relative = path
                 .strip_prefix(base)
                 .map_err(|_| "Failed to get relative path".to_owned())?;
-            paths.push(relative.to_string_lossy().to_string());
+            paths.push(relative.as_os_str().to_string_lossy().into_owned());
         } else if path.is_dir() {
             collect_worktree_files(base, &path, paths)?;
         }
