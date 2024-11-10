@@ -52,7 +52,7 @@ pub fn get_worktree_files(
         .map(Path::canonicalize)
         .transpose()
         .map_err(|x| match top {
-            Some(top) => format!("Failed to resolve path {:?} {x}", top),
+            Some(top) => format!("Failed to resolve path {top:?} {x}"),
             None => unreachable!("Map would not work if path was none"),
         })?
         .unwrap_or(work_tree.to_path_buf());
