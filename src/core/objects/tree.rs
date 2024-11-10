@@ -10,9 +10,6 @@
 //! Git-compatible operations such as serialization, deserialization,
 //! and format identification.
 
-use std::collections::HashMap;
-use std::path::Path;
-
 use crate::core::objects::{
     self,
     traits::{self, KVLM},
@@ -303,164 +300,6 @@ impl Tree {
             Err("HEAD is not a commit".to_owned())
         }
     }
-
-    /// Retrieves the contents of a tree object.
-    ///
-    /// This function reads the tree object identified by `tree_sha` and collects
-    /// all the blob contents within that tree and its subtrees.
-    /// The contents are stored in a `HashMap` where the keys are file paths
-    /// and the values are the file contents.
-    ///
-    /// # Arguments
-    ///
-    /// - `repo` - A reference to the `GitRepository`.
-    /// - `tree_sha` - The SHA-1 hash of the tree object to read.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(HashMap<String, Vec<u8>>)` containing file paths and their contents.
-    /// - `Err(String)` containing an error message if the tree cannot be read.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if:
-    ///
-    /// - The tree object cannot be found or read.
-    /// - An unknown object type is encountered within the tree.
-    pub fn get_tree_contents(
-        repo: &GitRepository,
-        tree_sha: &str,
-    ) -> Result<HashMap<String, Vec<u8>>, String> {
-        let mut contents = HashMap::new();
-        Self::collect_tree_contents(repo, tree_sha, "", &mut contents)?;
-        Ok(contents)
-    }
-
-    fn collect_tree_contents(
-        repo: &GitRepository,
-        tree_sha: &str,
-        prefix: &str,
-        contents: &mut HashMap<String, Vec<u8>>,
-    ) -> Result<(), String> {
-        let tree_obj = objects::read_object(repo, tree_sha)?;
-
-        if let GitObject::Tree(tree) = tree_obj {
-            for leaf in tree.leaves() {
-                let path = if prefix.is_empty() {
-                    leaf.path_as_string()
-                } else {
-                    format!("{}/{}", prefix, leaf.path_as_string())
-                };
-
-                match leaf.obj_type() {
-                    Some("blob") => {
-                        let blob_obj = objects::read_object(repo, leaf.sha())?;
-                        if let GitObject::Blob(blob) = blob_obj {
-                            contents.insert(path, blob.data);
-                        }
-                    }
-                    Some("tree") => {
-                        Self::collect_tree_contents(
-                            repo,
-                            leaf.sha(),
-                            &path,
-                            contents,
-                        )?;
-                    }
-                    _ => return Err(format!("Unknown object type for {path}")),
-                }
-            }
-        } else if let GitObject::Commit(commit) = tree_obj {
-            let tree_sha = String::from_utf8_lossy(
-                &commit.kvlm().get_key(b"tree").unwrap()[0],
-            )
-            .to_string();
-            Self::collect_tree_contents(repo, &tree_sha, prefix, contents)?;
-        } else if let GitObject::Tag(tag) = tree_obj {
-            let tree_sha = String::from_utf8_lossy(
-                &tag.kvlm().get_key(b"object").unwrap()[0],
-            )
-            .to_string();
-            Self::collect_tree_contents(repo, &tree_sha, prefix, contents)?;
-        }
-
-        Ok(())
-    }
-
-    /// Retrieves the contents of the working directory recursively.
-    ///
-    /// This function scans the working directory of the repository and collects
-    /// all file contents, storing them in a `HashMap` where the keys are file paths
-    /// relative to the repository root, and the values are the file contents.
-    ///
-    /// # Arguments
-    ///
-    /// - `repo` - A reference to the `GitRepository`.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(HashMap<String, Vec<u8>>)` containing file paths and their contents.
-    /// - `Err(String)` containing an error message if the working directory cannot be read.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if:
-    ///
-    /// - The repository path is invalid.
-    /// - A file or directory cannot be read.
-    pub fn get_working_tree_contents(
-        repo: &GitRepository,
-    ) -> Result<HashMap<String, Vec<u8>>, String> {
-        let mut contents = HashMap::new();
-        let repo_path = repo.gitdir();
-        let work_tree = repo_path.parent().ok_or("Invalid repo path")?;
-
-        // This is a simplified version - you might want to add proper .gitignore handling
-        Self::collect_working_tree_contents(
-            work_tree,
-            work_tree,
-            &mut contents,
-        )?;
-
-        Ok(contents)
-    }
-
-    fn collect_working_tree_contents(
-        base: &Path,
-        current: &Path,
-        contents: &mut HashMap<String, Vec<u8>>,
-    ) -> Result<(), String> {
-        for entry in std::fs::read_dir(current)
-            .map_err(|e| format!("Failed to read directory: {e}"))?
-        {
-            let entry =
-                entry.map_err(|e| format!("Failed to read entry: {e}"))?;
-            let path = entry.path();
-
-            if path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n == ".git")
-            {
-                continue;
-            }
-
-            if path.is_file() {
-                let relative = path
-                    .strip_prefix(base)
-                    .map_err(|_| "Failed to get relative path".to_owned())?;
-                let content = std::fs::read(&path).map_err(|e| {
-                    format!("Failed to read file {}: {}", path.display(), e)
-                })?;
-                contents
-                    .insert(relative.to_string_lossy().to_string(), content);
-            } else if path.is_dir() {
-                Self::collect_working_tree_contents(base, &path, contents)?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl traits::Format for Tree {
@@ -530,6 +369,89 @@ impl Default for Tree {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Retrieves all files in a specific Git tree, along with their SHAs.
+///
+/// This function collects information about the files in the specified Git tree
+/// within the given repository. It returns a list of tuples, where each tuple
+/// contains the relative file path and the SHA hash of the file's content. If
+/// the specified tree SHA includes subdirectories, those will also be traversed
+/// to include their files.
+///
+/// # Arguments
+///
+/// * `repo` - A reference to the `GitRepository` where the tree is located.
+/// * `tree_sha` - The SHA hash of the tree object to traverse.
+///
+/// # Returns
+///
+/// Returns a `Result` containing:
+/// * `Ok(Vec<(String, String)>)` - A vector of tuples, where each tuple consists
+///   of a file path (relative to the tree's root) and the corresponding SHA hash
+///   of the file.
+/// * `Err(String)` - An error message if any operation fails, such as reading
+///   the tree object or encountering an unknown object type.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - The specified `tree_sha` cannot be read or does not represent a valid tree.
+/// - Any encountered object is of an unrecognized type.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::path::Path;
+/// # use mini_git::core::GitRepository;
+/// # use mini_git::core::objects::tree::get_tree_files;
+/// #
+/// let repo = GitRepository::new(Path::new("path/to/repo"))?;
+/// let tree_sha = "abcdef1234567890"; // Example tree SHA
+/// let files = get_tree_files(&repo, tree_sha)?;
+/// for (path, sha) in files {
+///     println!("{}: {}", path, sha);
+/// }
+///
+/// Ok::<(), String>(())
+/// ```
+pub fn get_tree_files(
+    repo: &GitRepository,
+    tree_sha: &str,
+) -> Result<Vec<(String, String)>, String> {
+    let mut contents = Vec::new();
+    collect_tree_files(repo, tree_sha, "", &mut contents)?;
+    Ok(contents)
+}
+
+fn collect_tree_files(
+    repo: &GitRepository,
+    tree_sha: &str,
+    prefix: &str,
+    contents: &mut Vec<(String, String)>,
+) -> Result<(), String> {
+    let tree_obj = objects::read_object(repo, tree_sha)?;
+
+    if let GitObject::Tree(tree) = tree_obj {
+        for leaf in tree.leaves() {
+            let path = if prefix.is_empty() {
+                leaf.path_as_string()
+            } else {
+                format!("{}/{}", prefix, leaf.path_as_string())
+            };
+
+            match leaf.obj_type() {
+                Some("blob") => {
+                    contents.push((path, leaf.sha().to_string()));
+                }
+                Some("tree") => {
+                    collect_tree_files(repo, leaf.sha(), &path, contents)?;
+                }
+                _ => return Err(format!("Unknown object type for {path}")),
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
