@@ -31,10 +31,10 @@ use crate::core::GitRepository;
 ///
 /// # Examples
 ///
-/// ```compile
+/// ```no_run
 /// use mini_git::core::GitRepository;
 /// use mini_git::core::objects::worktree::get_worktree_files;
-/// let repo = GitRepository::open("path/to/repo").unwrap();
+/// let repo = GitRepository::new(Path::new("path/to/repo")).unwrap();
 /// use std::path::Path;
 /// // Retrieve all files in the worktree relative to the root.
 /// let files = get_worktree_files(&repo, None).unwrap();
@@ -62,12 +62,17 @@ fn collect_worktree_files(
         .map_err(|e| format!("Failed to read directory: {e}"))?
     {
         let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
-        let path = entry.path();
+        let path = entry.path().canonicalize().map_err(|e| {
+            format!("Failed to resolve path {:?} {e}", entry.path())
+        })?;
 
-        if path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .is_some_and(|n| n == ".git")
+        if path.is_dir()
+            && path
+                .strip_prefix(base)
+                .map_err(|e| format!("Failed to get relative path: {e}"))?
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n == ".git")
         {
             continue;
         }
