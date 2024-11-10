@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 
-use crate::core::objects::{self, blob::Blob, tree::Tree, worktree};
+use crate::core::objects::{self, blob::Blob, tree, worktree};
 use crate::core::GitRepository;
 
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
@@ -15,8 +16,6 @@ const GREEN: &str = "\x1b[32m";
 const CYAN: &str = "\x1b[36m";
 const STAT_WIDTH: usize = 80;
 const MAX_THREADS: usize = 8;
-
-type FilesContents = (HashMap<String, Vec<u8>>, HashMap<String, Vec<u8>>);
 
 #[allow(clippy::struct_excessive_bools)]
 struct DiffOpts {
@@ -48,6 +47,46 @@ enum Change {
     Delete,
     Insert,
     Replace,
+}
+
+#[derive(Debug)]
+enum FileSource {
+    Blob { path: String, sha: String },
+    Worktree { path: String },
+}
+
+impl FileSource {
+    fn contents(&self, repo: &GitRepository) -> Result<Vec<u8>, String> {
+        Ok(match self {
+            FileSource::Blob { sha, .. } => {
+                match objects::read_object(repo, sha)? {
+                    objects::GitObject::Blob(blob) => blob.data,
+                    x => {
+                        return Err(format!(
+                            "Expect object {sha} to be a blob, but was {}",
+                            String::from_utf8_lossy(x.format())
+                        ))
+                    }
+                }
+            }
+            FileSource::Worktree { path } => match fs::read(path) {
+                Ok(data) => data,
+                Err(e) => {
+                    return Err(format!(
+                        "Failed to read file {path}! Error: {e}"
+                    ))
+                }
+            },
+        })
+    }
+
+    fn path(&self) -> String {
+        match self {
+            FileSource::Blob { path, .. } | FileSource::Worktree { path } => {
+                path.clone()
+            }
+        }
+    }
 }
 
 /// List differences
@@ -94,11 +133,8 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
     let files = args.get("files").map_or(all_files.as_ref(), Ok)?;
     let resolved_files: Vec<String> = resolve_cla_files(&repo, &cwd, files)?;
 
-    // Create a Vec<&str> from the adjusted file paths
-    let files: Vec<&str> = resolved_files.iter().map(String::as_str).collect();
-
     let opts = DiffOpts {
-        files: files.into_iter().map(String::from).collect(),
+        files: resolved_files,
         name_only,
         name_status,
         stat,
@@ -113,22 +149,27 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
     let tree1 = args.get("tree1").filter(|s| *s != "*").map(String::as_str);
     let tree2 = args.get("tree2").filter(|s| *s != "*").map(String::as_str);
 
-    _diff(&repo, tree1, tree2, opts)
+    // Finally, switch to the repo root dir to use the resolved paths correctly
+    std::env::set_current_dir(&repo_path).map_err(|_| {
+        "Could not switch to repository root directory".to_owned()
+    })?;
+
+    _diff(repo, tree1, tree2, opts)
 }
 
 // Main function simplified to orchestrate the workflow
 fn _diff(
-    repo: &GitRepository,
+    repo: GitRepository,
     tree1: Option<&str>,
     tree2: Option<&str>,
     opts: DiffOpts,
 ) -> Result<String, String> {
-    let (tree1, tree2) = resolve_trees(repo, tree1, tree2)?;
+    let (tree1, tree2) = resolve_trees(&repo, tree1, tree2)?;
     let (files1, files2) =
-        get_file_contents(repo, tree1.as_deref(), tree2.as_deref())?;
+        get_file_contents(&repo, tree1.as_deref(), tree2.as_deref())?;
     let all_files = collect_files_to_process(&files1, &files2, &opts.files);
 
-    process_files_in_parallel(files1, files2, &all_files, opts)
+    process_files_in_parallel(repo, files1, files2, &all_files, opts)
 }
 
 // Resolves files passed in on the command line
@@ -193,7 +234,7 @@ fn resolve_trees<'a>(
 ) -> Result<(Option<String>, Option<String>), String> {
     match (tree1, tree2) {
         (None, None) => {
-            let head = Tree::get_head_tree_sha(repo)?;
+            let head = tree::Tree::get_head_tree_sha(repo)?;
             Ok((Some(head), None))
         }
         (Some(tree), None) => {
@@ -214,7 +255,7 @@ fn get_file_contents(
     repo: &GitRepository,
     tree1: Option<&str>,
     tree2: Option<&str>,
-) -> Result<FilesContents, String> {
+) -> Result<(Vec<FileSource>, Vec<FileSource>), String> {
     let files1 = get_files(repo, tree1)?;
     let files2 = get_files(repo, tree2)?;
     Ok((files1, files2))
@@ -222,15 +263,15 @@ fn get_file_contents(
 
 // Collects all files that need to be processed
 fn collect_files_to_process(
-    files1: &HashMap<String, Vec<u8>>,
-    files2: &HashMap<String, Vec<u8>>,
+    files1: &[FileSource],
+    files2: &[FileSource],
     specified_files: &[String],
 ) -> Vec<String> {
     let mut all_files = HashSet::new();
 
     if specified_files.is_empty() {
-        all_files.extend(files1.keys().cloned());
-        all_files.extend(files2.keys().cloned());
+        all_files.extend(files1.iter().map(FileSource::path));
+        all_files.extend(files2.iter().map(FileSource::path));
     } else {
         all_files.extend(specified_files.iter().cloned());
     }
@@ -240,8 +281,9 @@ fn collect_files_to_process(
 
 // Processes files in parallel using threads
 fn process_files_in_parallel(
-    files1: HashMap<String, Vec<u8>>,
-    files2: HashMap<String, Vec<u8>>,
+    repo: GitRepository,
+    files1: Vec<FileSource>,
+    files2: Vec<FileSource>,
     all_files: &[String],
     opts: DiffOpts,
 ) -> Result<String, String> {
@@ -253,32 +295,40 @@ fn process_files_in_parallel(
         .map(<[String]>::to_vec)
         .collect();
 
+    let repo_ref = Arc::new(repo);
     let files1_ref = Arc::new(files1);
     let files2_ref = Arc::new(files2);
     let opts_ref = Arc::new(opts);
 
-    let handles =
-        spawn_worker_threads(&file_chunks, &files1_ref, &files2_ref, &opts_ref);
+    let handles = spawn_worker_threads(
+        &repo_ref,
+        &file_chunks,
+        &files1_ref,
+        &files2_ref,
+        &opts_ref,
+    );
     collect_thread_results(handles)
 }
 
 // Spawns worker threads to process file chunks
 fn spawn_worker_threads(
+    repo: &Arc<GitRepository>,
     file_chunks: &[Vec<String>],
-    files1: &Arc<HashMap<String, Vec<u8>>>,
-    files2: &Arc<HashMap<String, Vec<u8>>>,
+    files1: &Arc<Vec<FileSource>>,
+    files2: &Arc<Vec<FileSource>>,
     opts: &Arc<DiffOpts>,
-) -> Vec<thread::JoinHandle<Vec<String>>> {
+) -> Vec<thread::JoinHandle<Result<Vec<String>, String>>> {
     let mut handles = Vec::new();
 
     for chunk in file_chunks {
+        let repo = repo.clone();
         let files1 = files1.clone();
         let files2 = files2.clone();
         let opts = opts.clone();
         let chunk = chunk.clone();
 
         let handle = thread::spawn(move || {
-            process_file_chunk(&chunk, &files1, &files2, &opts)
+            process_file_chunk(&repo, &chunk, &files1, &files2, &opts)
         });
 
         handles.push(handle);
@@ -289,49 +339,68 @@ fn spawn_worker_threads(
 
 // Processes a chunk of files in a single thread
 fn process_file_chunk(
+    repo: &GitRepository,
     chunk: &[String],
-    files1: &HashMap<String, Vec<u8>>,
-    files2: &HashMap<String, Vec<u8>>,
+    files1: &[FileSource],
+    files2: &[FileSource],
     opts: &DiffOpts,
-) -> Vec<String> {
+) -> Result<Vec<String>, String> {
     let mut results = Vec::new();
 
-    for file in chunk {
-        if !opts.files.is_empty() && !opts.files.contains(file) {
-            continue;
-        }
+    let tree1_files = files1
+        .iter()
+        .map(|f| (f.path(), f))
+        .collect::<HashMap<_, _>>();
+    let tree2_files = files2
+        .iter()
+        .map(|f| (f.path(), f))
+        .collect::<HashMap<_, _>>();
 
-        if let Some(output) = process_single_file(file, files1, files2, opts) {
+    for file in chunk {
+        if let Some(output) =
+            process_single_file(repo, file, &tree1_files, &tree2_files, opts)?
+        {
             results.push(output);
         }
     }
 
-    results
+    Ok(results)
 }
 
 // Processes a single file and returns its diff output
 fn process_single_file(
+    repo: &GitRepository,
     file: &str,
-    files1: &HashMap<String, Vec<u8>>,
-    files2: &HashMap<String, Vec<u8>>,
+    files1: &HashMap<String, &FileSource>,
+    files2: &HashMap<String, &FileSource>,
     opts: &DiffOpts,
-) -> Option<String> {
-    let content1 = files1.get(file);
-    let content2 = files2.get(file);
+) -> Result<Option<String>, String> {
+    let content1 = files1.get(file).map(|f| f.contents(repo)).transpose()?;
+    let content2 = files2.get(file).map(|f| f.contents(repo)).transpose()?;
 
-    let status = determine_file_status(content1, content2)?;
+    let Some(status) =
+        determine_file_status(content1.as_deref(), content2.as_deref())
+    else {
+        return Ok(None);
+    };
 
     if !should_process_file(status, &opts.diff_filter) {
-        return None;
+        return Ok(None);
     }
 
-    Some(generate_output(file, status, content1, content2, opts))
+    Ok(Some(generate_output(
+        file,
+        status,
+        content1.as_deref(),
+        content2.as_deref(),
+        opts,
+    )))
 }
 
 // Determines the status of a file (Added, Modified, Deleted)
 fn determine_file_status(
-    content1: Option<&Vec<u8>>,
-    content2: Option<&Vec<u8>>,
+    content1: Option<&[u8]>,
+    content2: Option<&[u8]>,
 ) -> Option<char> {
     match (content1, content2) {
         (Some(_), None) => Some('D'),
@@ -360,8 +429,8 @@ fn should_process_file(status: char, diff_filter: &Option<String>) -> bool {
 fn generate_output(
     file: &str,
     status: char,
-    content1: Option<&Vec<u8>>,
-    content2: Option<&Vec<u8>>,
+    content1: Option<&[u8]>,
+    content2: Option<&[u8]>,
     opts: &DiffOpts,
 ) -> String {
     if opts.name_only {
@@ -369,11 +438,7 @@ fn generate_output(
     } else if opts.name_status {
         format!("{status}\t{file}")
     } else if opts.stat {
-        format_diffstat(
-            file,
-            content1.unwrap_or(&vec![]),
-            content2.unwrap_or(&vec![]),
-        )
+        format_diffstat(file, content1.unwrap_or(&[]), content2.unwrap_or(&[]))
     } else {
         generate_full_diff(file, status, content1, content2, opts)
     }
@@ -383,8 +448,8 @@ fn generate_output(
 fn generate_full_diff(
     file: &str,
     status: char,
-    content1: Option<&Vec<u8>>,
-    content2: Option<&Vec<u8>>,
+    content1: Option<&[u8]>,
+    content2: Option<&[u8]>,
     opts: &DiffOpts,
 ) -> String {
     match status {
@@ -417,15 +482,18 @@ fn generate_full_diff(
 
 // Collects and sorts results from all threads
 fn collect_thread_results(
-    handles: Vec<thread::JoinHandle<Vec<String>>>,
+    handles: Vec<thread::JoinHandle<Result<Vec<String>, String>>>,
 ) -> Result<String, String> {
     handles
         .into_iter()
         .try_fold(vec![], |mut results, handle| match handle.join() {
-            Ok(thread_results) => {
-                results.extend(thread_results);
-                Ok(results)
-            }
+            Ok(thread_results) => match thread_results {
+                Ok(result) => {
+                    results.extend(result);
+                    Ok(results)
+                }
+                Err(msg) => Err(msg),
+            },
             Err(_) => Err("A thread panicked during execution".to_string()),
         })
         .map(|mut results| {
@@ -457,14 +525,20 @@ fn status_matches_filter(status: char, filter: &str) -> bool {
 fn get_files(
     repo: &GitRepository,
     tree: Option<&str>,
-) -> Result<HashMap<String, Vec<u8>>, String> {
-    match tree {
+) -> Result<Vec<FileSource>, String> {
+    Ok(match tree {
         // Get contents from the specified tree
-        Some(treeish) => Tree::get_tree_contents(repo, treeish),
+        Some(treeish) => tree::get_tree_files(repo, treeish)?
+            .into_iter()
+            .map(|(path, sha)| FileSource::Blob { path, sha })
+            .collect(),
 
         // Get contents from the working directory
-        None => Tree::get_working_tree_contents(repo),
-    }
+        None => worktree::get_worktree_files(repo, None)?
+            .into_iter()
+            .map(|path| FileSource::Worktree { path })
+            .collect(),
+    })
 }
 
 fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
@@ -1151,18 +1225,24 @@ mod tests {
     fn test_determine_file_status() {
         let (files1, files2) = setup_dummy_files();
 
-        let status_same =
-            determine_file_status(files1.get("file"), files1.get("file"));
+        let status_same = determine_file_status(
+            files1.get("file").map(|v| &**v),
+            files1.get("file").map(|v| &**v),
+        );
         assert_eq!(status_same, None);
 
-        let status_insert = determine_file_status(None, files2.get("file"));
+        let status_insert =
+            determine_file_status(None, files2.get("file").map(|v| &**v));
         assert_eq!(status_insert, Some('A'));
 
-        let status_delete = determine_file_status(files1.get("file"), None);
+        let status_delete =
+            determine_file_status(files1.get("file").map(|v| &**v), None);
         assert_eq!(status_delete, Some('D'));
 
-        let status_replace =
-            determine_file_status(files1.get("file"), files2.get("file"));
+        let status_replace = determine_file_status(
+            files1.get("file").map(|v| &**v),
+            files2.get("file").map(|v| &**v),
+        );
         assert_eq!(status_replace, Some('M'));
     }
 
