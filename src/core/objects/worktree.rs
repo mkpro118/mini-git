@@ -48,8 +48,15 @@ pub fn get_worktree_files(
 ) -> Result<Vec<String>, String> {
     let mut paths = Vec::new();
     let work_tree = repo.worktree();
-    let base = top.unwrap_or(work_tree);
-    collect_worktree_files(base, base, &mut paths)?;
+    let base = top
+        .map(Path::canonicalize)
+        .transpose()
+        .map_err(|x| match top {
+            Some(top) => format!("Failed to resolve path {:?} {x}", top),
+            None => unreachable!("Map would not work if path was none"),
+        })?
+        .unwrap_or(work_tree.to_path_buf());
+    collect_worktree_files(&base, &base, &mut paths)?;
     Ok(paths)
 }
 
@@ -62,9 +69,7 @@ fn collect_worktree_files(
         .map_err(|e| format!("Failed to read directory: {e}"))?
     {
         let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
-        let path = entry.path().canonicalize().map_err(|e| {
-            format!("Failed to resolve path {:?} {e}", entry.path())
-        })?;
+        let path = entry.path();
 
         if path.is_dir()
             && path
