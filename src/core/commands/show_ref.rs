@@ -1,14 +1,14 @@
-use crate::core::commands::resolve_repository_context;
-use crate::core::commands::RepositoryContext;
 use std::path::PathBuf;
 
 use crate::core::objects::traits::KVLM;
 use crate::core::objects::{self, read_object, resolve_ref, GitObject};
+use crate::core::{
+    resolve_repository_context, GitRepository, RepositoryContext,
+};
+
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::collections::ordered_map::OrderedMap;
 use crate::utils::path;
-
-use crate::core::GitRepository;
 
 const REF_DIR: &str = "refs";
 const HEAD_REFS: &str = "refs/heads";

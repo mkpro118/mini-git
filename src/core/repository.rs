@@ -233,3 +233,47 @@ impl GitRepository {
         config
     }
 }
+
+// Holds the context of a Git repository, including the current working directory,
+/// repository path, and a reference to the Git repository.
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug)]
+pub struct RepositoryContext {
+    /// The current working directory, resolved when `resolve_repository_context` is called.
+    pub cwd: PathBuf,
+
+    /// The absolute path to the root of the repository's worktree.
+    pub repo_path: PathBuf,
+
+    /// The `GitRepository` representing the current repository.
+    pub repo: GitRepository,
+}
+
+/// Resolves the repository context, including the current working directory, repository path,
+/// and repository object.
+///
+/// # Returns
+/// - `Ok(RepositoryContext)` containing the current working directory, repository path, and Git repository object.
+/// - `Err(String)` if the repository context cannot be determined.
+///
+/// # Errors
+/// - Returns an error if:
+///   - The current working directory cannot be determined.
+///   - The repository path cannot be determined.
+///   - The Git repository object cannot be initialized.
+pub fn resolve_repository_context() -> Result<RepositoryContext, String> {
+    let cwd = std::env::current_dir().map_err(|_| {
+        "Could not determine current working directory".to_owned()
+    })?;
+
+    let repo_path = path::repo_find(&cwd)?
+        .canonicalize()
+        .map_err(|_| "Could not determine repository path".to_owned())?;
+    let repo = GitRepository::new(&repo_path)?;
+
+    Ok(RepositoryContext {
+        cwd,
+        repo_path,
+        repo,
+    })
+}

@@ -1,11 +1,11 @@
+use crate::core::objects::traits::KVLM;
+use crate::core::objects::{self, GitObject};
+use crate::core::{
+    resolve_repository_context, GitRepository, RepositoryContext,
+};
+
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::collections::kvlm;
-
-use crate::core::commands::{resolve_repository_context, RepositoryContext};
-use crate::core::objects;
-use crate::core::objects::traits::KVLM;
-use crate::core::objects::GitObject;
-use crate::core::GitRepository;
 
 /// Pretty-print a tree object.
 /// This handles the subcommand

@@ -1,5 +1,5 @@
-use crate::core::commands::{resolve_repository_context, RepositoryContext};
 use crate::core::objects::{find_object, read_object};
+use crate::core::repository::{resolve_repository_context, RepositoryContext};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 
 /// Provide content of repository objects

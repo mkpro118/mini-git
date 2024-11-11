@@ -1,15 +1,15 @@
-use crate::core::commands::resolve_repository_context;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
 
-use crate::core::commands::{
-    collect_files_to_process, get_files, resolve_cla_files, FileSource,
-    RepositoryContext,
+use crate::core::commands::resolve_cla_files;
+use crate::core::objects::{
+    self, collect_files_to_process, get_files, FileSource,
 };
-use crate::core::objects::{self, blob::Blob, tree};
-use crate::core::GitRepository;
-
+use crate::core::objects::{blob, tree};
+use crate::core::{
+    resolve_repository_context, GitRepository, RepositoryContext,
+};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 
 const RESET: &str = "\x1b[0m";
@@ -768,7 +768,7 @@ fn format_diff(
         format!("{dst_prefix}{path}")
     };
 
-    if Blob::is_binary(content1) || Blob::is_binary(content2) {
+    if blob::Blob::is_binary(content1) || blob::Blob::is_binary(content2) {
         return format_binary_diff(&src_path, &dst_path);
     }
 
@@ -833,7 +833,7 @@ fn format_addition(
         format!("{dst_prefix}{path}")
     };
 
-    if Blob::is_binary(content) {
+    if blob::Blob::is_binary(content) {
         return format_binary_addition(&src_path, &dst_path);
     }
 
@@ -889,7 +889,7 @@ fn format_deletion(
         )
     };
 
-    if Blob::is_binary(content) {
+    if blob::Blob::is_binary(content) {
         return format_binary_deletion(&src_path, &dst_path);
     }
 
