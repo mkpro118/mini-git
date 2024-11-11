@@ -6,20 +6,21 @@ pub mod traits;
 pub mod tree;
 pub mod worktree;
 
+use std::collections::HashSet;
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use crate::core::GitRepository;
 use crate::utils::collections::ordered_map::OrderedMap;
-use crate::utils::path::{self, repo_file};
-use crate::utils::sha1::SHA1;
-use crate::utils::{hex, zlib};
+use crate::utils::hex;
+use crate::utils::path;
+use crate::utils::sha1;
+use crate::utils::zlib;
 use traits::{Deserialize, Format, Serialize, KVLM};
 
 static OBJECTS_DIR: &str = "objects";
 static SPACE_BYTE: u8 = b' ';
 static NULL_BYTE: u8 = b'\0';
-
-pub type BlobData = Vec<u8>;
 
 /// Represents one of the four types of objects git uses
 /// - blobs
@@ -132,7 +133,7 @@ impl GitObject {
     ///
     /// # Example
     /// ```no_run
-    /// use mini_git::core::objects::{GitObject, BlobData};
+    /// use mini_git::core::objects::GitObject;
     /// use GitObject::*;
     ///
     /// let data = b"blob 5\0hello";
@@ -271,7 +272,7 @@ fn resolve_ref_packed(
 /// * Reading the reference file fails.
 /// * An I/O error occurs while accessing the filesystem.
 ///
-pub fn parse_packed_refs(
+pub(super) fn parse_packed_refs(
     repo: &GitRepository,
 ) -> Result<OrderedMap<String, String>, String> {
     const COMMENT_CHAR: char = '#';
@@ -355,7 +356,7 @@ pub fn parse_packed_refs(
 /// * Reading the reference file fails.
 /// * An I/O error occurs while accessing the filesystem.
 ///
-pub fn resolve_object(
+fn resolve_object(
     repo: &GitRepository,
     name: &str,
 ) -> Result<Vec<String>, String> {
@@ -492,8 +493,11 @@ fn read_loose_object(
     sha: &str,
 ) -> Result<GitObject, String> {
     // Calculate the path to the object
-    let path =
-        repo_file(repo.gitdir(), &[OBJECTS_DIR, &sha[..2], &sha[2..]], false)?;
+    let path = path::repo_file(
+        repo.gitdir(),
+        &[OBJECTS_DIR, &sha[..2], &sha[2..]],
+        false,
+    )?;
 
     // Ensure the path is a valid file
     let path = match path {
@@ -591,7 +595,7 @@ pub fn read_object(
 /// ```
 #[allow(clippy::module_name_repetitions)]
 #[must_use]
-pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
+pub fn hash_object(obj: &GitObject) -> (Vec<u8>, sha1::SHA1) {
     let data = obj.serialize();
     let len = data.len().to_string();
     let res = [
@@ -603,7 +607,7 @@ pub fn hash_object(obj: &GitObject) -> (Vec<u8>, SHA1) {
     ]
     .concat();
 
-    let mut hash = SHA1::new();
+    let mut hash = sha1::SHA1::new();
     let _ = hash.update(&res);
 
     (res, hash)
@@ -645,7 +649,7 @@ pub fn write_object(
 
     let digest = hash.hex_digest();
 
-    let path = repo_file(
+    let path = path::repo_file(
         repo.gitdir(),
         &[OBJECTS_DIR, &digest[..2], &digest[2..]],
         true,
@@ -664,6 +668,159 @@ pub fn write_object(
     }
 
     Ok(digest)
+}
+
+/// Represents the source of a file, either from a Git blob or the working tree.
+#[derive(Debug)]
+pub enum FileSource {
+    /// A file stored in a Git blob, with a specific path and SHA identifier.
+    Blob { path: String, sha: String },
+
+    /// A file located in the working tree with a specified path.
+    Worktree { path: String },
+}
+
+impl FileSource {
+    /// Retrieves the contents of the file source.
+    ///
+    /// # Arguments
+    ///
+    /// * `repo` - Reference to the Git repository.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the file contents as a vector of bytes if successful,
+    /// or an error message if reading the contents failed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///   - For `Blob` sources, the object is not a blob.
+    ///   - For `Worktree` sources, the file could not be read from the filesystem.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use mini_git::core::{RepositoryContext, resolve_repository_context};
+    /// use mini_git::core::objects::FileSource;
+    ///
+    /// let RepositoryContext { repo, .. } = resolve_repository_context()?;
+    ///
+    /// let file_source = FileSource::Blob { path: "file.txt".to_string(), sha: "abc123".to_string() };
+    /// let contents = file_source.contents(&repo)?;
+    ///
+    /// # Ok::<(), String>(())
+    /// ```
+    pub fn contents(&self, repo: &GitRepository) -> Result<Vec<u8>, String> {
+        Ok(match self {
+            FileSource::Blob { sha, .. } => match read_object(repo, sha)? {
+                GitObject::Blob(blob) => blob.data,
+                x => {
+                    return Err(format!(
+                        "Expect object {sha} to be a blob, but was {}",
+                        String::from_utf8_lossy(x.format())
+                    ))
+                }
+            },
+            FileSource::Worktree { path } => match fs::read(path) {
+                Ok(data) => data,
+                Err(e) => {
+                    return Err(format!(
+                        "Failed to read file {path}! Error: {e}"
+                    ))
+                }
+            },
+        })
+    }
+
+    /// Returns the path of the file, either from a Git blob or working tree.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the path to the file.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::path::Path;
+    /// use mini_git::core::objects::FileSource;
+    ///
+    /// let file_source = FileSource::Worktree { path: "file.txt".to_string() };
+    /// assert_eq!(file_source.path(), "file.txt");
+    /// ```
+    #[must_use]
+    pub fn path(&self) -> String {
+        match self {
+            FileSource::Blob { path, .. } | FileSource::Worktree { path } => {
+                path.clone()
+            }
+        }
+    }
+}
+
+impl AsRef<Path> for FileSource {
+    fn as_ref(&self) -> &Path {
+        use FileSource::{Blob, Worktree};
+        let (Worktree { ref path } | Blob { ref path, .. }) = self;
+        Path::new(path.as_str())
+    }
+}
+
+/// Retrieves files from a specified tree or the working directory if no tree is specified.
+///
+/// # Parameters
+/// - `repo`: A reference to the `GitRepository`.
+/// - `tree`: An optional reference to a tree identifier.
+///
+/// # Returns
+/// - `Ok(Vec<FileSource>)` containing files from the specified tree or working directory.
+/// - `Err(String)` if an error occurs while retrieving files.
+///
+/// # Errors
+/// - Returns an error if:
+///   - Files cannot be read from the specified tree.
+///   - The working directory cannot be accessed.
+pub(super) fn get_files(
+    repo: &GitRepository,
+    tree: Option<&str>,
+) -> Result<Vec<FileSource>, String> {
+    Ok(match tree {
+        // Get contents from the specified tree
+        Some(treeish) => {
+            tree::get_tree_files(repo, treeish)?.into_iter().collect()
+        }
+
+        // Get contents from the working directory
+        None => worktree::get_worktree_files(repo, None)?
+            .into_iter()
+            .collect(),
+    })
+}
+
+/// Collects all files that need to be processed, based on user-specified files or default paths.
+///
+/// # Parameters
+/// - `files1`: A slice of `FileSource` representing files from the first tree.
+/// - `files2`: A slice of `FileSource` representing files from the second tree.
+/// - `specified_files`: A slice of `String` with specific files to process, if any.
+///
+/// # Returns
+/// A `Vec<String>` containing paths to all files that need processing.
+pub(super) fn collect_files_to_process(
+    files1: &[FileSource],
+    files2: &[FileSource],
+    specified_files: &[String],
+) -> Vec<String> {
+    let mut all_files = HashSet::new();
+
+    if specified_files.is_empty() {
+        all_files.extend(files1.iter().map(FileSource::path));
+        all_files.extend(files2.iter().map(FileSource::path));
+    } else {
+        all_files.extend(specified_files.iter().cloned());
+    }
+
+    all_files.into_iter().collect()
 }
 
 #[cfg(test)]
@@ -718,7 +875,7 @@ mod tests {
         ];
 
         for obj in objects {
-            let mut expected_hash = SHA1::new();
+            let mut expected_hash = sha1::SHA1::new();
             let expected_hash = expected_hash
                 .update(obj.format())
                 .update(b" ")
@@ -748,7 +905,7 @@ mod tests {
 
         let digest = write_object(&blob, &repo).expect("Should write object");
 
-        let file = repo_file(
+        let file = path::repo_file(
             repo.gitdir(),
             &[OBJECTS_DIR, &digest[..2], &digest[2..]],
             false,
