@@ -9,15 +9,22 @@ pub mod show_ref;
 
 use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::core::objects::{self, tree, worktree};
 use crate::core::GitRepository;
+use crate::utils::path;
 
 #[derive(Debug)]
 enum FileSource {
     Blob { path: String, sha: String },
     Worktree { path: String },
+}
+
+struct RepositoryContext {
+    cwd: PathBuf,
+    repo_path: PathBuf,
+    repo: GitRepository,
 }
 
 impl FileSource {
@@ -154,4 +161,21 @@ fn collect_files_to_process(
     }
 
     all_files.into_iter().collect()
+}
+
+fn resolve_repository_context() -> Result<RepositoryContext, String> {
+    let cwd = std::env::current_dir().map_err(|_| {
+        "Could not determine current working directory".to_owned()
+    })?;
+
+    let repo_path = path::repo_find(&cwd)?
+        .canonicalize()
+        .map_err(|_| "Could not determine repository path".to_owned())?;
+    let repo = GitRepository::new(&repo_path)?;
+
+    Ok(RepositoryContext {
+        cwd,
+        repo_path,
+        repo,
+    })
 }

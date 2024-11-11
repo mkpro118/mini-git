@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use crate::core::commands::{resolve_repository_context, RepositoryContext};
 use crate::core::objects::{
     commit::Commit, find_object, read_object, traits::KVLM, GitObject,
 };
@@ -7,7 +8,6 @@ use crate::core::GitRepository;
 
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::datetime::DateTime;
-use crate::utils::path;
 
 const RESET: &str = "\x1b[0m";
 const YELLOW: &str = "\x1b[33m";
@@ -52,11 +52,7 @@ macro_rules! kvlm_msg_to_string {
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
 pub fn log(args: &Namespace) -> Result<String, String> {
-    let Ok(cwd) = std::env::current_dir() else {
-        return Err("Could not determine current working directory".to_owned());
-    };
-    let path = path::repo_find(cwd)?;
-    let repo = GitRepository::new(&path)?;
+    let RepositoryContext { repo, .. } = resolve_repository_context()?;
 
     let max_commits = option_to_int!(args.get("max"), usize::MAX, "max");
     let oneline = args.get("oneline").is_some();

@@ -1,4 +1,6 @@
+use crate::core::commands::resolve_repository_context;
 use crate::core::commands::show_ref;
+use crate::core::commands::RepositoryContext;
 use crate::core::{objects, GitRepository};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::path;
@@ -41,12 +43,7 @@ const OPTION_MAP: &[(&str, PathFunc)] = &[
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
 pub fn rev_parse(args: &Namespace) -> Result<String, String> {
-    let cwd = path::current_dir()?;
-
-    let repo_path = path::repo_find(&cwd)?
-        .canonicalize()
-        .map_err(|_| "Could not determine repository path".to_owned())?;
-    let repo = GitRepository::new(&repo_path)?;
+    let RepositoryContext { repo, .. } = resolve_repository_context()?;
 
     let mut output = String::new();
 

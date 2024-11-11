@@ -1,7 +1,7 @@
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::collections::kvlm;
-use crate::utils::path;
 
+use crate::core::commands::{resolve_repository_context, RepositoryContext};
 use crate::core::objects;
 use crate::core::objects::traits::KVLM;
 use crate::core::objects::GitObject;
@@ -20,12 +20,7 @@ use crate::core::GitRepository;
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
 pub fn ls_tree(args: &Namespace) -> Result<String, String> {
-    let Ok(cwd) = std::env::current_dir() else {
-        return Err("Could not determined current working directory".to_owned());
-    };
-
-    let repo = path::repo_find(cwd)?;
-    let repo = GitRepository::new(&repo)?;
+    let RepositoryContext { repo, .. } = resolve_repository_context()?;
     let recursive = args.get("recursive").is_some();
     let tree_ref = &args["tree"];
     let show_trees = args.get("show-trees").is_some();

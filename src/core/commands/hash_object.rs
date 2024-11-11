@@ -1,10 +1,9 @@
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
-use crate::utils::path;
 
+use crate::core::commands::{resolve_repository_context, RepositoryContext};
 use crate::core::objects::traits::{Deserialize, KVLM};
 use crate::core::objects::{self, write_object, GitObject};
 use crate::core::objects::{blob::Blob, commit::Commit, tag::Tag, tree::Tree};
-use crate::core::GitRepository;
 
 /// Computes the hash for a git object
 ///
@@ -27,14 +26,7 @@ pub fn hash_object(args: &Namespace) -> Result<String, String> {
     let obj = make_object(&args["type"].to_lowercase(), &data)?;
 
     let sha = if matches!(args.get("write"), Some(..)) {
-        let Ok(cwd) = std::env::current_dir() else {
-            return Err(
-                "Could not determined current working directory".to_owned()
-            );
-        };
-
-        let repo = path::repo_find(cwd)?;
-        let repo = GitRepository::new(&repo)?;
+        let RepositoryContext { repo, .. } = resolve_repository_context()?;
         write_object(&obj, &repo)?
     } else {
         let (_, mut sha) = objects::hash_object(&obj);

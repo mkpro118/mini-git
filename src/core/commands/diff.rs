@@ -1,15 +1,16 @@
+use crate::core::commands::resolve_repository_context;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
 
 use crate::core::commands::{
     collect_files_to_process, get_file_contents, resolve_cla_files, FileSource,
+    RepositoryContext,
 };
 use crate::core::objects::{self, blob::Blob, tree};
 use crate::core::GitRepository;
 
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
-use crate::utils::path;
 
 const RESET: &str = "\x1b[0m";
 const RED: &str = "\x1b[31m";
@@ -63,14 +64,11 @@ enum Change {
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions)]
 pub fn diff(args: &Namespace) -> Result<String, String> {
-    let cwd = std::env::current_dir().map_err(|_| {
-        "Could not determine current working directory".to_owned()
-    })?;
-
-    let repo_path = path::repo_find(&cwd)?
-        .canonicalize()
-        .map_err(|_| "Could not determine repository path".to_owned())?;
-    let repo = GitRepository::new(&repo_path)?;
+    let RepositoryContext {
+        repo,
+        cwd,
+        repo_path,
+    } = resolve_repository_context()?;
 
     // Parse arguments
     let name_only = args.get("name-only").is_some();
