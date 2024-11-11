@@ -8,7 +8,7 @@ pub mod worktree;
 
 use std::collections::HashSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::core::GitRepository;
 use crate::utils::collections::ordered_map::OrderedMap;
