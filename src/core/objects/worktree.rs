@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::core::GitRepository;
+use crate::core::{commands::FileSource, GitRepository};
 
 /// Retrieves a list of all file paths in the worktree of a given Git repository,
 /// optionally starting from a specified subdirectory.
@@ -45,7 +45,7 @@ use crate::core::GitRepository;
 pub fn get_worktree_files(
     repo: &GitRepository,
     top: Option<&Path>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<FileSource>, String> {
     let mut paths = Vec::new();
     let work_tree = repo.worktree();
     let base = top
@@ -63,7 +63,7 @@ pub fn get_worktree_files(
 fn collect_worktree_files(
     base: &Path,
     current: &Path,
-    paths: &mut Vec<String>,
+    paths: &mut Vec<FileSource>,
 ) -> Result<(), String> {
     for entry in std::fs::read_dir(current)
         .map_err(|e| format!("Failed to read directory: {e}"))?
@@ -86,7 +86,9 @@ fn collect_worktree_files(
             let relative = path
                 .strip_prefix(base)
                 .map_err(|_| "Failed to get relative path".to_owned())?;
-            paths.push(relative.as_os_str().to_string_lossy().into_owned());
+            paths.push(FileSource::Worktree {
+                path: relative.as_os_str().to_string_lossy().into_owned(),
+            });
         } else if path.is_dir() {
             collect_worktree_files(base, &path, paths)?;
         }
