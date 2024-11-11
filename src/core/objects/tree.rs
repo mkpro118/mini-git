@@ -11,13 +11,11 @@
 //! and format identification.
 
 use crate::core::GitRepository;
-use crate::core::{
-    commands::FileSource,
-    objects::{
-        self,
-        traits::{self, KVLM},
-        GitObject,
-    },
+use crate::core::objects::traits;
+use crate::core::objects::{
+    self,
+    FileSource,
+    GitObject,
 };
 use crate::utils::hex;
 
@@ -288,6 +286,7 @@ impl Tree {
     /// - The HEAD reference does not point to a valid commit.
     /// - The commit object does not contain a tree SHA.
     pub fn get_head_tree_sha(repo: &GitRepository) -> Result<String, String> {
+        use crate::core::objects::traits::KVLM;
         let head_ref =
             objects::find_object(repo, "HEAD", Some("commit"), true)?;
         let head_obj = objects::read_object(repo, &head_ref)?;
@@ -408,7 +407,7 @@ impl Default for Tree {
 /// ```no_run
 /// # use std::path::Path;
 /// # use mini_git::core::GitRepository;
-/// # use mini_git::core::commands::FileSource;
+/// # use mini_git::core::objects::FileSource;
 /// # use mini_git::core::objects::tree::get_tree_files;
 ///
 /// let repo = GitRepository::new(Path::new("path/to/repo"))?;
