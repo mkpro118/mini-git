@@ -17,7 +17,7 @@ use crate::utils::path;
 
 /// Represents the source of a file, either from a Git blob or the working tree.
 #[derive(Debug)]
-enum FileSource {
+pub enum FileSource {
     /// A file stored in a Git blob, with a specific path and SHA identifier.
     Blob { path: String, sha: String },
 
@@ -28,15 +28,15 @@ enum FileSource {
 /// Holds the context of a Git repository, including the current working directory,
 /// repository path, and a reference to the Git repository.
 #[derive(Debug)]
-struct RepositoryContext {
+pub struct RepositoryContext {
     /// The current working directory, resolved when `resolve_repository_context` is called.
-    cwd: PathBuf,
+    pub cwd: PathBuf,
 
     /// The absolute path to the root of the repository's worktree.
-    repo_path: PathBuf,
+    pub repo_path: PathBuf,
 
     /// The `GitRepository` representing the current repository.
-    repo: GitRepository,
+    pub repo: GitRepository,
 }
 
 impl FileSource {
@@ -59,11 +59,17 @@ impl FileSource {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// use mini_git::core::commands::{FileSource, RepositoryContext, resolve_repository_context};
+    ///
+    /// let RepositoryContext { repo, .. } = resolve_repository_context()?;
+    ///
     /// let file_source = FileSource::Blob { path: "file.txt".to_string(), sha: "abc123".to_string() };
     /// let contents = file_source.contents(&repo)?;
+    ///
+    /// # Ok::<(), String>(())
     /// ```
-    fn contents(&self, repo: &GitRepository) -> Result<Vec<u8>, String> {
+    pub fn contents(&self, repo: &GitRepository) -> Result<Vec<u8>, String> {
         Ok(match self {
             FileSource::Blob { sha, .. } => {
                 match objects::read_object(repo, sha)? {
@@ -96,10 +102,13 @@ impl FileSource {
     /// # Examples
     ///
     /// ```
+    /// use std::path::Path;
+    /// use mini_git::core::commands::FileSource;
+    ///
     /// let file_source = FileSource::Worktree { path: "file.txt".to_string() };
-    /// let path = file_source.path();
+    /// assert_eq!(file_source.path(), "file.txt");
     /// ```
-    fn path(&self) -> String {
+    pub fn path(&self) -> String {
         match self {
             FileSource::Blob { path, .. } | FileSource::Worktree { path } => {
                 path.clone()
@@ -127,9 +136,14 @@ impl FileSource {
 ///
 /// # Examples
 /// ```
+/// use mini_git::core::commands::{RepositoryContext, resolve_cla_files, resolve_repository_context};
+/// let RepositoryContext {cwd, repo, ..} = resolve_repository_context()?;
+///
 /// let resolved_files = resolve_cla_files(&repo, &cwd, "src/main.rs,src/lib.rs")?;
+///
+/// # Ok::<(), String>(())
 /// ```
-fn resolve_cla_files(
+pub fn resolve_cla_files(
     repo: &GitRepository,
     cwd: &Path,
     files: &str,
@@ -196,11 +210,6 @@ fn resolve_cla_files(
 /// - Returns an error if:
 ///   - Files cannot be read from the specified tree.
 ///   - The working directory cannot be accessed.
-///
-/// # Examples
-/// ```
-/// let files = get_files(&repo, Some("main"))?;
-/// ```
 fn get_files(
     repo: &GitRepository,
     tree: Option<&str>,
@@ -229,11 +238,6 @@ fn get_files(
 ///
 /// # Returns
 /// A `Vec<String>` containing paths to all files that need processing.
-///
-/// # Examples
-/// ```
-/// let files_to_process = collect_files_to_process(&files1, &files2, &["src/lib.rs".to_string()]);
-/// ```
 fn collect_files_to_process(
     files1: &[FileSource],
     files2: &[FileSource],
@@ -263,12 +267,7 @@ fn collect_files_to_process(
 ///   - The current working directory cannot be determined.
 ///   - The repository path cannot be determined.
 ///   - The Git repository object cannot be initialized.
-///
-/// # Examples
-/// ```
-/// let repo_context = resolve_repository_context()?;
-/// ```
-fn resolve_repository_context() -> Result<RepositoryContext, String> {
+pub fn resolve_repository_context() -> Result<RepositoryContext, String> {
     let cwd = std::env::current_dir().map_err(|_| {
         "Could not determine current working directory".to_owned()
     })?;
