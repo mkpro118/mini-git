@@ -117,6 +117,14 @@ impl FileSource {
     }
 }
 
+impl AsRef<Path> for FileSource {
+    fn as_ref(&self) -> &Path {
+        use FileSource::{Blob, Worktree};
+        let (Worktree { ref path } | Blob { ref path, .. }) = self;
+        Path::new(path.as_str())
+    }
+}
+
 /// Resolves files specified on the command line to paths relative to the repository root.
 ///
 /// # Parameters
@@ -216,15 +224,13 @@ fn get_files(
 ) -> Result<Vec<FileSource>, String> {
     Ok(match tree {
         // Get contents from the specified tree
-        Some(treeish) => tree::get_tree_files(repo, treeish)?
-            .into_iter()
-            .map(|(path, sha)| FileSource::Blob { path, sha })
-            .collect(),
+        Some(treeish) => {
+            tree::get_tree_files(repo, treeish)?.into_iter().collect()
+        }
 
         // Get contents from the working directory
         None => worktree::get_worktree_files(repo, None)?
             .into_iter()
-            .map(|path| FileSource::Worktree { path })
             .collect(),
     })
 }
