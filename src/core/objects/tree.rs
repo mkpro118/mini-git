@@ -10,12 +10,15 @@
 //! Git-compatible operations such as serialization, deserialization,
 //! and format identification.
 
-use crate::core::objects::{
-    self,
-    traits::{self, KVLM},
-    GitObject,
-};
 use crate::core::GitRepository;
+use crate::core::{
+    commands::FileSource,
+    objects::{
+        self,
+        traits::{self, KVLM},
+        GitObject,
+    },
+};
 use crate::utils::hex;
 
 /// The byte representation of a space character.
@@ -387,9 +390,10 @@ impl Default for Tree {
 /// # Returns
 ///
 /// Returns a `Result` containing:
-/// * `Ok(Vec<(String, String)>)` - A vector of tuples, where each tuple consists
-///   of a file path (relative to the tree's root) and the corresponding SHA hash
-///   of the file.
+/// * `Ok(Vec<FileSource>)` - A vector of `FileSource::Blob`s, which contains
+///   the file path (relative to the tree's root) and the corresponding SHA hash
+///   of tree's version of the file. This function will never return any other
+///   variant of `FileSource`
 /// * `Err(String)` - An error message if any operation fails, such as reading
 ///   the tree object or encountering an unknown object type.
 ///
@@ -404,12 +408,16 @@ impl Default for Tree {
 /// ```no_run
 /// # use std::path::Path;
 /// # use mini_git::core::GitRepository;
+/// # use mini_git::core::commands::FileSource;
 /// # use mini_git::core::objects::tree::get_tree_files;
-/// #
+///
 /// let repo = GitRepository::new(Path::new("path/to/repo"))?;
 /// let tree_sha = "abcdef1234567890"; // Example tree SHA
 /// let files = get_tree_files(&repo, tree_sha)?;
-/// for (path, sha) in files {
+/// for file in files {
+///     let FileSource::Blob {path, sha} = file else {
+///         unreachable!("Should not get worktree files from a git tree")
+///     };
 ///     println!("{}: {}", path, sha);
 /// }
 ///
@@ -418,7 +426,7 @@ impl Default for Tree {
 pub fn get_tree_files(
     repo: &GitRepository,
     tree_sha: &str,
-) -> Result<Vec<(String, String)>, String> {
+) -> Result<Vec<FileSource>, String> {
     let mut contents = Vec::new();
     collect_tree_files(repo, tree_sha, "", &mut contents)?;
     Ok(contents)
@@ -428,7 +436,7 @@ fn collect_tree_files(
     repo: &GitRepository,
     tree_sha: &str,
     prefix: &str,
-    contents: &mut Vec<(String, String)>,
+    contents: &mut Vec<FileSource>,
 ) -> Result<(), String> {
     let tree_obj = objects::read_object(repo, tree_sha)?;
 
@@ -442,7 +450,10 @@ fn collect_tree_files(
 
             match leaf.obj_type() {
                 Some("blob") => {
-                    contents.push((path, leaf.sha().to_string()));
+                    contents.push(FileSource::Blob {
+                        path,
+                        sha: leaf.sha().to_string(),
+                    });
                 }
                 Some("tree") => {
                     collect_tree_files(repo, leaf.sha(), &path, contents)?;
