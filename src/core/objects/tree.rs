@@ -10,13 +10,9 @@
 //! Git-compatible operations such as serialization, deserialization,
 //! and format identification.
 
-use crate::core::GitRepository;
 use crate::core::objects::traits;
-use crate::core::objects::{
-    self,
-    FileSource,
-    GitObject,
-};
+use crate::core::objects::{self, FileSource, GitObject};
+use crate::core::GitRepository;
 use crate::utils::hex;
 
 /// The byte representation of a space character.
