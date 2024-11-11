@@ -15,19 +15,54 @@ use crate::core::objects::{self, tree, worktree};
 use crate::core::GitRepository;
 use crate::utils::path;
 
+/// Represents the source of a file, either from a Git blob or the working tree.
 #[derive(Debug)]
 enum FileSource {
+    /// A file stored in a Git blob, with a specific path and SHA identifier.
     Blob { path: String, sha: String },
+
+    /// A file located in the working tree with a specified path.
     Worktree { path: String },
 }
 
+/// Holds the context of a Git repository, including the current working directory,
+/// repository path, and a reference to the Git repository.
+#[derive(Debug)]
 struct RepositoryContext {
+    /// The current working directory, resolved when `resolve_repository_context` is called.
     cwd: PathBuf,
+
+    /// The absolute path to the root of the repository's worktree.
     repo_path: PathBuf,
+
+    /// The `GitRepository` representing the current repository.
     repo: GitRepository,
 }
 
 impl FileSource {
+    /// Retrieves the contents of the file source.
+    ///
+    /// # Arguments
+    ///
+    /// * `repo` - Reference to the Git repository.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the file contents as a vector of bytes if successful,
+    /// or an error message if reading the contents failed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///   - For `Blob` sources, the object is not a blob.
+    ///   - For `Worktree` sources, the file could not be read from the filesystem.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let file_source = FileSource::Blob { path: "file.txt".to_string(), sha: "abc123".to_string() };
+    /// let contents = file_source.contents(&repo)?;
+    /// ```
     fn contents(&self, repo: &GitRepository) -> Result<Vec<u8>, String> {
         Ok(match self {
             FileSource::Blob { sha, .. } => {
@@ -52,6 +87,18 @@ impl FileSource {
         })
     }
 
+    /// Returns the path of the file, either from a Git blob or working tree.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the path to the file.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let file_source = FileSource::Worktree { path: "file.txt".to_string() };
+    /// let path = file_source.path();
+    /// ```
     fn path(&self) -> String {
         match self {
             FileSource::Blob { path, .. } | FileSource::Worktree { path } => {
@@ -61,7 +108,27 @@ impl FileSource {
     }
 }
 
-// Resolves files passed in on the command line
+/// Resolves files specified on the command line to paths relative to the repository root.
+///
+/// # Parameters
+/// - `repo`: A reference to the `GitRepository`.
+/// - `cwd`: The current working directory.
+/// - `files`: A comma-separated list of file paths to resolve.
+///
+/// # Returns
+/// - `Ok(Vec<String>)` with paths relative to the repository root.
+/// - `Err(String)` if any file cannot be resolved.
+///
+/// # Errors
+/// - Returns an error if:
+///   - Any file cannot be canonicalized.
+///   - Any specified file does not exist.
+///   - A directory could not be processed correctly.
+///
+/// # Examples
+/// ```
+/// let resolved_files = resolve_cla_files(&repo, &cwd, "src/main.rs,src/lib.rs")?;
+/// ```
 fn resolve_cla_files(
     repo: &GitRepository,
     cwd: &Path,
@@ -126,6 +193,25 @@ fn get_file_contents(
     Ok((files1, files2))
 }
 
+/// Retrieves files from a specified tree or the working directory if no tree is specified.
+///
+/// # Parameters
+/// - `repo`: A reference to the `GitRepository`.
+/// - `tree`: An optional reference to a tree identifier.
+///
+/// # Returns
+/// - `Ok(Vec<FileSource>)` containing files from the specified tree or working directory.
+/// - `Err(String)` if an error occurs while retrieving files.
+///
+/// # Errors
+/// - Returns an error if:
+///   - Files cannot be read from the specified tree.
+///   - The working directory cannot be accessed.
+///
+/// # Examples
+/// ```
+/// let files = get_files(&repo, Some("main"))?;
+/// ```
 fn get_files(
     repo: &GitRepository,
     tree: Option<&str>,
@@ -145,7 +231,20 @@ fn get_files(
     })
 }
 
-// Collects all files that need to be processed
+/// Collects all files that need to be processed, based on user-specified files or default paths.
+///
+/// # Parameters
+/// - `files1`: A slice of `FileSource` representing files from the first tree.
+/// - `files2`: A slice of `FileSource` representing files from the second tree.
+/// - `specified_files`: A slice of `String` with specific files to process, if any.
+///
+/// # Returns
+/// A `Vec<String>` containing paths to all files that need processing.
+///
+/// # Examples
+/// ```
+/// let files_to_process = collect_files_to_process(&files1, &files2, &["src/lib.rs".to_string()]);
+/// ```
 fn collect_files_to_process(
     files1: &[FileSource],
     files2: &[FileSource],
@@ -163,6 +262,23 @@ fn collect_files_to_process(
     all_files.into_iter().collect()
 }
 
+/// Resolves the repository context, including the current working directory, repository path,
+/// and repository object.
+///
+/// # Returns
+/// - `Ok(RepositoryContext)` containing the current working directory, repository path, and Git repository object.
+/// - `Err(String)` if the repository context cannot be determined.
+///
+/// # Errors
+/// - Returns an error if:
+///   - The current working directory cannot be determined.
+///   - The repository path cannot be determined.
+///   - The Git repository object cannot be initialized.
+///
+/// # Examples
+/// ```
+/// let repo_context = resolve_repository_context()?;
+/// ```
 fn resolve_repository_context() -> Result<RepositoryContext, String> {
     let cwd = std::env::current_dir().map_err(|_| {
         "Could not determine current working directory".to_owned()
