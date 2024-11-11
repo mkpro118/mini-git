@@ -1,10 +1,12 @@
+use crate::core::commands::resolve_repository_context;
+use crate::core::commands::RepositoryContext;
 use std::path::PathBuf;
 
 use crate::core::objects::traits::KVLM;
 use crate::core::objects::{self, read_object, resolve_ref, GitObject};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::collections::ordered_map::OrderedMap;
-use crate::utils::path::{self, repo_find};
+use crate::utils::path;
 
 use crate::core::GitRepository;
 
@@ -31,8 +33,7 @@ const TAG_REFS: &str = "refs/tags";
 /// A [`String`] message describing the error is returned.
 #[allow(clippy::module_name_repetitions, clippy::missing_panics_doc)]
 pub fn show_ref(args: &Namespace) -> Result<String, String> {
-    let repo = repo_find(".")?;
-    let repo = GitRepository::new(&repo)?;
+    let RepositoryContext { repo, .. } = resolve_repository_context()?;
 
     let filter = args.get("pattern").and_then(|x| {
         if x == "*" {
