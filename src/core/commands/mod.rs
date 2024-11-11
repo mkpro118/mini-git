@@ -182,17 +182,6 @@ fn resolve_cla_files(
     Ok(resolved_files)
 }
 
-// Gets file contents from both trees
-fn get_file_contents(
-    repo: &GitRepository,
-    tree1: Option<&str>,
-    tree2: Option<&str>,
-) -> Result<(Vec<FileSource>, Vec<FileSource>), String> {
-    let files1 = get_files(repo, tree1)?;
-    let files2 = get_files(repo, tree2)?;
-    Ok((files1, files2))
-}
-
 /// Retrieves files from a specified tree or the working directory if no tree is specified.
 ///
 /// # Parameters
