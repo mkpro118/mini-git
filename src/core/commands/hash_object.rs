@@ -1,9 +1,9 @@
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 
-use crate::core::commands::{resolve_repository_context, RepositoryContext};
 use crate::core::objects::traits::{Deserialize, KVLM};
 use crate::core::objects::{self, write_object, GitObject};
 use crate::core::objects::{blob::Blob, commit::Commit, tag::Tag, tree::Tree};
+use crate::core::{resolve_repository_context, RepositoryContext};
 
 /// Computes the hash for a git object
 ///

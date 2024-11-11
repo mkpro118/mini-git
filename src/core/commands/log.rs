@@ -1,10 +1,10 @@
 use std::fmt::Write;
 
-use crate::core::commands::{resolve_repository_context, RepositoryContext};
-use crate::core::objects::{
-    commit::Commit, find_object, read_object, traits::KVLM, GitObject,
+use crate::core::objects::{commit::Commit, traits::KVLM};
+use crate::core::objects::{find_object, read_object, GitObject};
+use crate::core::{
+    resolve_repository_context, GitRepository, RepositoryContext,
 };
-use crate::core::GitRepository;
 
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::datetime::DateTime;

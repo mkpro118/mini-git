@@ -1,7 +1,9 @@
-use crate::core::commands::resolve_repository_context;
 use crate::core::commands::show_ref;
-use crate::core::commands::RepositoryContext;
-use crate::core::{objects, GitRepository};
+use crate::core::objects;
+use crate::core::{
+    resolve_repository_context, GitRepository, RepositoryContext,
+};
+
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::path;
 
