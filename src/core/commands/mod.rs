@@ -108,6 +108,7 @@ impl FileSource {
     /// let file_source = FileSource::Worktree { path: "file.txt".to_string() };
     /// assert_eq!(file_source.path(), "file.txt");
     /// ```
+    #[must_use]
     pub fn path(&self) -> String {
         match self {
             FileSource::Blob { path, .. } | FileSource::Worktree { path } => {
