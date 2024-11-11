@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::thread;
 
 use crate::core::commands::{
-    collect_files_to_process, get_file_contents, resolve_cla_files, FileSource,
+    collect_files_to_process, get_files, resolve_cla_files, FileSource,
     RepositoryContext,
 };
 use crate::core::objects::{self, blob::Blob, tree};
@@ -153,6 +153,17 @@ fn resolve_trees<'a>(
         }
         _ => Err("Invalid tree arguments".to_owned()),
     }
+}
+
+// Gets file contents from both trees
+fn get_file_contents(
+    repo: &GitRepository,
+    tree1: Option<&str>,
+    tree2: Option<&str>,
+) -> Result<(Vec<FileSource>, Vec<FileSource>), String> {
+    let files1 = get_files(repo, tree1)?;
+    let files2 = get_files(repo, tree2)?;
+    Ok((files1, files2))
 }
 
 // Processes files in parallel using threads
