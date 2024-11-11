@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::core::{commands::FileSource, GitRepository};
+use crate::core::{objects::FileSource, GitRepository};
 
 /// Retrieves a list of all file paths in the worktree of a given Git repository,
 /// optionally starting from a specified subdirectory.
