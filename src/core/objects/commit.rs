@@ -34,6 +34,16 @@ impl Commit {
     }
 }
 
+impl Default for Commit {
+    /// Creates a default (empty) Commit object.
+    ///
+    /// # Returns
+    /// A new, empty `Commit` instance.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl traits::Format for Commit {
     /// Returns the format identifier for Git commit objects.
     ///
@@ -63,15 +73,5 @@ impl traits::KVLM for Commit {
     /// A reference to the KVLM structure containing the commit's metadata.
     fn kvlm(&self) -> &crate::utils::collections::kvlm::KVLM {
         &self.kvlm
-    }
-}
-
-impl Default for Commit {
-    /// Creates a default (empty) Commit object.
-    ///
-    /// # Returns
-    /// A new, empty `Commit` instance.
-    fn default() -> Self {
-        Self::new()
     }
 }

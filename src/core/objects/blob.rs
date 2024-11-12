@@ -84,45 +84,6 @@ impl Blob {
     }
 }
 
-impl traits::Format for Blob {
-    /// Returns the format identifier for Git blob objects.
-    ///
-    /// # Returns
-    /// A static byte slice containing the ASCII representation of "blob".
-    fn format() -> &'static [u8] {
-        const FORMAT: &[u8] = b"blob";
-        FORMAT
-    }
-}
-
-impl traits::Serialize for Blob {
-    /// Serializes the blob's data.
-    ///
-    /// # Returns
-    /// A `Vec<u8>` containing a copy of the blob's data.
-    fn serialize(&self) -> Vec<u8> {
-        self.data.clone()
-    }
-}
-
-impl traits::Deserialize for Blob {
-    /// Deserializes a byte slice into a Blob.
-    ///
-    /// # Arguments
-    /// - `data` - A byte slice containing the data to be deserialized.
-    ///
-    /// # Returns
-    /// A `Result` containing either the deserialized `Blob` instance or an error message.
-    ///
-    /// # Errors
-    /// This implementation always succeeds, so it never returns an `Err` variant.
-    fn deserialize(data: &[u8]) -> Result<Self, String> {
-        Ok(Blob {
-            data: Vec::from(data),
-        })
-    }
-}
-
 impl Default for Blob {
     /// Creates a default (empty) Blob.
     ///
@@ -145,6 +106,45 @@ impl From<&[u8]> for Blob {
         Self {
             data: data.to_vec(),
         }
+    }
+}
+
+impl traits::Format for Blob {
+    /// Returns the format identifier for Git blob objects.
+    ///
+    /// # Returns
+    /// A static byte slice containing the ASCII representation of "blob".
+    fn format() -> &'static [u8] {
+        const FORMAT: &[u8] = b"blob";
+        FORMAT
+    }
+}
+
+impl traits::Deserialize for Blob {
+    /// Deserializes a byte slice into a Blob.
+    ///
+    /// # Arguments
+    /// - `data` - A byte slice containing the data to be deserialized.
+    ///
+    /// # Returns
+    /// A `Result` containing either the deserialized `Blob` instance or an error message.
+    ///
+    /// # Errors
+    /// This implementation always succeeds, so it never returns an `Err` variant.
+    fn deserialize(data: &[u8]) -> Result<Self, String> {
+        Ok(Blob {
+            data: Vec::from(data),
+        })
+    }
+}
+
+impl traits::Serialize for Blob {
+    /// Serializes the blob's data.
+    ///
+    /// # Returns
+    /// A `Vec<u8>` containing a copy of the blob's data.
+    fn serialize(&self) -> Vec<u8> {
+        self.data.clone()
     }
 }
 

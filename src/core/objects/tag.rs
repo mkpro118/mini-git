@@ -34,6 +34,16 @@ impl Tag {
     }
 }
 
+impl Default for Tag {
+    /// Creates a default (empty) Tag object.
+    ///
+    /// # Returns
+    /// A new, empty `Tag` instance.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl traits::Format for Tag {
     /// Returns the format identifier for Git tag objects.
     ///
@@ -63,15 +73,5 @@ impl traits::KVLM for Tag {
     /// A reference to the KVLM structure containing the tag's metadata.
     fn kvlm(&self) -> &crate::utils::collections::kvlm::KVLM {
         &self.kvlm
-    }
-}
-
-impl Default for Tag {
-    /// Creates a default (empty) Tag object.
-    ///
-    /// # Returns
-    /// A new, empty `Tag` instance.
-    fn default() -> Self {
-        Self::new()
     }
 }
