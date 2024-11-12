@@ -38,13 +38,6 @@ pub struct Leaf {
     len: usize,
 }
 
-/// Represents a Git tree object, containing multiple leaf entries.
-#[derive(Debug)]
-pub struct Tree {
-    /// The collection of leaf entries in this tree.
-    leaves: Vec<Leaf>,
-}
-
 impl Leaf {
     /// Create a Leaf with the given params
     #[must_use]
@@ -122,13 +115,13 @@ impl Leaf {
     }
 }
 
+impl Eq for Leaf {}
+
 impl PartialEq for Leaf {
     fn eq(&self, other: &Self) -> bool {
         self.sha == other.sha
     }
 }
-
-impl Eq for Leaf {}
 
 impl PartialOrd for Leaf {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -238,6 +231,13 @@ impl traits::Serialize for Leaf {
     }
 }
 
+/// Represents a Git tree object, containing multiple leaf entries.
+#[derive(Debug)]
+pub struct Tree {
+    /// The collection of leaf entries in this tree.
+    leaves: Vec<Leaf>,
+}
+
 impl Tree {
     /// Creates a new, empty Tree object.
     ///
@@ -300,6 +300,16 @@ impl Tree {
     }
 }
 
+impl Default for Tree {
+    /// Creates a default (empty) Tree object.
+    ///
+    /// # Returns
+    /// A new, empty `Tree` instance.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl traits::Format for Tree {
     /// Returns the format identifier for Git tree objects.
     ///
@@ -308,28 +318,6 @@ impl traits::Format for Tree {
     fn format() -> &'static [u8] {
         const FORMAT: &[u8] = b"tree";
         FORMAT
-    }
-}
-
-impl traits::Serialize for Tree {
-    /// Serializes the Tree object into a byte vector.
-    ///
-    /// # Returns
-    /// A `Vec<u8>` containing the serialized tree data.
-    ///
-    /// # Note
-    /// This method is currently unimplemented.
-    fn serialize(&self) -> Vec<u8> {
-        let mut leaves = self.leaves.iter().collect::<Vec<_>>();
-        leaves.sort();
-
-        leaves.iter().map(|leaf| leaf.serialize()).fold(
-            vec![],
-            |mut acc, ser| {
-                acc.extend_from_slice(&ser);
-                acc
-            },
-        )
     }
 }
 
@@ -359,13 +347,25 @@ impl traits::Deserialize for Tree {
     }
 }
 
-impl Default for Tree {
-    /// Creates a default (empty) Tree object.
+impl traits::Serialize for Tree {
+    /// Serializes the Tree object into a byte vector.
     ///
     /// # Returns
-    /// A new, empty `Tree` instance.
-    fn default() -> Self {
-        Self::new()
+    /// A `Vec<u8>` containing the serialized tree data.
+    ///
+    /// # Note
+    /// This method is currently unimplemented.
+    fn serialize(&self) -> Vec<u8> {
+        let mut leaves = self.leaves.iter().collect::<Vec<_>>();
+        leaves.sort();
+
+        leaves.iter().map(|leaf| leaf.serialize()).fold(
+            vec![],
+            |mut acc, ser| {
+                acc.extend_from_slice(&ser);
+                acc
+            },
+        )
     }
 }
 

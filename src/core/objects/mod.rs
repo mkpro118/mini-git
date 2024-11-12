@@ -17,9 +17,139 @@ use crate::utils::sha1;
 use crate::utils::zlib;
 use traits::{Deserialize, Format, Serialize, KVLM};
 
+// Defined below
+use GitObject::{Blob, Commit, Tag, Tree};
+
 static OBJECTS_DIR: &str = "objects";
 static SPACE_BYTE: u8 = b' ';
 static NULL_BYTE: u8 = b'\0';
+
+/// Represents the source of a file, either from a Git blob or the working tree.
+#[derive(Debug)]
+pub enum FileSource {
+    /// A file stored in a Git blob, with a specific path and SHA identifier.
+    Blob { path: String, sha: String },
+
+    /// A file located in the working tree with a specified path.
+    Worktree { path: String },
+}
+
+impl FileSource {
+    /// Retrieves the contents of the file source.
+    ///
+    /// # Arguments
+    ///
+    /// * `repo` - Reference to the Git repository.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the file contents as a vector of bytes if successful,
+    /// or an error message if reading the contents failed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///   - For `Blob` sources, the object is not a blob.
+    ///   - For `Worktree` sources, the file could not be read from the filesystem.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use mini_git::core::{RepositoryContext, resolve_repository_context};
+    /// use mini_git::core::objects::FileSource;
+    ///
+    /// let RepositoryContext { repo, .. } = resolve_repository_context()?;
+    ///
+    /// let file_source = FileSource::Blob { path: "file.txt".to_string(), sha: "abc123".to_string() };
+    /// let contents = file_source.contents(&repo)?;
+    ///
+    /// # Ok::<(), String>(())
+    /// ```
+    pub fn contents(&self, repo: &GitRepository) -> Result<Vec<u8>, String> {
+        Ok(match self {
+            FileSource::Blob { sha, .. } => match read_object(repo, sha)? {
+                GitObject::Blob(blob) => blob.data,
+                x => {
+                    return Err(format!(
+                        "Expect object {sha} to be a blob, but was {}",
+                        String::from_utf8_lossy(x.format())
+                    ))
+                }
+            },
+            FileSource::Worktree { path } => match fs::read(path) {
+                Ok(data) => data,
+                Err(e) => {
+                    return Err(format!(
+                        "Failed to read file {path}! Error: {e}"
+                    ))
+                }
+            },
+        })
+    }
+
+    /// Returns the path of the file, either from a Git blob or working tree.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the path to the file.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::path::Path;
+    /// use mini_git::core::objects::FileSource;
+    ///
+    /// let file_source = FileSource::Worktree { path: "file.txt".to_string() };
+    /// assert_eq!(file_source.path(), "file.txt");
+    /// ```
+    #[must_use]
+    pub fn path(&self) -> String {
+        match self {
+            FileSource::Blob { path, .. } | FileSource::Worktree { path } => {
+                path.clone()
+            }
+        }
+    }
+}
+
+impl AsRef<Path> for FileSource {
+    fn as_ref(&self) -> &Path {
+        use FileSource::{Blob, Worktree};
+        let (Worktree { ref path } | Blob { ref path, .. }) = self;
+        Path::new(path.as_str())
+    }
+}
+
+/// Retrieves files from a specified tree or the working directory if no tree is specified.
+///
+/// # Parameters
+/// - `repo`: A reference to the `GitRepository`.
+/// - `tree`: An optional reference to a tree identifier.
+///
+/// # Returns
+/// - `Ok(Vec<FileSource>)` containing files from the specified tree or working directory.
+/// - `Err(String)` if an error occurs while retrieving files.
+///
+/// # Errors
+/// - Returns an error if:
+///   - Files cannot be read from the specified tree.
+///   - The working directory cannot be accessed.
+pub(super) fn get_files(
+    repo: &GitRepository,
+    tree: Option<&str>,
+) -> Result<Vec<FileSource>, String> {
+    Ok(match tree {
+        // Get contents from the specified tree
+        Some(treeish) => {
+            tree::get_tree_files(repo, treeish)?.into_iter().collect()
+        }
+
+        // Get contents from the working directory
+        None => worktree::get_worktree_files(repo, None)?
+            .into_iter()
+            .collect(),
+    })
+}
 
 /// Represents one of the four types of objects git uses
 /// - blobs
@@ -34,8 +164,6 @@ pub enum GitObject {
     Tag(tag::Tag),
     Tree(tree::Tree),
 }
-
-use GitObject::{Blob, Commit, Tag, Tree};
 
 // This is the common implementation for GitObject
 // The functions defined here are basically dispatch functions that choose the
@@ -186,6 +314,286 @@ impl GitObject {
     }
 }
 
+/// Finds an object in the repository.
+///
+/// # Errors
+///
+/// This function will return an error if:
+///
+/// * The reference file cannot be found or accessed.
+/// * Reading the reference file fails.
+/// * An I/O error occurs while accessing the filesystem.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use std::path::Path;
+/// # use mini_git::core::objects::find_object;
+/// use mini_git::core::GitRepository;
+/// let repo = GitRepository::new(&Path::new("."))?;
+///
+/// let object_name = "HEAD";
+/// if let Ok(name) = find_object(&repo, object_name, None, false) {
+///     println!("Resolved object name: {}", name);
+/// } else {
+///     println!("Reference does not exist.");
+/// }
+/// # Ok::<(), String>(())
+/// ```
+pub fn find_object(
+    repo: &GitRepository,
+    name: &str,
+    format: Option<&str>,
+    follow: bool,
+) -> Result<String, String> {
+    let candidates = resolve_object(repo, name)?;
+
+    if candidates.is_empty() {
+        return Err(format!("No such reference {name}"));
+    }
+
+    if candidates.len() > 1 {
+        let candidates_str = candidates.join("\n - ");
+        return Err(format!(
+            "Ambiguous reference {name}: Candidates are:\n - {candidates_str}"
+        ));
+    }
+
+    let object_id = candidates[0].clone();
+
+    if let Some(obj_format) = format {
+        let mut sha = object_id;
+        loop {
+            let obj = read_object(repo, &sha)?;
+            if obj.format() == obj_format.as_bytes() {
+                return Ok(sha);
+            }
+
+            if !follow {
+                return Ok(sha);
+            }
+
+            // Follow tags
+            if obj.format() == b"tag" {
+                sha = String::from_utf8_lossy(&obj.serialize()[8..28])
+                    .to_string();
+            } else if obj.format() == b"commit" && obj_format == "tree" {
+                sha = String::from_utf8_lossy(&obj.serialize()[12..32])
+                    .to_string();
+            } else {
+                return Ok(sha);
+            }
+        }
+    } else {
+        Ok(object_id)
+    }
+}
+
+/// Resolves a Git reference to an object ID.
+///
+/// This function attempts to resolve a given reference (e.g., `"HEAD"`, `"refs/heads/main"`)
+/// to an object ID (commit hash) within the specified `GitRepository`.
+///
+/// # Arguments
+///
+/// * `repo` - A reference to the `GitRepository` where the reference should be resolved.
+/// * `name` - The name of the reference to resolve.
+///
+/// # Returns
+///
+/// * `Ok(Vec<String>)` - A vector of object IDs that match the given reference.
+/// * `Err(error_message)` - If an error occurs during resolution.
+///
+/// # Errors
+///
+/// This function will return an error if:
+///
+/// * The reference file cannot be found or accessed.
+/// * Reading the reference file fails.
+/// * An I/O error occurs while accessing the filesystem.
+///
+fn resolve_object(
+    repo: &GitRepository,
+    name: &str,
+) -> Result<Vec<String>, String> {
+    let mut candidates = Vec::new();
+
+    // Handle the "HEAD" reference
+    if name == "HEAD" {
+        if let Some(oid) = resolve_ref(repo, name)? {
+            candidates.push(oid);
+            return Ok(candidates);
+        }
+        return Err("Could not find HEAD".to_owned());
+    }
+
+    // Check for a hex string (short or full hash)
+    if name.len() >= 4 && name.chars().all(|c| c.is_ascii_hexdigit()) {
+        // Check loose objects
+        let prefix = &name[..2];
+        let remainder = &name[2..];
+        if let Some(path) =
+            path::repo_dir(repo.gitdir(), &["objects", prefix], false)?
+        {
+            for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
+                let entry = entry.map_err(|e| e.to_string())?;
+                let file_name = entry.file_name().to_string_lossy().to_string();
+                if file_name.starts_with(remainder) {
+                    candidates.push(format!("{prefix}{file_name}"));
+                }
+            }
+        }
+    }
+
+    // Then check packfiles
+    if let Ok(packfiles) = packfiles::find_packfiles(repo) {
+        for packfile in packfiles {
+            if let Some(full_hash) = packfile.find_object_with_prefix(name) {
+                candidates.push(full_hash);
+            }
+        }
+    }
+
+    // Check for tags
+    if let Some(tag_ref) = resolve_ref(repo, &format!("refs/tags/{name}"))? {
+        candidates.push(tag_ref);
+    }
+
+    // Check for branches
+    if let Some(branch_ref) = resolve_ref(repo, &format!("refs/heads/{name}"))?
+    {
+        candidates.push(branch_ref);
+    }
+
+    Ok(candidates)
+}
+
+/// Creates a object Hash from an object
+///
+/// This function returns a tuple of two values
+/// - The contents over which the hash was built
+/// - The SHA1 object built from the contents
+///
+/// Example
+/// ```
+/// use mini_git::core::objects::{hash_object, GitObject, blob};
+/// use GitObject::*;
+///
+/// let obj = Blob(blob::Blob::default());
+/// let (contents, mut hash) = hash_object(&obj);
+/// assert_eq!(contents, b"blob 0\0");
+/// let digest = hash.hex_digest();
+/// assert_eq!(digest, "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+/// ```
+#[allow(clippy::module_name_repetitions)]
+#[must_use]
+pub fn hash_object(obj: &GitObject) -> (Vec<u8>, sha1::SHA1) {
+    let data = obj.serialize();
+    let len = data.len().to_string();
+    let res = [
+        obj.format(),
+        &[SPACE_BYTE],
+        len.as_bytes(),
+        &[NULL_BYTE],
+        &data,
+    ]
+    .concat();
+
+    let mut hash = sha1::SHA1::new();
+    let _ = hash.update(&res);
+
+    (res, hash)
+}
+
+/// Reads an object from the given repository with the given SHA digest
+///
+/// # Errors
+/// This function may fail if,
+/// - Request object does not exist
+/// - I/O errors occur while reading object files
+/// - Object files are corrupted/malformed
+///
+/// Example
+/// ```no_run
+/// use std::path::Path;
+/// use mini_git::core::GitRepository;
+/// use mini_git::core::objects::read_object;
+///
+/// // This is an example digest (highly unlikely digest)
+/// let digest = "deadbeefdecadedefacecafec0ffeedadfacade8";
+/// // Get current repository
+/// let repo = GitRepository::new(Path::new("."))?;
+///
+/// let obj = read_object(&repo, &digest)?;
+/// println!("{obj:?}");
+/// # Ok::<(), String>(())
+/// ```
+pub fn read_object(
+    repo: &GitRepository,
+    sha: &str,
+) -> Result<GitObject, String> {
+    if sha.len() > 40 {
+        return Err(format!("Invalid SHA digest: {sha}"));
+    }
+
+    // Try reading from loose objects first
+    let loose_result = read_loose_object(repo, sha);
+    if loose_result.is_ok() {
+        return loose_result;
+    }
+
+    // Convert hex sha to bytes
+    let hash = {
+        let decoded = hex::decode(sha)
+            .map_err(|_| format!("Invalid SHA digest: {sha}"))?;
+        let mut buf = [0u8; 20];
+        buf[..decoded.len()].copy_from_slice(&decoded);
+        buf
+    };
+
+    // Try reading from packfiles
+    let Ok(packfiles) = packfiles::find_packfiles(repo) else {
+        return Err(format!("Object {sha} not found in repository"));
+    };
+
+    for mut packfile in packfiles {
+        let object = packfile.read_object(&hash);
+        if object.is_ok() {
+            return object;
+        }
+    }
+
+    Err(format!("Object {sha} not found in repository"))
+}
+
+#[allow(clippy::module_name_repetitions)]
+fn read_loose_object(
+    repo: &GitRepository,
+    sha: &str,
+) -> Result<GitObject, String> {
+    // Calculate the path to the object
+    let path = path::repo_file(
+        repo.gitdir(),
+        &[OBJECTS_DIR, &sha[..2], &sha[2..]],
+        false,
+    )?;
+
+    // Ensure the path is a valid file
+    let path = match path {
+        Some(path) if path.is_file() => path,
+        _ => return Err(format!("failed to find object with digest {sha}")),
+    };
+
+    // Read and decompress the file
+    let Ok(raw) = fs::read(path) else {
+        return Err(format!("failed to read object with digest {sha}"));
+    };
+    let raw = zlib::decompress(&raw)?;
+    let res = GitObject::from_raw_data(&raw)
+        .map_err(|msg| format!("malformed object with digest {sha}, {msg}"))?;
+    Ok(res)
+}
+
 /// Resolves a Git reference to an object ID.
 ///
 /// This function attempts to resolve a given reference (e.g., `"HEAD"`, `"refs/heads/main"`)
@@ -332,286 +740,6 @@ pub(super) fn parse_packed_refs(
     Ok(res)
 }
 
-/// Resolves a Git reference to an object ID.
-///
-/// This function attempts to resolve a given reference (e.g., `"HEAD"`, `"refs/heads/main"`)
-/// to an object ID (commit hash) within the specified `GitRepository`.
-///
-/// # Arguments
-///
-/// * `repo` - A reference to the `GitRepository` where the reference should be resolved.
-/// * `name` - The name of the reference to resolve.
-///
-/// # Returns
-///
-/// * `Ok(Vec<String>)` - A vector of object IDs that match the given reference.
-/// * `Err(error_message)` - If an error occurs during resolution.
-///
-/// # Errors
-///
-/// This function will return an error if:
-///
-/// * The reference file cannot be found or accessed.
-/// * Reading the reference file fails.
-/// * An I/O error occurs while accessing the filesystem.
-///
-fn resolve_object(
-    repo: &GitRepository,
-    name: &str,
-) -> Result<Vec<String>, String> {
-    let mut candidates = Vec::new();
-
-    // Handle the "HEAD" reference
-    if name == "HEAD" {
-        if let Some(oid) = resolve_ref(repo, name)? {
-            candidates.push(oid);
-            return Ok(candidates);
-        }
-        return Err("Could not find HEAD".to_owned());
-    }
-
-    // Check for a hex string (short or full hash)
-    if name.len() >= 4 && name.chars().all(|c| c.is_ascii_hexdigit()) {
-        // Check loose objects
-        let prefix = &name[..2];
-        let remainder = &name[2..];
-        if let Some(path) =
-            path::repo_dir(repo.gitdir(), &["objects", prefix], false)?
-        {
-            for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
-                let entry = entry.map_err(|e| e.to_string())?;
-                let file_name = entry.file_name().to_string_lossy().to_string();
-                if file_name.starts_with(remainder) {
-                    candidates.push(format!("{prefix}{file_name}"));
-                }
-            }
-        }
-    }
-
-    // Then check packfiles
-    if let Ok(packfiles) = packfiles::find_packfiles(repo) {
-        for packfile in packfiles {
-            if let Some(full_hash) = packfile.find_object_with_prefix(name) {
-                candidates.push(full_hash);
-            }
-        }
-    }
-
-    // Check for tags
-    if let Some(tag_ref) = resolve_ref(repo, &format!("refs/tags/{name}"))? {
-        candidates.push(tag_ref);
-    }
-
-    // Check for branches
-    if let Some(branch_ref) = resolve_ref(repo, &format!("refs/heads/{name}"))?
-    {
-        candidates.push(branch_ref);
-    }
-
-    Ok(candidates)
-}
-
-/// Finds an object in the repository.
-///
-/// # Errors
-///
-/// This function will return an error if:
-///
-/// * The reference file cannot be found or accessed.
-/// * Reading the reference file fails.
-/// * An I/O error occurs while accessing the filesystem.
-///
-/// # Examples
-///
-/// ```no_run
-/// # use std::path::Path;
-/// # use mini_git::core::objects::find_object;
-/// use mini_git::core::GitRepository;
-/// let repo = GitRepository::new(&Path::new("."))?;
-///
-/// let object_name = "HEAD";
-/// if let Ok(name) = find_object(&repo, object_name, None, false) {
-///     println!("Resolved object name: {}", name);
-/// } else {
-///     println!("Reference does not exist.");
-/// }
-/// # Ok::<(), String>(())
-/// ```
-pub fn find_object(
-    repo: &GitRepository,
-    name: &str,
-    format: Option<&str>,
-    follow: bool,
-) -> Result<String, String> {
-    let candidates = resolve_object(repo, name)?;
-
-    if candidates.is_empty() {
-        return Err(format!("No such reference {name}"));
-    }
-
-    if candidates.len() > 1 {
-        let candidates_str = candidates.join("\n - ");
-        return Err(format!(
-            "Ambiguous reference {name}: Candidates are:\n - {candidates_str}"
-        ));
-    }
-
-    let object_id = candidates[0].clone();
-
-    if let Some(obj_format) = format {
-        let mut sha = object_id;
-        loop {
-            let obj = read_object(repo, &sha)?;
-            if obj.format() == obj_format.as_bytes() {
-                return Ok(sha);
-            }
-
-            if !follow {
-                return Ok(sha);
-            }
-
-            // Follow tags
-            if obj.format() == b"tag" {
-                sha = String::from_utf8_lossy(&obj.serialize()[8..28])
-                    .to_string();
-            } else if obj.format() == b"commit" && obj_format == "tree" {
-                sha = String::from_utf8_lossy(&obj.serialize()[12..32])
-                    .to_string();
-            } else {
-                return Ok(sha);
-            }
-        }
-    } else {
-        Ok(object_id)
-    }
-}
-
-#[allow(clippy::module_name_repetitions)]
-fn read_loose_object(
-    repo: &GitRepository,
-    sha: &str,
-) -> Result<GitObject, String> {
-    // Calculate the path to the object
-    let path = path::repo_file(
-        repo.gitdir(),
-        &[OBJECTS_DIR, &sha[..2], &sha[2..]],
-        false,
-    )?;
-
-    // Ensure the path is a valid file
-    let path = match path {
-        Some(path) if path.is_file() => path,
-        _ => return Err(format!("failed to find object with digest {sha}")),
-    };
-
-    // Read and decompress the file
-    let Ok(raw) = fs::read(path) else {
-        return Err(format!("failed to read object with digest {sha}"));
-    };
-    let raw = zlib::decompress(&raw)?;
-    let res = GitObject::from_raw_data(&raw)
-        .map_err(|msg| format!("malformed object with digest {sha}, {msg}"))?;
-    Ok(res)
-}
-
-/// Reads an object from the given repository with the given SHA digest
-///
-/// # Errors
-/// This function may fail if,
-/// - Request object does not exist
-/// - I/O errors occur while reading object files
-/// - Object files are corrupted/malformed
-///
-/// Example
-/// ```no_run
-/// use std::path::Path;
-/// use mini_git::core::GitRepository;
-/// use mini_git::core::objects::read_object;
-///
-/// // This is an example digest (highly unlikely digest)
-/// let digest = "deadbeefdecadedefacecafec0ffeedadfacade8";
-/// // Get current repository
-/// let repo = GitRepository::new(Path::new("."))?;
-///
-/// let obj = read_object(&repo, &digest)?;
-/// println!("{obj:?}");
-/// # Ok::<(), String>(())
-/// ```
-pub fn read_object(
-    repo: &GitRepository,
-    sha: &str,
-) -> Result<GitObject, String> {
-    if sha.len() > 40 {
-        return Err(format!("Invalid SHA digest: {sha}"));
-    }
-
-    // Try reading from loose objects first
-    let loose_result = read_loose_object(repo, sha);
-    if loose_result.is_ok() {
-        return loose_result;
-    }
-
-    // Convert hex sha to bytes
-    let hash = {
-        let decoded = hex::decode(sha)
-            .map_err(|_| format!("Invalid SHA digest: {sha}"))?;
-        let mut buf = [0u8; 20];
-        buf[..decoded.len()].copy_from_slice(&decoded);
-        buf
-    };
-
-    // Try reading from packfiles
-    let Ok(packfiles) = packfiles::find_packfiles(repo) else {
-        return Err(format!("Object {sha} not found in repository"));
-    };
-
-    for mut packfile in packfiles {
-        let object = packfile.read_object(&hash);
-        if object.is_ok() {
-            return object;
-        }
-    }
-
-    Err(format!("Object {sha} not found in repository"))
-}
-
-/// Creates a object Hash from an object
-///
-/// This function returns a tuple of two values
-/// - The contents over which the hash was built
-/// - The SHA1 object built from the contents
-///
-/// Example
-/// ```
-/// use mini_git::core::objects::{hash_object, GitObject, blob};
-/// use GitObject::*;
-///
-/// let obj = Blob(blob::Blob::default());
-/// let (contents, mut hash) = hash_object(&obj);
-/// assert_eq!(contents, b"blob 0\0");
-/// let digest = hash.hex_digest();
-/// assert_eq!(digest, "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
-/// ```
-#[allow(clippy::module_name_repetitions)]
-#[must_use]
-pub fn hash_object(obj: &GitObject) -> (Vec<u8>, sha1::SHA1) {
-    let data = obj.serialize();
-    let len = data.len().to_string();
-    let res = [
-        obj.format(),
-        &[SPACE_BYTE],
-        len.as_bytes(),
-        &[NULL_BYTE],
-        &data,
-    ]
-    .concat();
-
-    let mut hash = sha1::SHA1::new();
-    let _ = hash.update(&res);
-
-    (res, hash)
-}
-
 /// Writes an object to the repository files
 ///
 /// # Returns
@@ -667,133 +795,6 @@ pub fn write_object(
     }
 
     Ok(digest)
-}
-
-/// Represents the source of a file, either from a Git blob or the working tree.
-#[derive(Debug)]
-pub enum FileSource {
-    /// A file stored in a Git blob, with a specific path and SHA identifier.
-    Blob { path: String, sha: String },
-
-    /// A file located in the working tree with a specified path.
-    Worktree { path: String },
-}
-
-impl FileSource {
-    /// Retrieves the contents of the file source.
-    ///
-    /// # Arguments
-    ///
-    /// * `repo` - Reference to the Git repository.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the file contents as a vector of bytes if successful,
-    /// or an error message if reading the contents failed.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    ///   - For `Blob` sources, the object is not a blob.
-    ///   - For `Worktree` sources, the file could not be read from the filesystem.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use mini_git::core::{RepositoryContext, resolve_repository_context};
-    /// use mini_git::core::objects::FileSource;
-    ///
-    /// let RepositoryContext { repo, .. } = resolve_repository_context()?;
-    ///
-    /// let file_source = FileSource::Blob { path: "file.txt".to_string(), sha: "abc123".to_string() };
-    /// let contents = file_source.contents(&repo)?;
-    ///
-    /// # Ok::<(), String>(())
-    /// ```
-    pub fn contents(&self, repo: &GitRepository) -> Result<Vec<u8>, String> {
-        Ok(match self {
-            FileSource::Blob { sha, .. } => match read_object(repo, sha)? {
-                GitObject::Blob(blob) => blob.data,
-                x => {
-                    return Err(format!(
-                        "Expect object {sha} to be a blob, but was {}",
-                        String::from_utf8_lossy(x.format())
-                    ))
-                }
-            },
-            FileSource::Worktree { path } => match fs::read(path) {
-                Ok(data) => data,
-                Err(e) => {
-                    return Err(format!(
-                        "Failed to read file {path}! Error: {e}"
-                    ))
-                }
-            },
-        })
-    }
-
-    /// Returns the path of the file, either from a Git blob or working tree.
-    ///
-    /// # Returns
-    ///
-    /// A `String` representing the path to the file.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::path::Path;
-    /// use mini_git::core::objects::FileSource;
-    ///
-    /// let file_source = FileSource::Worktree { path: "file.txt".to_string() };
-    /// assert_eq!(file_source.path(), "file.txt");
-    /// ```
-    #[must_use]
-    pub fn path(&self) -> String {
-        match self {
-            FileSource::Blob { path, .. } | FileSource::Worktree { path } => {
-                path.clone()
-            }
-        }
-    }
-}
-
-impl AsRef<Path> for FileSource {
-    fn as_ref(&self) -> &Path {
-        use FileSource::{Blob, Worktree};
-        let (Worktree { ref path } | Blob { ref path, .. }) = self;
-        Path::new(path.as_str())
-    }
-}
-
-/// Retrieves files from a specified tree or the working directory if no tree is specified.
-///
-/// # Parameters
-/// - `repo`: A reference to the `GitRepository`.
-/// - `tree`: An optional reference to a tree identifier.
-///
-/// # Returns
-/// - `Ok(Vec<FileSource>)` containing files from the specified tree or working directory.
-/// - `Err(String)` if an error occurs while retrieving files.
-///
-/// # Errors
-/// - Returns an error if:
-///   - Files cannot be read from the specified tree.
-///   - The working directory cannot be accessed.
-pub(super) fn get_files(
-    repo: &GitRepository,
-    tree: Option<&str>,
-) -> Result<Vec<FileSource>, String> {
-    Ok(match tree {
-        // Get contents from the specified tree
-        Some(treeish) => {
-            tree::get_tree_files(repo, treeish)?.into_iter().collect()
-        }
-
-        // Get contents from the working directory
-        None => worktree::get_worktree_files(repo, None)?
-            .into_iter()
-            .collect(),
-    })
 }
 
 #[cfg(test)]

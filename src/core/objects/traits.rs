@@ -18,33 +18,6 @@ pub trait Format {
     fn format() -> &'static [u8];
 }
 
-/// Trait for Git object types that can be serialized into a byte vector.
-pub trait Serialize {
-    /// Serializes the Git object into a byte vector.
-    ///
-    /// # Returns
-    /// A `Vec<u8>` containing the serialized Git object data.
-    fn serialize(&self) -> Vec<u8>;
-}
-
-/// Trait for Git object types that can be deserialized from a byte slice.
-pub trait Deserialize {
-    /// Deserializes a Git object from a byte slice.
-    ///
-    /// # Arguments
-    /// - `data` - A byte slice containing the Git object data to be deserialized.
-    ///
-    /// # Returns
-    /// A [`Result`] containing either the deserialized Git object instance or an
-    /// error message.
-    ///
-    /// # Errors
-    /// Returns a [`String`] describing the error if deserialization fails.
-    fn deserialize(data: &[u8]) -> Result<Self, String>
-    where
-        Self: Sized;
-}
-
 /// Trait for Git object types that can be represented as a
 /// Key-Value List with Messages (KVLM) structure.
 ///
@@ -99,4 +72,31 @@ pub trait KVLM {
     {
         Ok(Self::with_kvlm(kvlm::KVLM::parse(data)?))
     }
+}
+
+/// Trait for Git object types that can be serialized into a byte vector.
+pub trait Serialize {
+    /// Serializes the Git object into a byte vector.
+    ///
+    /// # Returns
+    /// A `Vec<u8>` containing the serialized Git object data.
+    fn serialize(&self) -> Vec<u8>;
+}
+
+/// Trait for Git object types that can be deserialized from a byte slice.
+pub trait Deserialize {
+    /// Deserializes a Git object from a byte slice.
+    ///
+    /// # Arguments
+    /// - `data` - A byte slice containing the Git object data to be deserialized.
+    ///
+    /// # Returns
+    /// A [`Result`] containing either the deserialized Git object instance or an
+    /// error message.
+    ///
+    /// # Errors
+    /// Returns a [`String`] describing the error if deserialization fails.
+    fn deserialize(data: &[u8]) -> Result<Self, String>
+    where
+        Self: Sized;
 }
