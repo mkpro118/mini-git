@@ -3,9 +3,7 @@ use std::sync::Arc;
 use std::thread;
 
 use crate::core::commands::resolve_cla_files;
-use crate::core::objects::{
-    self, collect_files_to_process, get_files, FileSource,
-};
+use crate::core::objects::{self, get_files, FileSource};
 use crate::core::objects::{blob, tree};
 use crate::core::{
     resolve_repository_context, GitRepository, RepositoryContext,
@@ -129,6 +127,32 @@ fn _diff(
     let all_files = collect_files_to_process(&files1, &files2, &opts.files);
 
     process_files_in_parallel(repo, files1, files2, &all_files, opts)
+}
+
+/// Collects all files that need to be processed, based on user-specified files or default paths.
+///
+/// # Parameters
+/// - `files1`: A slice of `FileSource` representing files from the first tree.
+/// - `files2`: A slice of `FileSource` representing files from the second tree.
+/// - `specified_files`: A slice of `String` with specific files to process, if any.
+///
+/// # Returns
+/// A `Vec<String>` containing paths to all files that need processing.
+pub(super) fn collect_files_to_process(
+    files1: &[FileSource],
+    files2: &[FileSource],
+    specified_files: &[String],
+) -> Vec<String> {
+    let mut all_files = HashSet::new();
+
+    if specified_files.is_empty() {
+        all_files.extend(files1.iter().map(FileSource::path));
+        all_files.extend(files2.iter().map(FileSource::path));
+    } else {
+        all_files.extend(specified_files.iter().cloned());
+    }
+
+    all_files.into_iter().collect()
 }
 
 // Resolves the tree references based on input parameters
