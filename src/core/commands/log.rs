@@ -1,3 +1,4 @@
+use crate::{kvlm_msg_to_string, kvlm_val_to_string, parse_arg_as_int};
 use std::fmt::Write;
 
 use crate::core::objects::{commit::Commit, traits::KVLM};
@@ -12,32 +13,6 @@ use crate::utils::datetime::DateTime;
 const RESET: &str = "\x1b[0m";
 const YELLOW: &str = "\x1b[33m";
 const CYAN: &str = "\x1b[36m";
-
-macro_rules! option_to_int {
-    ($value:expr, $default:expr, $err_msg:literal) => {
-        match $value {
-            None => $default,
-            Some(count) => {
-                let Ok(x) = count.parse::<usize>() else {
-                    return Err(format!("{} is not a number", $err_msg));
-                };
-                x
-            }
-        }
-    };
-}
-
-macro_rules! kvlm_val_to_string {
-    ($kvlm_val:expr) => {
-        String::from_utf8($kvlm_val[0].to_vec()).map_err(|e| e.to_string())?
-    };
-}
-
-macro_rules! kvlm_msg_to_string {
-    ($kvlm_msg:expr) => {
-        String::from_utf8($kvlm_msg.to_vec()).map_err(|e| e.to_string())?
-    };
-}
 
 /// Shows the history of commit logs
 /// This handles the subcommand
@@ -54,12 +29,76 @@ macro_rules! kvlm_msg_to_string {
 pub fn log(args: &Namespace) -> Result<String, String> {
     let RepositoryContext { repo, .. } = resolve_repository_context()?;
 
-    let max_commits = option_to_int!(args.get("max"), usize::MAX, "max");
+    let max_commits = parse_arg_as_int!(args.get("max"), usize::MAX, "max");
     let oneline = args.get("oneline").is_some();
     let show_author = args.get("no-author").is_none();
     let revision = &args["revision"];
 
     _log(&repo, revision, max_commits, oneline, show_author)
+}
+
+fn _log(
+    repo: &GitRepository,
+    revision: &str,
+    max_commits: usize,
+    oneline: bool,
+    show_author: bool,
+) -> Result<String, String> {
+    let mut current = find_object(repo, revision, None, true)?;
+    let mut output = String::new();
+    let mut count = 0;
+
+    while count < max_commits {
+        let object = read_object(repo, &current)?;
+
+        let commit = match &object {
+            GitObject::Blob(_) => {
+                return Err(format!(
+                    "Cannot show history for a blob (sha {current})"
+                ))
+            }
+            GitObject::Tree(_) => {
+                return Err(format!(
+                    "Cannot show history for a tree (sha {current})"
+                ))
+            }
+            GitObject::Commit(commit) => commit,
+            GitObject::Tag(tag) => {
+                let Some(object) = tag.kvlm().get_key(b"object") else {
+                    return Err(format!(
+                        "Bad tag {current} does not have an object"
+                    ));
+                };
+                current = kvlm_val_to_string!(object);
+                continue;
+            }
+        };
+
+        let mut parents = Vec::new();
+
+        // Collect all parents
+        if let Some(parent_commits) = commit.kvlm().get_key(b"parent") {
+            for parent in parent_commits {
+                parents.push(kvlm_msg_to_string!(parent));
+            }
+        }
+
+        output.push_str(&format_commit(
+            &current,
+            commit,
+            oneline,
+            show_author,
+        )?);
+
+        if let Some(parent) = parents.first() {
+            current.clone_from(parent);
+            count += 1;
+        } else {
+            break;
+        }
+    }
+
+    Ok(output)
 }
 
 fn format_commit(
@@ -135,70 +174,6 @@ fn extract_name(author_string: &str) -> Option<&str> {
     } else {
         Some(name)
     }
-}
-
-fn _log(
-    repo: &GitRepository,
-    revision: &str,
-    max_commits: usize,
-    oneline: bool,
-    show_author: bool,
-) -> Result<String, String> {
-    let mut current = find_object(repo, revision, None, true)?;
-    let mut output = String::new();
-    let mut count = 0;
-
-    while count < max_commits {
-        let object = read_object(repo, &current)?;
-
-        let commit = match &object {
-            GitObject::Blob(_) => {
-                return Err(format!(
-                    "Cannot show history for a blob (sha {current})"
-                ))
-            }
-            GitObject::Tree(_) => {
-                return Err(format!(
-                    "Cannot show history for a tree (sha {current})"
-                ))
-            }
-            GitObject::Commit(commit) => commit,
-            GitObject::Tag(tag) => {
-                let Some(object) = tag.kvlm().get_key(b"object") else {
-                    return Err(format!(
-                        "Bad tag {current} does not have an object"
-                    ));
-                };
-                current = kvlm_val_to_string!(object);
-                continue;
-            }
-        };
-
-        let mut parents = Vec::new();
-
-        // Collect all parents
-        if let Some(parent_commits) = commit.kvlm().get_key(b"parent") {
-            for parent in parent_commits {
-                parents.push(kvlm_msg_to_string!(parent));
-            }
-        }
-
-        output.push_str(&format_commit(
-            &current,
-            commit,
-            oneline,
-            show_author,
-        )?);
-
-        if let Some(parent) = parents.first() {
-            current.clone_from(parent);
-            count += 1;
-        } else {
-            break;
-        }
-    }
-
-    Ok(output)
 }
 
 /// Make `log` parser

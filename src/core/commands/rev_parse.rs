@@ -77,14 +77,6 @@ pub fn rev_parse(args: &Namespace) -> Result<String, String> {
     Ok(output)
 }
 
-fn show_toplevel(repo: &GitRepository) -> Result<String, String> {
-    path_to_string!(repo.worktree(), "Could not determine repository toplevel")
-}
-
-fn gitdir(repo: &GitRepository) -> Result<String, String> {
-    path_to_string!(repo.gitdir(), "Could not determine repository gitdir")
-}
-
 fn all_refs(repo: &GitRepository) -> Result<String, String> {
     show_ref::list_resolved_refs(&Namespace::new(), repo, None).map(|x| {
         x.iter()
@@ -94,8 +86,16 @@ fn all_refs(repo: &GitRepository) -> Result<String, String> {
     })
 }
 
+fn gitdir(repo: &GitRepository) -> Result<String, String> {
+    path_to_string!(repo.gitdir(), "Could not determine repository gitdir")
+}
+
 fn is_cwd_inside(top: &std::path::Path) -> Result<String, String> {
     Ok(format!("{}", path::current_dir()?.starts_with(top)))
+}
+
+fn show_toplevel(repo: &GitRepository) -> Result<String, String> {
+    path_to_string!(repo.worktree(), "Could not determine repository toplevel")
 }
 
 /// Make `rev-parse` parser

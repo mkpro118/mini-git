@@ -12,6 +12,27 @@ use std::path::Path;
 use crate::core::objects::worktree;
 use crate::core::GitRepository;
 
+#[macro_export]
+macro_rules! parse_arg_as_int {
+    ($value:expr, $err_msg:literal) => {
+        match $value {
+            Some(count) if let Ok(x) = count.parse::<usize>() => x,
+            _ => return Err(format!("{} is not a number", $err_msg)),
+        }
+    };
+    ($value:expr, $default:expr, $err_msg:literal) => {
+        match $value {
+            None => $default,
+            Some(count) => {
+                let Ok(x) = count.parse::<usize>() else {
+                    return Err(format!("{} is not a number", $err_msg));
+                };
+                x
+            }
+        }
+    };
+}
+
 /// Resolves files specified on the command line to paths relative to the repository root.
 ///
 /// # Parameters

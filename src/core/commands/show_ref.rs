@@ -129,17 +129,6 @@ pub(crate) fn list_resolved_refs(
     Ok(result)
 }
 
-fn make_predicate(args: &Namespace) -> Box<dyn Fn(&str) -> bool + '_> {
-    match (args.get("heads"), args.get("tags")) {
-        (None, None) => Box::new(|_: &str| true),
-        (None, Some(_)) => Box::new(move |x: &str| x.starts_with(TAG_REFS)),
-        (Some(_), None) => Box::new(move |x: &str| x.starts_with(HEAD_REFS)),
-        (Some(_), Some(_)) => Box::new(move |x: &str| {
-            x.starts_with(HEAD_REFS) || x.starts_with(TAG_REFS)
-        }),
-    }
-}
-
 #[allow(clippy::similar_names)]
 fn list_refs(
     repo: &GitRepository,
@@ -231,6 +220,17 @@ fn list_packed_refs(
                 .collect(),
             None => packed_refs,
         })
+}
+
+fn make_predicate(args: &Namespace) -> Box<dyn Fn(&str) -> bool + '_> {
+    match (args.get("heads"), args.get("tags")) {
+        (None, None) => Box::new(|_: &str| true),
+        (None, Some(_)) => Box::new(move |x: &str| x.starts_with(TAG_REFS)),
+        (Some(_), None) => Box::new(move |x: &str| x.starts_with(HEAD_REFS)),
+        (Some(_), Some(_)) => Box::new(move |x: &str| {
+            x.starts_with(HEAD_REFS) || x.starts_with(TAG_REFS)
+        }),
+    }
 }
 
 /// Make `show-ref` parser
