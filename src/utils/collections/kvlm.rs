@@ -5,6 +5,20 @@
 
 use crate::utils::collections::ordered_map::OrderedMap;
 
+#[macro_export]
+macro_rules! kvlm_val_to_string {
+    ($kvlm_val:expr) => {
+        String::from_utf8($kvlm_val[0].to_vec()).map_err(|e| e.to_string())?
+    };
+}
+
+#[macro_export]
+macro_rules! kvlm_msg_to_string {
+    ($kvlm_msg:expr) => {
+        String::from_utf8($kvlm_msg.to_vec()).map_err(|e| e.to_string())?
+    };
+}
+
 /// Represents a space byte
 pub const SPACE_BYTE: u8 = b' ';
 /// Represents a newline byte

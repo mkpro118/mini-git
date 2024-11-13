@@ -17,17 +17,13 @@ const CYAN: &str = "\x1b[36m";
 const STAT_WIDTH: usize = 80;
 const MAX_THREADS: usize = 8;
 
-#[allow(clippy::struct_excessive_bools)]
-struct DiffOpts {
-    files: Vec<String>,
-    name_only: bool,
-    name_status: bool,
-    stat: bool,
-    diff_filter: Option<String>,
-    hunk_context_lines: usize,
-    src_prefix: String,
-    dst_prefix: String,
-    no_prefix: bool,
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
+enum Change {
+    Same,
+    Delete,
+    Insert,
+    Replace,
 }
 
 // Data structures for diff computation
@@ -40,13 +36,17 @@ struct Hunk {
     content: String,
 }
 
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
-enum Change {
-    Same,
-    Delete,
-    Insert,
-    Replace,
+#[allow(clippy::struct_excessive_bools)]
+struct DiffOpts {
+    files: Vec<String>,
+    name_only: bool,
+    name_status: bool,
+    stat: bool,
+    diff_filter: Option<String>,
+    hunk_context_lines: usize,
+    src_prefix: String,
+    dst_prefix: String,
+    no_prefix: bool,
 }
 
 /// List differences
@@ -129,32 +129,6 @@ fn _diff(
     process_files_in_parallel(repo, files1, files2, &all_files, opts)
 }
 
-/// Collects all files that need to be processed, based on user-specified files or default paths.
-///
-/// # Parameters
-/// - `files1`: A slice of `FileSource` representing files from the first tree.
-/// - `files2`: A slice of `FileSource` representing files from the second tree.
-/// - `specified_files`: A slice of `String` with specific files to process, if any.
-///
-/// # Returns
-/// A `Vec<String>` containing paths to all files that need processing.
-pub(super) fn collect_files_to_process(
-    files1: &[FileSource],
-    files2: &[FileSource],
-    specified_files: &[String],
-) -> Vec<String> {
-    let mut all_files = HashSet::new();
-
-    if specified_files.is_empty() {
-        all_files.extend(files1.iter().map(FileSource::path));
-        all_files.extend(files2.iter().map(FileSource::path));
-    } else {
-        all_files.extend(specified_files.iter().cloned());
-    }
-
-    all_files.into_iter().collect()
-}
-
 // Resolves the tree references based on input parameters
 fn resolve_trees<'a>(
     repo: &GitRepository,
@@ -190,6 +164,32 @@ fn get_file_contents(
     Ok((files1, files2))
 }
 
+/// Collects all files that need to be processed, based on user-specified files or default paths.
+///
+/// # Parameters
+/// - `files1`: A slice of `FileSource` representing files from the first tree.
+/// - `files2`: A slice of `FileSource` representing files from the second tree.
+/// - `specified_files`: A slice of `String` with specific files to process, if any.
+///
+/// # Returns
+/// A `Vec<String>` containing paths to all files that need processing.
+pub(super) fn collect_files_to_process(
+    files1: &[FileSource],
+    files2: &[FileSource],
+    specified_files: &[String],
+) -> Vec<String> {
+    let mut all_files = HashSet::new();
+
+    if specified_files.is_empty() {
+        all_files.extend(files1.iter().map(FileSource::path));
+        all_files.extend(files2.iter().map(FileSource::path));
+    } else {
+        all_files.extend(specified_files.iter().cloned());
+    }
+
+    all_files.into_iter().collect()
+}
+
 // Processes files in parallel using threads
 fn process_files_in_parallel(
     repo: GitRepository,
@@ -219,6 +219,28 @@ fn process_files_in_parallel(
         &opts_ref,
     );
     collect_thread_results(handles)
+}
+
+// Collects and sorts results from all threads
+fn collect_thread_results(
+    handles: Vec<thread::JoinHandle<Result<Vec<String>, String>>>,
+) -> Result<String, String> {
+    handles
+        .into_iter()
+        .try_fold(vec![], |mut results, handle| match handle.join() {
+            Ok(thread_results) => match thread_results {
+                Ok(result) => {
+                    results.extend(result);
+                    Ok(results)
+                }
+                Err(msg) => Err(msg),
+            },
+            Err(_) => Err("A thread panicked during execution".to_string()),
+        })
+        .map(|mut results| {
+            results.sort();
+            results.join("\n")
+        })
 }
 
 // Spawns worker threads to process file chunks
@@ -336,6 +358,26 @@ fn should_process_file(status: char, diff_filter: &Option<String>) -> bool {
     }
 }
 
+fn status_matches_filter(status: char, filter: &str) -> bool {
+    // Uppercase letters include, lowercase letters exclude
+    let mut include = HashSet::new();
+    let mut exclude = HashSet::new();
+    for c in filter.chars() {
+        if c.is_uppercase() {
+            include.insert(c);
+        } else if c.is_lowercase() {
+            exclude.insert(c.to_ascii_uppercase());
+        }
+    }
+    if !include.is_empty() && !include.contains(&status) {
+        return false;
+    }
+    if exclude.contains(&status) {
+        return false;
+    }
+    true
+}
+
 // Generates appropriate output based on options and file status
 fn generate_output(
     file: &str,
@@ -389,48 +431,6 @@ fn generate_full_diff(
         ),
         _ => String::new(),
     }
-}
-
-// Collects and sorts results from all threads
-fn collect_thread_results(
-    handles: Vec<thread::JoinHandle<Result<Vec<String>, String>>>,
-) -> Result<String, String> {
-    handles
-        .into_iter()
-        .try_fold(vec![], |mut results, handle| match handle.join() {
-            Ok(thread_results) => match thread_results {
-                Ok(result) => {
-                    results.extend(result);
-                    Ok(results)
-                }
-                Err(msg) => Err(msg),
-            },
-            Err(_) => Err("A thread panicked during execution".to_string()),
-        })
-        .map(|mut results| {
-            results.sort();
-            results.join("\n")
-        })
-}
-
-fn status_matches_filter(status: char, filter: &str) -> bool {
-    // Uppercase letters include, lowercase letters exclude
-    let mut include = HashSet::new();
-    let mut exclude = HashSet::new();
-    for c in filter.chars() {
-        if c.is_uppercase() {
-            include.insert(c);
-        } else if c.is_lowercase() {
-            exclude.insert(c.to_ascii_uppercase());
-        }
-    }
-    if !include.is_empty() && !include.contains(&status) {
-        return false;
-    }
-    if exclude.contains(&status) {
-        return false;
-    }
-    true
 }
 
 fn compute_diff(old_lines: &[&str], new_lines: &[&str]) -> Vec<Change> {
@@ -768,10 +768,6 @@ fn generate_hunks(
     hunks
 }
 
-fn format_binary_diff(src_path: &str, dst_path: &str) -> String {
-    format!("diff --mini-git {src_path} {dst_path}\nBinary files differ\n")
-}
-
 fn format_diff(
     path: &str,
     content1: &[u8],
@@ -827,8 +823,8 @@ fn format_diff(
     output
 }
 
-fn format_binary_addition(src_path: &str, dst_path: &str) -> String {
-    format!("diff --mini-git {src_path} {dst_path}\nBinary file added\n")
+fn format_binary_diff(src_path: &str, dst_path: &str) -> String {
+    format!("diff --mini-git {src_path} {dst_path}\nBinary files differ\n")
 }
 
 fn format_addition(
@@ -883,8 +879,8 @@ fn format_addition(
     output
 }
 
-fn format_binary_deletion(src_path: &str, dst_path: &str) -> String {
-    format!("diff --mini-git {src_path} {dst_path}\nBinary file deleted\n")
+fn format_binary_addition(src_path: &str, dst_path: &str) -> String {
+    format!("diff --mini-git {src_path} {dst_path}\nBinary file added\n")
 }
 
 fn format_deletion(
@@ -937,6 +933,10 @@ fn format_deletion(
     output.push_str(RESET);
 
     output
+}
+
+fn format_binary_deletion(src_path: &str, dst_path: &str) -> String {
+    format!("diff --mini-git {src_path} {dst_path}\nBinary file deleted\n")
 }
 
 fn format_diffstat(path: &str, content1: &[u8], content2: &[u8]) -> String {
