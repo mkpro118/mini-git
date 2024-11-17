@@ -23,10 +23,11 @@
 //! appropriately in their code.
 
 use std::fs;
-use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 
 const POSIX_PATH_SEPARATOR: char = '/';
+const CURRENT_DIR_STR: &str = ".";
+const PARENT_DIR_STR: &str = "..";
 
 /// Determines the current working directory.
 ///
@@ -101,21 +102,74 @@ fn cwd_err(_: std::io::Error) -> String {
 /// * The path cannot be successfully processed or converted
 #[allow(clippy::module_name_repetitions)]
 pub fn to_posix_path(path: &Path) -> Result<String, String> {
-    if let ControlFlow::Continue(path) =
-        path.components()
-            .try_fold(String::new(), |mut path, component| {
-                let Some(component) = component.as_os_str().to_str() else {
-                    return ControlFlow::Break(());
-                };
-                path.push_str(component);
-                path.push(POSIX_PATH_SEPARATOR);
-                ControlFlow::Continue(path)
-            })
-    {
-        Ok(path.trim_end_matches('/').to_owned())
-    } else {
-        Err(format!("Failed to resolve path {path:?}"))
+    use std::path::{Component, Prefix};
+
+    let mut posix_path = String::new();
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix_comp) => {
+                match prefix_comp.kind() {
+                    Prefix::Disk(drive_letter)
+                    | Prefix::VerbatimDisk(drive_letter) => {
+                        // Handle drive letters (e.g., "C:")
+                        posix_path.push(drive_letter as char);
+                        posix_path.push(':');
+                    }
+                    Prefix::UNC(server, share)
+                    | Prefix::VerbatimUNC(server, share) => {
+                        // Handle UNC paths (e.g., "\\server\share")
+                        posix_path.push(POSIX_PATH_SEPARATOR);
+                        posix_path.push(POSIX_PATH_SEPARATOR);
+                        posix_path.push_str(&server.to_string_lossy());
+                        posix_path.push(POSIX_PATH_SEPARATOR);
+                        posix_path.push_str(&share.to_string_lossy());
+                    }
+                    Prefix::Verbatim(_) => {
+                        // Ignore the "\\?\" prefix for extended-length paths
+                        continue;
+                    }
+                    Prefix::DeviceNS(_) => {
+                        return Err(format!(
+                            "Unsupported prefix in path {path:?}"
+                        ));
+                    }
+                }
+            }
+            Component::RootDir => {
+                // Optionally handle root directory, but for your cases, we can ignore it
+                if posix_path.is_empty() {
+                    posix_path.push(POSIX_PATH_SEPARATOR);
+                }
+            }
+            Component::Normal(os_str) => {
+                if !posix_path.is_empty()
+                    && !posix_path.ends_with(POSIX_PATH_SEPARATOR)
+                {
+                    posix_path.push(POSIX_PATH_SEPARATOR);
+                }
+                posix_path.push_str(&os_str.to_string_lossy());
+            }
+            Component::CurDir => {
+                if !posix_path.is_empty()
+                    && !posix_path.ends_with(POSIX_PATH_SEPARATOR)
+                {
+                    posix_path.push(POSIX_PATH_SEPARATOR);
+                }
+                posix_path.push_str(CURRENT_DIR_STR);
+            }
+            Component::ParentDir => {
+                if !posix_path.is_empty()
+                    && !posix_path.ends_with(POSIX_PATH_SEPARATOR)
+                {
+                    posix_path.push(POSIX_PATH_SEPARATOR);
+                }
+                posix_path.push_str(PARENT_DIR_STR);
+            }
+        }
     }
+
+    Ok(posix_path)
 }
 
 /// Joins the given `paths` to the base `gitdir`
@@ -630,7 +684,7 @@ mod tests {
             // UNC paths
             (r"\\server\share\path", "//server/share/path"),
             // Drive letters with different cases
-            (r"c:\path", "c:/path"),
+            (r"c:\path", "C:/path"),
             (r"D:\path", "D:/path"),
             // Reserved names
             (r"CON", "CON"),
