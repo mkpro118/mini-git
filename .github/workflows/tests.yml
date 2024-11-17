@@ -25,12 +25,11 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu, windows]
+        feature: ["", "--all-features", "--no-default-features"]
     steps:
     - uses: actions/checkout@v4
     - uses: actions-rs/toolchain@v1
-    - run: cargo test --workspace --no-default-features
-    - run: cargo test --workspace
-    - run: cargo test --workspace --all-features
+    - run: cargo test --workspace ${{matrix.feature}}
 
   check:
     name: Check on Rust ${{matrix.rust}}${{format(' ({0})', matrix.target || matrix.os)}}
@@ -39,6 +38,7 @@ jobs:
       matrix:
         os: [ubuntu, windows]
         rust: [stable, beta, nightly]
+        feature: ["", "--all-features", "--no-default-features"]
     env:
       target: ${{matrix.target && format('--target={0}', matrix.target)}}
       workspace: ${{matrix.no-workspace || '--workspace'}}
@@ -49,6 +49,4 @@ jobs:
         toolchain: ${{matrix.rust}}
         profile: minimal
         target: ${{matrix.target}}
-    - run: cargo +${{matrix.rust}} check ${{env.target}} ${{env.workspace}} --no-default-features
-    - run: cargo +${{matrix.rust}} check ${{env.target}} ${{env.workspace}}
-    - run: cargo +${{matrix.rust}} check ${{env.target}} ${{env.workspace}} --all-features
+    - run: cargo +${{matrix.rust}} check ${{env.target}} ${{env.workspace}} ${{matrix.feature}}
