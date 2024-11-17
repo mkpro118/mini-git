@@ -32,7 +32,14 @@ use std::path::{Path, PathBuf};
 /// This function only fails if `std::env::current_dir` fails.
 pub fn current_dir() -> Result<std::path::PathBuf, String> {
     std::env::current_dir()
-        .map_err(|_| "Could not determine current working directory".to_owned())
+        .map_err(cwd_err)?
+        .canonicalize()
+        .map_err(cwd_err)
+}
+
+#[inline]
+fn cwd_err(_: std::io::Error) -> String {
+    "Could not determine current working directory".to_owned()
 }
 
 /// Joins the given `paths` to the base `gitdir`
