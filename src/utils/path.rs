@@ -23,7 +23,10 @@
 //! appropriately in their code.
 
 use std::fs;
+use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
+
+const POSIX_PATH_SEPARATOR: char = '/';
 
 /// Determines the current working directory.
 ///
@@ -40,6 +43,79 @@ pub fn current_dir() -> Result<std::path::PathBuf, String> {
 #[inline]
 fn cwd_err(_: std::io::Error) -> String {
     "Could not determine current working directory".to_owned()
+}
+
+/// Converts a filesystem path to a POSIX-compliant path string representation.
+///
+/// This function takes a `Path` and converts it into a POSIX-style path string,
+/// where components are separated by forward slashes ('/'). The resulting string
+/// will not have a trailing slash.
+///
+/// # Arguments
+///
+/// * `path` - A reference to a Path object to be converted
+///
+/// # Returns
+///
+/// Returns a `Result` containing either:
+/// * `Ok(String)` - A POSIX-compliant path string
+/// * `Err(String)` - An error message if conversion fails
+///
+/// # Examples
+///
+/// #### Windows
+///
+/// ```rust
+/// # use std::path::Path;
+/// # use mini_git::utils::path::to_posix_path;
+///
+/// # #[cfg(target_family="windows")]
+/// # fn win() {
+/// let windows_path = Path::new("C:\\Users\\Documents\\file.txt");
+/// assert_eq!(
+///     to_posix_path(windows_path).unwrap(),
+///     "C:/Users/Documents/file.txt"
+/// );
+/// # }
+/// ```
+///
+/// #### Unix
+/// ```rust
+/// # use std::path::Path;
+/// # use mini_git::utils::path::to_posix_path;
+///
+/// # #[cfg(target_family="unix")]
+/// # fn unix() {
+/// let unix_path = Path::new("/home/user/documents/file.txt");
+/// assert_eq!(
+///     to_posix_path(unix_path).unwrap(),
+///     "/home/user/documents/file.txt"
+/// );
+/// # }
+/// ```
+///
+/// # Errors
+///
+/// Returns an error in the following cases:
+/// * Any path component contains invalid Unicode characters
+/// * The path cannot be successfully processed or converted
+#[allow(clippy::module_name_repetitions)]
+pub fn to_posix_path(path: &Path) -> Result<String, String> {
+    if let ControlFlow::Continue(path) =
+        path.components()
+            .try_fold(String::new(), |mut path, component| {
+                let Some(component) = component.as_os_str().to_str() else {
+                    return ControlFlow::Break(());
+                };
+                path.push_str(component);
+                path.push(POSIX_PATH_SEPARATOR);
+                ControlFlow::Continue(path)
+            })
+    {
+        Ok(path.trim_end_matches('/').to_owned())
+    } else {
+        Err(format!("Failed to resolve path {path:?}"))
+    }
 }
 
 /// Joins the given `paths` to the base `gitdir`
