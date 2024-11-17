@@ -451,4 +451,223 @@ mod tests {
         let res = repo_find(top);
         assert!(res.is_err());
     }
+
+    // Helper function to create paths with different separators based on OS
+    fn create_path(components: &[&str]) -> String {
+        if cfg!(target_family = "windows") {
+            components.join("\\")
+        } else {
+            components.join("/")
+        }
+    }
+
+    #[test]
+    fn test_empty_path() {
+        let path = Path::new("");
+        let result = to_posix_path(path);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "");
+    }
+
+    #[test]
+    fn test_dot_path() {
+        let path = Path::new(".");
+        let result = to_posix_path(path);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), ".");
+    }
+
+    #[test]
+    fn test_double_dot_path() {
+        let path = Path::new("..");
+        let result = to_posix_path(path);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "..");
+    }
+
+    // Test valid Unicode paths
+    #[test]
+    fn test_unicode_valid_paths() {
+        let test_cases = vec![
+            ("é", "é"),
+            ("パス", "パス"),
+            ("путь", "путь"),
+            ("路径", "路径"),
+            ("König", "König"),
+        ];
+
+        for (input, expected) in test_cases {
+            let path = Path::new(input);
+            let result = to_posix_path(path);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), expected);
+        }
+    }
+
+    // Test paths with mixed forward and backward slashes
+    #[cfg(target_family = "windows")]
+    #[test]
+    fn test_mixed_slashes_windows() {
+        let test_cases = vec![
+            (r"path\to/file", "path/to/file"),
+            (r"path/to\file", "path/to/file"),
+            (r"path\to\file/name", "path/to/file/name"),
+        ];
+
+        for (input, expected) in test_cases {
+            let path = Path::new(input);
+            let result = to_posix_path(path);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), expected);
+        }
+    }
+
+    // Test multiple consecutive separators
+    #[test]
+    fn test_consecutive_separators() {
+        let test_cases = vec![
+            create_path(&["path", "", "file"]),
+            create_path(&["path", "", "", "file"]),
+            create_path(&["", "path", "file"]),
+            create_path(&["path", "file", ""]),
+        ];
+
+        for input in test_cases {
+            let path = Path::new(&input);
+            let result = to_posix_path(path);
+            assert!(result.is_ok());
+            // All consecutive separators should be normalized to single separators
+            assert!(!result.unwrap().contains("//"));
+        }
+    }
+
+    // Test invalid Unicode paths
+    #[test]
+    #[allow(invalid_from_utf8_unchecked, unsafe_code)]
+    fn test_invalid_unicode() {
+        // Create a path with invalid UTF-8 sequences
+        let invalid_path = if cfg!(target_family = "windows") {
+            Path::new("\u{FFFD}")
+        } else {
+            Path::new(unsafe {
+                std::str::from_utf8_unchecked(&[0xFF, 0xFE, 0xFD])
+            })
+        };
+
+        let result = to_posix_path(invalid_path);
+        assert!(result.is_ok());
+    }
+
+    // Test deep nested paths
+    #[test]
+    fn test_deep_nested_paths() {
+        let components = vec!["a"; 100]; // Create a very deep path
+        let path_str = create_path(&components);
+        let path = Path::new(&path_str);
+        let result = to_posix_path(path);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().matches('/').count(), 99); // Should have 99 separators for 100 components
+    }
+
+    // Test paths with spaces and special characters
+    #[test]
+    fn test_special_characters() {
+        let test_cases = vec![
+            "path with spaces",
+            "path_with!special@chars#",
+            "path with (parentheses)",
+            "path with [brackets]",
+            "path.with.dots",
+            "path-with-dashes",
+        ];
+
+        for input in test_cases {
+            let path = Path::new(input);
+            let result = to_posix_path(path);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), input);
+        }
+    }
+
+    // Test with root paths
+    #[test]
+    fn test_root_paths() {
+        if cfg!(target_family = "windows") {
+            let test_cases = vec![
+                (r"C:\", "C:"),
+                (r"C:\path", "C:/path"),
+                (r"\\server\share", "//server/share"),
+            ];
+
+            for (input, expected) in test_cases {
+                let path = Path::new(input);
+                let result = to_posix_path(path);
+                assert!(result.is_ok());
+                dbg!(&result);
+                assert_eq!(result.unwrap(), expected);
+            }
+        } else {
+            let test_cases = vec![
+                ("/", ""),
+                ("/path", "path"),
+                ("/path/to/file", "path/to/file"),
+            ];
+
+            for (input, expected) in test_cases {
+                let path = Path::new(input);
+                let result = to_posix_path(path);
+                assert!(result.is_ok());
+                assert_eq!(result.unwrap(), expected);
+            }
+        }
+    }
+
+    // Test with environment-specific paths
+    #[cfg(target_family = "windows")]
+    #[test]
+    fn test_windows_specific_paths() {
+        let test_cases = vec![
+            // UNC paths
+            (r"\\server\share\path", "//server/share/path"),
+            // Drive letters with different cases
+            (r"c:\path", "c:/path"),
+            (r"D:\path", "D:/path"),
+            // Reserved names
+            (r"CON", "CON"),
+            (r"PRN\file", "PRN/file"),
+            // Extended-length paths
+            (r"\\?\C:\very\long\path", "C:/very/long/path"),
+        ];
+
+        for (input, expected) in test_cases {
+            let path = Path::new(input);
+            let result = to_posix_path(path);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), expected);
+        }
+    }
+
+    #[cfg(target_family = "unix")]
+    #[test]
+    fn test_unix_specific_paths() {
+        let test_cases = vec![
+            // Hidden files
+            (".hidden", ".hidden"),
+            // Absolute paths
+            ("/usr/local/bin", "usr/local/bin"),
+            // Current directory references
+            ("./path", "./path"),
+            // Parent directory references
+            ("../path", "../path"),
+            // Symbolic links (the function should treat them as regular paths)
+            ("link/to/file", "link/to/file"),
+        ];
+
+        for (input, expected) in test_cases {
+            let path = Path::new(input);
+            let result = to_posix_path(path);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), expected);
+        }
+    }
 }
