@@ -662,7 +662,7 @@ mod tests {
             }
         } else {
             let test_cases = vec![
-                ("/", ""),
+                ("/", "/"),
                 ("/path", "path"),
                 ("/path/to/file", "path/to/file"),
             ];
@@ -708,7 +708,7 @@ mod tests {
             // Hidden files
             (".hidden", ".hidden"),
             // Absolute paths
-            ("/usr/local/bin", "usr/local/bin"),
+            ("/usr/local/bin", "/usr/local/bin"),
             // Current directory references
             ("./path", "./path"),
             // Parent directory references
