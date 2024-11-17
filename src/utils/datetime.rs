@@ -262,7 +262,7 @@ impl DateTime {
     }
 
     /// Creates a new `DateTime` from a Git author/committer timestamp string
-    /// Format: "name <email> timestamp timezone"
+    /// Format: "name &lt;email&gt; timestamp timezone"
     ///
     /// # Examples
     ///
