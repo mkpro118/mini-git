@@ -663,8 +663,8 @@ mod tests {
         } else {
             let test_cases = vec![
                 ("/", "/"),
-                ("/path", "path"),
-                ("/path/to/file", "path/to/file"),
+                ("/path", "/path"),
+                ("/path/to/file", "/path/to/file"),
             ];
 
             for (input, expected) in test_cases {
