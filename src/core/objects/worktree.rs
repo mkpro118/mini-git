@@ -87,7 +87,7 @@ fn collect_worktree_files(
                 .strip_prefix(base)
                 .map_err(|_| "Failed to get relative path".to_owned())?;
             paths.push(FileSource::Worktree {
-                path: relative.as_os_str().to_string_lossy().into_owned(),
+                path: crate::utils::path::to_posix_path(relative)?,
             });
         } else if path.is_dir() {
             collect_worktree_files(base, &path, paths)?;

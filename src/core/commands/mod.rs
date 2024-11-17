@@ -12,6 +12,8 @@ use std::path::Path;
 use crate::core::objects::worktree;
 use crate::core::GitRepository;
 
+use crate::utils::path;
+
 #[macro_export]
 macro_rules! parse_arg_as_int {
     ($value:expr, $err_msg:literal) => {
@@ -70,6 +72,10 @@ pub fn resolve_cla_files(
         // Create a path by joining the current working directory with the file path
         let file_path = cwd.join(file);
 
+        if !file_path.exists() {
+            return Err(format!("path '{file}' is not in the working tree"));
+        }
+
         // Canonicalize the path to get the absolute path
         let abs_path = file_path
             .canonicalize()
@@ -89,7 +95,7 @@ pub fn resolve_cla_files(
                 })?;
 
             // Convert the relative path to a string and store it
-            resolved_files.push(rel_path.to_string_lossy().to_string());
+            resolved_files.push(path::to_posix_path(rel_path)?);
         } else if abs_path.is_dir() {
             // Get all files under this directory
             let worktree_files =
@@ -103,7 +109,7 @@ pub fn resolve_cla_files(
                     format!("Could not get path relative to repo root for {file}")
                 })?;
 
-                resolved_files.push(rel_path.to_string_lossy().to_string());
+                resolved_files.push(path::to_posix_path(rel_path)?);
             }
         } else {
             return Err(format!("{file} is neither a file nor a directory"));
