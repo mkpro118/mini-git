@@ -1,4 +1,5 @@
 pub mod cat_file;
+pub mod check_ignore;
 pub mod diff;
 pub mod hash_object;
 pub mod init;
