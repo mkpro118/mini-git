@@ -3,7 +3,9 @@ use std::path::Path;
 use crate::core::repository::{resolve_repository_context, RepositoryContext};
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 
-use crate::core::objects::ignore::GitIgnore;
+use crate::core::objects::ignore::{GitIgnore, IgnoreResult};
+
+use std::fmt::Write as _;
 
 const COMMA: char = ',';
 
@@ -18,7 +20,6 @@ const COMMA: char = ',';
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-#[allow(clippy::module_name_repetitions)]
 pub fn check_ignore(args: &Namespace) -> Result<String, String> {
     let RepositoryContext { repo_path, .. } = resolve_repository_context()?;
 
@@ -37,25 +38,32 @@ pub fn check_ignore(args: &Namespace) -> Result<String, String> {
     for path_str in paths {
         let path = Path::new(&path_str);
 
-        if let Some((file, line_no, line)) = gitignore.is_ignored(path) {
+        if let IgnoreResult::Ignored {
+            ignore_file,
+            line_number,
+            pattern,
+        } = gitignore.is_ignored(path)
+        {
             any_ignored = true;
 
             if !quiet {
                 if verbose {
                     // Output in verbose format
-                    output.push_str(&format!(
-                        "{}:{line_no}:{line}\t\"{}\"\n",
-                        Path::new(&file)
+                    let _ = writeln!(
+                        output,
+                        "{}:{line_number}:{pattern}\t\"{}\"",
+                        Path::new(&ignore_file)
                             .strip_prefix(&repo_path)
                             .map_err(|e| format!(
-                                "'{path:?}' is not in the worktree. Error: {e}"
+                                "'{}' is not in the worktree. Error: {e}",
+                                path.display()
                             ))?
                             .display(),
                         path.display()
-                    ));
+                    );
                 } else {
                     // Output just the path
-                    output.push_str(&format!("{}\n", path.display()));
+                    let _ = writeln!(output, "{}", path.display());
                 }
             }
         }
