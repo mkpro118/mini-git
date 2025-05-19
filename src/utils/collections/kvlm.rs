@@ -6,7 +6,7 @@
 use crate::utils::collections::ordered_map::OrderedMap;
 
 #[macro_export]
-#[allow(clippy::module_name_repetitions)]
+#[expect(clippy::module_name_repetitions)]
 macro_rules! kvlm_val_to_string {
     ($kvlm_val:expr) => {
         String::from_utf8($kvlm_val[0].to_vec()).map_err(|e| e.to_string())?
@@ -14,7 +14,7 @@ macro_rules! kvlm_val_to_string {
 }
 
 #[macro_export]
-#[allow(clippy::module_name_repetitions)]
+#[expect(clippy::module_name_repetitions)]
 macro_rules! kvlm_msg_to_string {
     ($kvlm_msg:expr) => {
         String::from_utf8($kvlm_msg.to_vec()).map_err(|e| e.to_string())?
@@ -38,7 +38,6 @@ enum Keys {
     Message,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 enum Values {
     Value(Vec<Vec<u8>>),

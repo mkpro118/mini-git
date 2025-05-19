@@ -64,7 +64,7 @@ struct FreqNode(usize, HuffmanTreeNode);
 
 /// Represents a Huffman tree used for encoding and decoding.
 #[derive(Debug)]
-#[allow(clippy::module_name_repetitions)]
+#[expect(clippy::module_name_repetitions)]
 pub struct HuffmanTree {
     /// The root node of the Huffman tree.
     root: HuffmanTreeNode,
@@ -181,7 +181,7 @@ impl HuffmanTree {
     /// let tree = HuffmanTree::from_freq(frequencies);
     /// ```
     #[must_use]
-    #[allow(clippy::missing_panics_doc)]
+    #[expect(clippy::missing_panics_doc)]
     pub fn from_freq(frequencies: HashMap<char, usize>) -> Self {
         // Convert hashmap to binary heap friendly data structure
         let mut heap = frequencies
@@ -234,7 +234,7 @@ impl HuffmanTree {
     /// let (lit_tree, dist_tree) = HuffmanTree::from_lz77(&lz77_data, &lz77_compressor);
     /// ```
     #[must_use]
-    #[allow(clippy::missing_panics_doc, clippy::cast_possible_truncation)]
+    #[expect(clippy::missing_panics_doc, clippy::cast_possible_truncation)]
     pub fn from_lz77(data: &[LZ77Unit], lz77: &LZ77Compressor) -> (Self, Self) {
         use LZ77Unit::{Literal, Marker};
 
@@ -615,7 +615,7 @@ impl HuffmanTree {
     /// // Now the tree can used for encoding.
     /// assert_eq!(Some((1, 2)), tree.encode('a'));
     /// ```
-    #[allow(clippy::missing_panics_doc, clippy::cast_possible_truncation)]
+    #[expect(clippy::missing_panics_doc, clippy::cast_possible_truncation)]
     pub fn assign(&mut self) {
         if self.map.is_none() {
             self.map = Some(HashMap::new());
@@ -1027,7 +1027,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_huffman_tree_decode_good() {
         struct TestData(usize, usize, &'static [char]);
 
@@ -1070,7 +1070,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_huffman_tree_decode_bad() {
         struct TestData(usize, usize, usize);
 
@@ -1108,7 +1108,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_huffman_tree_from_bitlen_list() {
         struct TestData(usize, usize, &'static [char]);
 

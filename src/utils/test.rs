@@ -254,7 +254,7 @@ impl<'a, T> TempDir<'a, T> {
     }
 }
 
-impl<'a, T> Drop for TempDir<'a, T> {
+impl<T> Drop for TempDir<'_, T> {
     fn drop(&mut self) {
         self.revert();
     }

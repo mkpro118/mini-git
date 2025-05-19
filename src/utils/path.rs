@@ -100,7 +100,7 @@ fn cwd_err(_: std::io::Error) -> String {
 /// Returns an error in the following cases:
 /// * Any path component contains invalid Unicode characters
 /// * The path cannot be successfully processed or converted
-#[allow(clippy::module_name_repetitions)]
+#[expect(clippy::module_name_repetitions)]
 pub fn to_posix_path(path: &Path) -> Result<String, String> {
     use std::path::{Component, Prefix};
 
@@ -184,7 +184,7 @@ pub fn to_posix_path(path: &Path) -> Result<String, String> {
 /// let head_path = repo_path(base, &["refs", "heads"]);
 /// assert_eq!(head_path, base.join("refs").join("heads"));
 /// ```
-#[allow(clippy::module_name_repetitions)]
+#[expect(clippy::module_name_repetitions)]
 pub fn repo_path<P>(gitdir: &Path, paths: &[P]) -> PathBuf
 where
     P: AsRef<Path>,
@@ -597,7 +597,7 @@ mod tests {
 
     // Test invalid Unicode paths
     #[test]
-    #[allow(invalid_from_utf8_unchecked, unsafe_code)]
+    #[expect(invalid_from_utf8_unchecked, unsafe_code)]
     fn test_invalid_unicode() {
         // Create a path with invalid UTF-8 sequences
         let invalid_path = if cfg!(target_family = "windows") {

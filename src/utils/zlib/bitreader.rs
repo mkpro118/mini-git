@@ -153,7 +153,6 @@ impl<'a> BitReader<'a> {
 ///
 /// assert_eq!(bytes, vec![3]);
 /// ```
-#[allow(dead_code)] // Used in tests
 #[must_use]
 pub fn code_to_bytes(code: usize, length: usize) -> Vec<u8> {
     let mut bytes: Vec<u8> = vec![0u8];

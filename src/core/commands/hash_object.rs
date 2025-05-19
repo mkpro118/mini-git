@@ -17,7 +17,6 @@ use crate::core::{resolve_repository_context, RepositoryContext};
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-#[allow(clippy::module_name_repetitions)]
 pub fn hash_object(args: &Namespace) -> Result<String, String> {
     let Ok(data) = std::fs::read(&args["path"]) else {
         return Err(format!("failed to read file at {}", args["path"]));

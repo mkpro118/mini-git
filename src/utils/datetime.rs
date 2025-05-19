@@ -83,7 +83,7 @@ impl TZInfo {
     /// let tz_info = unsafe { TZInfo::new() };
     /// println!("Current timezone offset: {}", tz_info.to_str());
     /// ```
-    #[allow(clippy::cast_possible_wrap)]
+    #[expect(clippy::cast_possible_wrap)]
     #[must_use]
     pub unsafe fn new() -> Self {
         // Current TimeStamp
@@ -271,7 +271,7 @@ impl DateTime {
     /// let dt = DateTime::from_git_timestamp("John Doe <john@example.com> 1234567890 +0000").unwrap();
     /// assert!(dt.to_str().contains("2009"));
     /// ```
-    #[allow(clippy::missing_panics_doc)]
+    #[expect(clippy::missing_panics_doc)]
     #[must_use]
     pub fn from_git_timestamp(timestamp_str: &str) -> Option<Self> {
         let parts: Vec<&str> = timestamp_str.split_whitespace().collect();
@@ -309,7 +309,7 @@ impl DateTime {
     /// let dt = DateTime::from_timestamp(1234567890);
     /// assert!(dt.format_git().contains("2009"));
     /// ```
-    #[allow(clippy::cast_sign_loss)]
+    #[expect(clippy::cast_sign_loss)]
     #[must_use]
     pub fn format_git(&self) -> String {
         unsafe {
@@ -367,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::cast_possible_wrap)]
+    #[expect(clippy::cast_possible_wrap)]
     fn test_datetime_now() {
         let now = DateTime::now();
         let system_time = SystemTime::now();

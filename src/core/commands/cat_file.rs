@@ -13,7 +13,6 @@ use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-#[allow(clippy::module_name_repetitions)]
 pub fn cat_file(args: &Namespace) -> Result<String, String> {
     let RepositoryContext { repo, .. } = resolve_repository_context()?;
 

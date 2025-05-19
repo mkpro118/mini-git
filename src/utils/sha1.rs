@@ -124,7 +124,6 @@ impl SHA1 {
     /// hasher.update(b"hello world");
     /// let result = hasher.finalize();
     /// ```
-    #[allow(missing_docs)]
     pub fn finalize(&mut self) -> [u8; 20] {
         let mod_len = (self.total_len % 64) as usize;
         let padding = create_padding(mod_len, self.total_len);
@@ -169,7 +168,7 @@ fn create_padding(mod_len: usize, total_len: u64) -> Vec<u8> {
 }
 
 /// Processes a 512-bit chunk and updates the state.
-#[allow(clippy::many_single_char_names)]
+#[expect(clippy::many_single_char_names)]
 fn process_chunk(chunk: &[u8], initial_state: [u32; 5]) -> [u32; 5] {
     let words = expand_chunk(chunk);
     let [a, b, c, d, e] = initial_state;
