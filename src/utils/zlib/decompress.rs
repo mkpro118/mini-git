@@ -120,7 +120,7 @@ fn inflate(reader: &mut BitReader) -> Result<Vec<u8>, String> {
 /// Inflates an uncompressed block.
 ///
 /// This function is called by `inflate` when an uncompressed block is encountered.
-#[allow(unused_variables)]
+#[expect(unused_variables)]
 fn inflate_block_no_compression(reader: &mut BitReader, buffer: &mut Vec<u8>) {
     // Length of the data
     let len = reader.read_bytes(2);
@@ -370,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_inflate_block_data_literals() {
         let mut literal_tree = HuffmanTree::new();
         let distance_tree = HuffmanTree::new();
@@ -399,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_inflate_block_data_distance() {
         struct TestData(usize, usize, usize, &'static [u8]);
 

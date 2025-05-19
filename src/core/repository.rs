@@ -7,7 +7,7 @@ use crate::utils::configparser::ConfigParser;
 use crate::utils::path;
 
 /// A struct representing a Git repository.
-#[allow(clippy::module_name_repetitions, dead_code)]
+#[expect(clippy::module_name_repetitions, dead_code)]
 #[derive(Debug)]
 pub struct GitRepository {
     /// The working tree of the repository.
@@ -178,11 +178,7 @@ impl GitRepository {
                 return Err(format!("not a directory {:?}", path.as_os_str()));
             }
 
-            if repo
-                .gitdir
-                .read_dir()
-                .map_or(false, |mut e| e.next().is_some())
-            {
+            if repo.gitdir.read_dir().is_ok_and(|mut e| e.next().is_some()) {
                 return Err(format!("{:?} is not empty", path.as_os_str()));
             }
         } else if fs::create_dir_all(&repo.worktree).is_err() {
@@ -236,7 +232,7 @@ impl GitRepository {
 
 // Holds the context of a Git repository, including the current working directory,
 /// repository path, and a reference to the Git repository.
-#[allow(clippy::module_name_repetitions)]
+#[expect(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct RepositoryContext {
     /// The current working directory, resolved when `resolve_repository_context` is called.

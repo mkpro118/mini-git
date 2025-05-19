@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     fn test_is_binary_with_control_characters() {
         let content = "This text will have >30% control characters.";
         let n = 10usize; // Number of control characters, must be <= 31

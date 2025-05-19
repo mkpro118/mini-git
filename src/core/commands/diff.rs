@@ -36,7 +36,7 @@ struct Hunk {
     content: String,
 }
 
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 struct DiffOpts {
     files: Vec<String>,
     name_only: bool,
@@ -60,7 +60,6 @@ struct DiffOpts {
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-#[allow(clippy::module_name_repetitions)]
 pub fn diff(args: &Namespace) -> Result<String, String> {
     let RepositoryContext {
         repo,
@@ -111,6 +110,7 @@ pub fn diff(args: &Namespace) -> Result<String, String> {
         "Could not switch to repository root directory".to_owned()
     })?;
 
+    #[expect(clippy::used_underscore_items)]
     _diff(repo, tree1, tree2, opts)
 }
 
@@ -199,7 +199,7 @@ fn process_files_in_parallel(
     opts: DiffOpts,
 ) -> Result<String, String> {
     let num_threads = usize::min(MAX_THREADS, all_files.len());
-    let chunk_size = (all_files.len() + num_threads - 1) / num_threads;
+    let chunk_size = all_files.len().div_ceil(num_threads);
 
     let file_chunks: Vec<Vec<String>> = all_files
         .chunks(chunk_size)
@@ -317,7 +317,7 @@ fn process_single_file(
         return Ok(None);
     };
 
-    if !should_process_file(status, &opts.diff_filter) {
+    if !should_process_file(status, opts.diff_filter.as_ref()) {
         return Ok(None);
     }
 
@@ -350,8 +350,8 @@ fn determine_file_status(
 }
 
 // Checks if a file should be processed based on diff filter
-fn should_process_file(status: char, diff_filter: &Option<String>) -> bool {
-    if let Some(ref filter) = diff_filter {
+fn should_process_file(status: char, diff_filter: Option<&String>) -> bool {
+    if let Some(filter) = diff_filter {
         status_matches_filter(status, filter)
     } else {
         true
@@ -580,7 +580,7 @@ fn generate_changes(
     optimized_changes
 }
 
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 fn generate_hunks(
     old_lines: &[&str],
     new_lines: &[&str],
@@ -963,7 +963,7 @@ fn format_diffstat(path: &str, content1: &[u8], content2: &[u8]) -> String {
     let available_columns = STAT_WIDTH - (path.len() + 3);
     let total_changes = additions + deletions;
 
-    #[allow(
+    #[expect(
         clippy::cast_precision_loss,
         clippy::cast_sign_loss,
         clippy::cast_possible_truncation
@@ -1065,7 +1065,6 @@ mod tests {
     }
 
     impl Rng {
-        #[allow(clippy::cast_possible_truncation)]
         pub fn with(seed: usize, multiplier: usize, increment: usize) -> Self {
             Self {
                 seed,

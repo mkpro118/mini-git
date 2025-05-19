@@ -156,7 +156,6 @@ pub(super) fn get_files(
 /// - commits
 /// - tags
 /// - trees
-#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub enum GitObject {
     Blob(blob::Blob),
@@ -485,7 +484,6 @@ fn resolve_object(
 /// let digest = hash.hex_digest();
 /// assert_eq!(digest, "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
 /// ```
-#[allow(clippy::module_name_repetitions)]
 #[must_use]
 pub fn hash_object(obj: &GitObject) -> (Vec<u8>, sha1::SHA1) {
     let data = obj.serialize();
@@ -566,7 +564,6 @@ pub fn read_object(
     Err(format!("Object {sha} not found in repository"))
 }
 
-#[allow(clippy::module_name_repetitions)]
 fn read_loose_object(
     repo: &GitRepository,
     sha: &str,
@@ -767,7 +764,6 @@ pub(super) fn parse_packed_refs(
 /// assert_eq!(digest, "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
 /// Ok::<(), String>(())
 /// ```
-#[allow(clippy::module_name_repetitions)]
 pub fn write_object(
     obj: &GitObject,
     repo: &GitRepository,

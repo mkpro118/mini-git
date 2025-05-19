@@ -154,11 +154,7 @@ impl LZ77Compressor {
         };
 
         while pos < last_pos {
-            let mut search_start = if pos > window_size {
-                pos - window_size
-            } else {
-                0
-            };
+            let mut search_start = pos.saturating_sub(window_size);
 
             let mut match_length = self.min_match_length;
 

@@ -25,7 +25,6 @@ const CYAN: &str = "\x1b[36m";
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-#[allow(clippy::module_name_repetitions)]
 pub fn log(args: &Namespace) -> Result<String, String> {
     let RepositoryContext { repo, .. } = resolve_repository_context()?;
 
@@ -34,6 +33,7 @@ pub fn log(args: &Namespace) -> Result<String, String> {
     let show_author = args.get("no-author").is_none();
     let revision = &args["revision"];
 
+    #[expect(clippy::used_underscore_items)]
     _log(&repo, revision, max_commits, oneline, show_author)
 }
 

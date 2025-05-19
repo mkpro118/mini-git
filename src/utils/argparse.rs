@@ -472,7 +472,6 @@ impl ArgumentParser {
     ///     .optional()
     ///     .add_help("Your age");
     /// ```
-    #[allow(clippy::missing_panics_doc)]
     pub fn add_argument(
         &mut self,
         name: &str,
@@ -597,7 +596,6 @@ impl ArgumentParser {
     ///
     /// parser.compile(); // Will panic!
     /// ```
-    #[allow(clippy::missing_panics_doc)]
     pub fn compile(&mut self) {
         if self.compiled {
             return;
@@ -988,7 +986,6 @@ impl ArgumentParser {
     ///
     /// println!("{}", parser.help());
     /// ```
-    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn help(&self) -> String {
         let name = Self::exec_name();
@@ -1098,7 +1095,7 @@ impl ArgumentParser {
 
 /// Damerau–Levenshtein distance with adjacent transpositions
 /// This function is case sensitive
-#[allow(
+#[expect(
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
     clippy::cast_sign_loss

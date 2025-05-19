@@ -31,7 +31,7 @@ const TAG_REFS: &str = "refs/tags";
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-#[allow(clippy::module_name_repetitions, clippy::missing_panics_doc)]
+#[expect(clippy::missing_panics_doc)]
 pub fn show_ref(args: &Namespace) -> Result<String, String> {
     let RepositoryContext { repo, .. } = resolve_repository_context()?;
 
@@ -66,7 +66,7 @@ pub fn show_ref(args: &Namespace) -> Result<String, String> {
     }
 }
 
-#[allow(clippy::similar_names)]
+#[expect(clippy::similar_names)]
 pub(crate) fn list_resolved_refs(
     args: &Namespace,
     repo: &GitRepository,
@@ -129,7 +129,7 @@ pub(crate) fn list_resolved_refs(
     Ok(result)
 }
 
-#[allow(clippy::similar_names)]
+#[expect(clippy::similar_names)]
 fn list_refs(
     repo: &GitRepository,
     filter: Option<&str>,

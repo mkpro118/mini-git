@@ -15,7 +15,6 @@ const DEFAULT_PATH: &str = ".";
 ///
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
-#[allow(clippy::module_name_repetitions)]
 pub fn init(args: &Namespace) -> Result<String, String> {
     let path = &args["path"];
 

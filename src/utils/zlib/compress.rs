@@ -40,7 +40,7 @@ enum RunLengthEncoding {
 
 use RunLengthEncoding::{Once, Repeat};
 
-#[allow(
+#[expect(
     clippy::unusual_byte_groupings,
     clippy::cast_possible_truncation,
     clippy::missing_panics_doc
@@ -83,7 +83,7 @@ pub fn compress(data: &[u8], strategy: &Strategy) -> Vec<u8> {
     bitwriter.finish()
 }
 
-#[allow(clippy::cast_precision_loss, clippy::cast_lossless)]
+#[expect(clippy::cast_precision_loss, clippy::cast_lossless)]
 fn auto_compress(writer: &mut BitWriter, data: &[u8]) {
     // For data lesser 256 bytes the overhead is just not worth it
     if data.len() < 256 {
@@ -166,7 +166,7 @@ fn auto_compress(writer: &mut BitWriter, data: &[u8]) {
     }
 }
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 fn compress_raw(writer: &mut BitWriter, data: &[u8]) {
     let n_blocks = data.len().div_ceil(SIXTEEN_KB) - 1;
 
@@ -207,7 +207,6 @@ fn compress_fixed(writer: &mut BitWriter, data: &[u8]) {
     write_compressed_data(writer, &compressed, &length_tree, &distance_tree);
 }
 
-#[allow(clippy::cast_possible_truncation)]
 fn compress_dynamic(writer: &mut BitWriter, data: &[u8]) {
     // BFINAL = 1, we only write one massive block
     writer.write_bit(0b1);
@@ -225,7 +224,7 @@ fn compress_dynamic(writer: &mut BitWriter, data: &[u8]) {
     write_compressed_data(writer, &compressed, &ltree, &dtree);
 }
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 fn write_dynamic_header(
     writer: &mut BitWriter,
     ltree: &HuffmanTree,
@@ -318,7 +317,7 @@ fn literal_writer(ltree: &HuffmanTree, writer: &mut BitWriter, byte: char) {
     writer.write_bits(code, len);
 }
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 fn length_writer(ltree: &HuffmanTree, writer: &mut BitWriter, length: usize) {
     assert!(length >= 3, "Length too short found {length}!");
     assert!(length <= 258, "Length too long found {length}!");
@@ -344,7 +343,7 @@ fn length_writer(ltree: &HuffmanTree, writer: &mut BitWriter, length: usize) {
     }
 }
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 fn distance_writer(
     dtree: &HuffmanTree,
     writer: &mut BitWriter,
@@ -404,7 +403,7 @@ fn get_codelengths(
     (ltree_codelengths, dtree_codelengths)
 }
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 fn get_code_tree(combined: &[(usize, Option<usize>)]) -> HuffmanTree {
     let codes_only = combined
         .iter()
@@ -426,7 +425,7 @@ fn get_code_tree(combined: &[(usize, Option<usize>)]) -> HuffmanTree {
     code_tree
 }
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 fn get_hcodes(code_tree: &HuffmanTree) -> Vec<usize> {
     let hcodes = CODE_LENGTH_CODES_ORDER
         .iter()
@@ -602,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_write_compressed_data() {
         let (mut tree1, mut tree2) = (HuffmanTree::new(), HuffmanTree::new());
 
@@ -638,7 +637,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_literal_writer() {
         let mut tree = HuffmanTree::new();
         tree.insert(0b0, 1, 'A');
@@ -660,7 +659,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_length_writer() {
         let mut tree = HuffmanTree::new();
         tree.insert(0b0, 1, '\u{101}');
@@ -682,7 +681,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unusual_byte_groupings)]
+    #[expect(clippy::unusual_byte_groupings)]
     fn test_distance_writer() {
         let mut tree = HuffmanTree::new();
         tree.insert(0b0, 1, 0 as char);

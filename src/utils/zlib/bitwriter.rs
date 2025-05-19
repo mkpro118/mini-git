@@ -86,7 +86,7 @@ impl BitWriter {
     /// let result = writer.finish();
     /// assert_eq!(result, vec![0b1010_1110]);
     /// ```
-    #[allow(clippy::missing_panics_doc)]
+    #[expect(clippy::missing_panics_doc)]
     pub fn write_bits(&mut self, mut value: usize, mut num_bits: usize) {
         while num_bits > 0 {
             self.write_bit(

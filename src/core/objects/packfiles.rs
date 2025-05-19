@@ -69,7 +69,7 @@ impl PackFile {
     /// let packfile = PackFile::from_files(idx_path, pack_path)
     ///     .expect("Failed to load packfile");
     /// ```
-    #[allow(clippy::similar_names, clippy::cast_possible_wrap)]
+    #[expect(clippy::similar_names, clippy::cast_possible_wrap)]
     pub fn from_files(
         idx_path: &Path,
         pack_path: &Path,
@@ -769,7 +769,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::similar_names)]
+    #[expect(clippy::similar_names)]
     fn test_read_object_at_offset_cache() {
         // Create a dummy PackFile with empty index and a fake pack_file
         let tmp_dir = TempDir::<()>::create("test_read_object_at_offset_cache");
