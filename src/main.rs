@@ -1,5 +1,6 @@
 use mini_git::core::commands::{
-    cat_file, diff, hash_object, init, log, ls_tree, rev_parse, show_ref,
+    cat_file, diff, hash_object, init, log, ls_files, ls_tree, rev_parse,
+    show_ref,
 };
 use mini_git::utils::argparse::{ArgumentParser, Namespace};
 
@@ -36,6 +37,7 @@ const COMMAND_MAP: &[Command] = &[
     cmd!("hash-object", hash_object),
     cmd!("init", init),
     cmd!("log", log),
+    cmd!("ls-files", ls_files),
     cmd!("ls-tree", ls_tree),
     cmd!("rev-parse", rev_parse),
     cmd!("show-ref", show_ref),
