@@ -20,7 +20,7 @@
 
 <p align="center">
 
-  A smaller re-implementation of the Git VCS in Rust, built completely from scratch with *zero* dependencies.
+A smaller re-implementation of the Git VCS in Rust, built completely from scratch with _zero_ dependencies.
 
 </p>
 
@@ -39,7 +39,7 @@ This project is currently a work-in-progress
 - [x] `hash-object`
 - [x] `init`
 - [x] `log`
-- [ ] `ls-files`
+- [x] `ls-files`
 - [x] `ls-tree`
 - [x] `rev-parse`
 - [ ] `rm`
