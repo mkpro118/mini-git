@@ -2,6 +2,7 @@ pub mod test_cat_file;
 pub mod test_hash_object;
 pub mod test_init;
 pub mod test_log;
+pub mod test_ls_files;
 pub mod test_ls_tree;
 pub mod test_rev_parse;
 pub mod test_show_ref;
