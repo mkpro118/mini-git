@@ -1,7 +1,10 @@
 use crate::core::objects::index_file::{GitIndex, GitIndexEntry};
 use crate::core::repository::{resolve_repository_context, RepositoryContext};
+use crate::core::GitRepository;
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
 use crate::utils::path::to_posix_path;
+
+use std::path::{Path, PathBuf};
 
 /// List files from the index file
 /// This handles the subcommand
@@ -17,29 +20,8 @@ use crate::utils::path::to_posix_path;
 pub fn ls_files(args: &Namespace) -> Result<String, String> {
     let RepositoryContext { repo, cwd, .. } = resolve_repository_context()?;
 
-    let cwd: String = to_posix_path(&cwd)?;
-    let top_level: String = to_posix_path(repo.worktree())?;
-
     // This is the directory prefix relative to the top level of the worktree
-    let current_dir_prefix = {
-        let mut relative_current_dir =
-            cwd.strip_prefix(&top_level).unwrap_or(&cwd).to_owned();
-        if relative_current_dir.is_empty() {
-            // current dir is the top level
-            relative_current_dir
-        } else {
-            relative_current_dir = relative_current_dir
-                .strip_prefix("/")
-                .unwrap_or(&relative_current_dir)
-                .to_owned();
-            if !relative_current_dir.ends_with('/') {
-                let with_suffix = format!("{relative_current_dir}/");
-                relative_current_dir = with_suffix;
-            }
-
-            relative_current_dir
-        }
-    };
+    let prefix = compute_prefix(&repo, &cwd)?;
 
     let full_name = args.get("full-path").is_some();
     let debug = args.get("debug").is_some();
@@ -53,14 +35,11 @@ pub fn ls_files(args: &Namespace) -> Result<String, String> {
     Ok(index
         .entries()
         .iter()
-        .filter(|entry| entry.name.starts_with(&current_dir_prefix))
+        .filter(|entry| entry.name.starts_with(&prefix))
         .map(|entry| {
             let mut name = entry.name.clone();
             if !full_name {
-                name = name
-                    .strip_prefix(&current_dir_prefix)
-                    .unwrap_or(&name)
-                    .to_owned();
+                name = name.strip_prefix(&prefix).unwrap_or(&name).to_owned();
             }
             if !debug {
                 return name;
@@ -68,7 +47,6 @@ pub fn ls_files(args: &Namespace) -> Result<String, String> {
             let debug = debug_format(entry);
             format!("{name}{name_separator}{debug}")
         })
-        // .filter(predicate)
         .collect::<Vec<_>>()
         .join(name_separator))
 }
@@ -94,6 +72,29 @@ fn debug_format(entry: &GitIndexEntry) -> String {
         format!("{size}{flags_pad} {flags}"),
     ];
     lines.join("\n  ")
+}
+
+fn compute_prefix(repo: &GitRepository, cwd: &Path) -> Result<String, String> {
+    let cwd = cwd.canonicalize().map_err(|_| "failed to resolve cwd")?;
+    let worktree = repo
+        .worktree()
+        .canonicalize()
+        .map_err(|_| "failed to resolve worktree")?;
+
+    // Strip the worktree off the cwd, or get an empty PathBuf if we’re at the root
+    let rel: PathBuf = cwd
+        .strip_prefix(&worktree)
+        .map_or_else(|_| PathBuf::new(), PathBuf::from);
+
+    // Convert to a POSIX‐style string only now
+    let mut prefix = to_posix_path(&rel)?; // your helper that swaps backslashes for slashes
+
+    // Ensure a trailing slash if non‐empty
+    if !prefix.is_empty() && !prefix.ends_with('/') {
+        prefix.push('/');
+    }
+
+    Ok(prefix)
 }
 
 /// Make `ls-files` parser
