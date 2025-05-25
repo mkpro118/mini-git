@@ -50,7 +50,7 @@ mod tests {
                 println!("Bypassing setup!");
             }
             Err(..) => panic!("Mutex failed!"),
-        };
+        }
     }
 
     fn create_mock_repo() -> TempDir<'static, ()> {

@@ -89,7 +89,7 @@ fn tree(
             }
 
             acc.push_str(&repr_leaf(&mode, obj_type, sha, &path));
-        };
+        }
     }
     Ok(())
 }

@@ -74,7 +74,7 @@ pub fn compress(data: &[u8], strategy: &Strategy) -> Vec<u8> {
         Fixed => compress_fixed(&mut bitwriter, data),
         Raw => compress_raw(&mut bitwriter, data),
         Auto => auto_compress(&mut bitwriter, data),
-    };
+    }
 
     // Checksum
     let checksum = adler32(data).to_be_bytes();
@@ -503,7 +503,7 @@ fn rle_to_zlib_codes(rle: &[RunLengthEncoding]) -> Vec<(usize, Option<usize>)> {
                     zlib_rle_encode_nonzero(&mut acc, *num, *repetitions);
                 }
             }
-        };
+        }
         acc
     })
 }

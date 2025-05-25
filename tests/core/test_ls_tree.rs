@@ -129,7 +129,7 @@ mod tests {
             }
             Ok(..) => {}
             Err(..) => panic!("Mutex failed!"),
-        };
+        }
     }
 
     fn check_output(expected: &[(&str, &String, &str, String)], res: &str) {

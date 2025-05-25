@@ -114,7 +114,7 @@ Second commit"
             }
             Ok(..) => {}
             Err(..) => panic!("Mutex failed!"),
-        };
+        }
     }
 
     #[test]

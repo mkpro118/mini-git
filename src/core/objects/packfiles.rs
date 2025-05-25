@@ -32,6 +32,7 @@ type Hash = [u8; HASH_SIZE];
 ///     .expect("Failed to load packfile");
 /// ```
 #[derive(Debug)]
+#[expect(clippy::struct_field_names)]
 pub struct PackFile {
     index: HashMap<Hash, u64>,
     pack_file: fs::File,
@@ -204,7 +205,7 @@ impl PackFile {
     /// # Arguments
     ///
     /// * `prefix` - A hex-encoded string representing the beginning of the hash to search for.
-    ///              If the length of the prefix is odd, it is truncated to make it even.
+    ///   If the length of the prefix is odd, it is truncated to make it even.
     ///
     /// # Returns
     ///
