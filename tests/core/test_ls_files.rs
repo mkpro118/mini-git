@@ -165,7 +165,7 @@ mod tests {
 
     static FS_MUTEX: Mutex<Option<TempDir<()>>> = Mutex::new(None);
 
-    const GIT_INDEX_PATH: &'static str = const {
+    const GIT_INDEX_PATH: &str = const {
         if cfg!(windows) {
             ".git\\index"
         } else {
@@ -208,7 +208,7 @@ mod tests {
             }
             Ok(..) => {}
             Err(..) => panic!("Mutex failed!"),
-        };
+        }
     }
 
     #[test]

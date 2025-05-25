@@ -111,7 +111,7 @@ fn inflate(reader: &mut BitReader) -> Result<Vec<u8>, String> {
             1 => inflate_block_fixed(reader, &mut buffer),
             2 => inflate_block_dynamic(reader, &mut buffer),
             _ => return Err("Invalid block type".to_owned()),
-        };
+        }
     }
 
     Ok(buffer)

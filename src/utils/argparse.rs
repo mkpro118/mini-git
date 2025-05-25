@@ -755,7 +755,7 @@ impl ArgumentParser {
                 .is_some()
                 {
                     return Ok(parsed);
-                };
+                }
             } else {
                 self.handle_positional(
                     &mut parsed,
@@ -905,7 +905,7 @@ impl ArgumentParser {
             }
             ArgumentType::Boolean if argument.name != "help" => unreachable!(),
             _ => {}
-        };
+        }
 
         parsed.values.insert(argument.name.clone(), value);
         parsed.order.push(argument.name.clone());
@@ -988,6 +988,8 @@ impl ArgumentParser {
     /// ```
     #[must_use]
     pub fn help(&self) -> String {
+        use std::fmt::Write as _;
+
         let name = Self::exec_name();
 
         // First line, usage text
@@ -1041,10 +1043,11 @@ impl ArgumentParser {
             let padding = " ".repeat(self.max_arg_len - arg.name.len() + 4);
 
             // {short} {name} {padding} {help} {required}
-            help_text.push_str(&format!(
-                "  {short}--{}{padding} {} {required}\n",
+            let _ = writeln!(
+                help_text,
+                "  {short}--{}{padding} {} {required}",
                 arg.name, arg.help
-            ));
+            );
 
             // For options that have choices, list the choices on the next line
             if let Some(ref choices) = arg.choices {
@@ -1072,10 +1075,11 @@ impl ArgumentParser {
         if !self.subcommands.is_empty() {
             help_text.push_str("\nSubcommands:\n");
             for subcommand in &self.subcommands {
-                help_text.push_str(&format!(
-                    "  {:<16} {}\n",
+                let _ = writeln!(
+                    help_text,
+                    "  {:<16} {}",
                     subcommand.name, subcommand.parser.description
-                ));
+                );
             }
         }
 

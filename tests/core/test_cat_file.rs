@@ -79,7 +79,7 @@ mod tests {
             }
             Ok(..) => {}
             Err(..) => panic!("Mutex failed!"),
-        };
+        }
     }
 
     #[test]

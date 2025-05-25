@@ -12,7 +12,7 @@ mod tests {
     }
 
     impl Rng {
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(clippy::cast_possible_truncation)]
         pub fn new() -> Self {
             let dur = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

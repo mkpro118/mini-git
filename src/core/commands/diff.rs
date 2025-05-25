@@ -9,6 +9,7 @@ use crate::core::{
     resolve_repository_context, GitRepository, RepositoryContext,
 };
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
+use std::fmt::Write as _;
 
 const RESET: &str = "\x1b[0m";
 const RED: &str = "\x1b[31m";
@@ -611,7 +612,7 @@ fn generate_hunks(
              old_count: &mut usize,
              new_count: &mut usize| {
                 for (line, _, _) in context_buffer {
-                    current_hunk.push_str(&format!(" {line}\n"));
+                    let _ = writeln!(current_hunk, " {line}");
                     *old_count += 1;
                     *new_count += 1;
                 }
@@ -646,7 +647,7 @@ fn generate_hunks(
                 } else if let Some(last_idx) = last_change_idx {
                     if i - last_idx <= hunk_context_lines {
                         // Within range of last change
-                        current_hunk.push_str(&format!(" {line}\n"));
+                        let _ = writeln!(current_hunk, " {line}");
                         old_count += 1;
                         new_count += 1;
                     } else {
@@ -691,7 +692,7 @@ fn generate_hunks(
                 }
 
                 let line = old_lines[old_line_num - 1];
-                current_hunk.push_str(&format!("{RED}-{line}{RESET}\n"));
+                let _ = writeln!(current_hunk, "{RED}-{line}{RESET}");
                 old_count += 1;
                 old_line_num += 1;
                 last_change_idx = Some(i);
@@ -710,7 +711,7 @@ fn generate_hunks(
 
                 let line = new_lines[new_line_num - 1];
                 // Buffer the addition instead of writing it immediately
-                additions_buffer.push_str(&format!("{GREEN}+{line}{RESET}\n"));
+                let _ = writeln!(additions_buffer, "{GREEN}+{line}{RESET}");
                 new_count += 1;
                 new_line_num += 1;
                 last_change_idx = Some(i);
@@ -730,9 +731,8 @@ fn generate_hunks(
 
                 let old_line = old_lines[old_line_num - 1];
                 let new_line = new_lines[new_line_num - 1];
-                current_hunk.push_str(&format!("{RED}-{old_line}{RESET}\n"));
-                additions_buffer
-                    .push_str(&format!("{GREEN}+{new_line}{RESET}\n"));
+                let _ = writeln!(current_hunk, "{RED}-{old_line}{RESET}");
+                let _ = writeln!(additions_buffer, "{GREEN}+{new_line}{RESET}");
                 old_count += 1;
                 new_count += 1;
                 old_line_num += 1;
@@ -803,18 +803,18 @@ fn format_diff(
         generate_hunks(&old_lines, &new_lines, &changes, hunk_context_lines);
 
     let mut output = String::new();
-    output.push_str(&format!(
-        "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}\n"
-    ));
-    output.push_str("index ....\n"); // Simplified index line
-    output.push_str(&format!("--- {src_path}\n"));
-    output.push_str(&format!("+++ {dst_path}\n"));
+    let _ =
+        writeln!(output, "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}");
+    let _ = writeln!(output, "index ...."); // Simplified index line
+    let _ = writeln!(output, "--- {src_path}");
+    let _ = writeln!(output, "+++ {dst_path}");
 
     for hunk in hunks {
-        output.push_str(&format!(
-            "{CYAN}@@ -{},{} +{},{} @@{RESET}\n",
+        let _ = writeln!(
+            output,
+            "{CYAN}@@ -{},{} +{},{} @@{RESET}",
             hunk.old_start, hunk.old_count, hunk.new_start, hunk.new_count
-        ));
+        );
         output.push_str(&hunk.content);
     }
 
@@ -861,17 +861,15 @@ fn format_addition(
     let new_lines: Vec<&str> = new_str.lines().collect();
 
     let mut output = String::new();
-    output.push_str(&format!(
-        "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}\n"
-    ));
-    output.push_str("new file mode 100644\n");
-    output.push_str(&format!("--- {src_path}\n"));
-    output.push_str(&format!("+++ {dst_path}\n"));
+    let _ =
+        writeln!(output, "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}");
+    let _ = writeln!(output, "new file mode 100644");
+    let _ = writeln!(output, "--- {src_path}");
+    let _ = writeln!(output, "+++ {dst_path}");
 
-    output
-        .push_str(&format!("{CYAN}@@ -0,0 +1,{} @@{RESET}\n", new_lines.len()));
+    let _ = writeln!(output, "{CYAN}@@ -0,0 +1,{} @@{RESET}", new_lines.len());
     for line in new_lines {
-        output.push_str(&format!("{GREEN}+{line}\n"));
+        let _ = writeln!(output, "{GREEN}+{line}");
     }
 
     output.push_str(RESET);
@@ -917,17 +915,15 @@ fn format_deletion(
     let old_lines: Vec<&str> = old_str.lines().collect();
 
     let mut output = String::new();
-    output.push_str(&format!(
-        "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}\n"
-    ));
-    output.push_str("deleted file mode 100644\n");
-    output.push_str(&format!("--- {src_path}\n"));
-    output.push_str(&format!("+++ {dst_path}\n"));
+    let _ =
+        writeln!(output, "{CYAN}diff --mini-git {src_path} {dst_path}{RESET}");
+    let _ = writeln!(output, "deleted file mode 100644");
+    let _ = writeln!(output, "--- {src_path}");
+    let _ = writeln!(output, "+++ {dst_path}");
 
-    output
-        .push_str(&format!("{CYAN}@@ -1,{} +0,0 @@{RESET}\n", old_lines.len()));
+    let _ = writeln!(output, "{CYAN}@@ -1,{} +0,0 @@{RESET}", old_lines.len());
     for line in old_lines {
-        output.push_str(&format!("{RED}-{line}\n"));
+        let _ = writeln!(output, "{RED}-{line}");
     }
 
     output.push_str(RESET);
@@ -1575,12 +1571,10 @@ mod tests {
                     // Modify the line
                     new_lines.push(format!("Modified Line {i}"));
                 }
-                2 => {
+                _ => {
                     // Skip the line (deletion)
                     // Do not push to new_lines
-                    continue;
                 }
-                _ => {}
             }
         }
 

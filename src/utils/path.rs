@@ -127,11 +127,11 @@ pub fn to_posix_path(path: &Path) -> Result<String, String> {
                     }
                     Prefix::Verbatim(_) => {
                         // Ignore the "\\?\" prefix for extended-length paths
-                        continue;
                     }
                     Prefix::DeviceNS(_) => {
                         return Err(format!(
-                            "Unsupported prefix in path {path:?}"
+                            "Unsupported prefix in path {}",
+                            path.display()
                         ));
                     }
                 }
@@ -325,8 +325,8 @@ where
     }
 
     Err(format!(
-        "neither {top:?} nor any of it's parent directories \
-                 is a repository."
+        "neither {} nor any of it's parent directories is a repository.",
+        top.display()
     ))
 }
 

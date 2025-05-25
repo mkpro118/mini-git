@@ -175,7 +175,7 @@ fn list_refs(
                 (Some(x), Some(y)) if x == y => {}
                 (None, _) => {}
                 _ => continue,
-            };
+            }
 
             // For operations, we use OS specific path separator
             let rec_ref = r#ref.join(std::path::MAIN_SEPARATOR_STR);

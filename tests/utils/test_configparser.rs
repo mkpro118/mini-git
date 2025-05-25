@@ -42,7 +42,7 @@ mod tests {
             let mut section = ConfigSection::new();
             section.add_config("int_value", "42");
             section.add_config("negative_int", "-10");
-            section.add_config("float_value", "3.14");
+            section.add_config("float_value", "4.13");
             section.add_config("negative_float", "-2.5");
             section.add_config("bool_true", "true");
             section.add_config("bool_false", "false");
@@ -81,11 +81,10 @@ mod tests {
         }
 
         #[test]
-        #[allow(clippy::approx_constant)]
         fn test_get_float() {
             let section = setup_config_section();
 
-            assert_eq!(section.get_float("float_value"), Some(3.14));
+            assert_eq!(section.get_float("float_value"), Some(4.13));
             assert_eq!(section.get_float("negative_float"), Some(-2.5));
             assert_eq!(section.get_float("non_existent"), None);
         }

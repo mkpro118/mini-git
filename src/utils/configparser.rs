@@ -45,6 +45,7 @@
 use core::fmt::Display;
 use core::ops::Index;
 use std::borrow::Borrow;
+use std::fmt::Write as _;
 use std::fs::{self, canonicalize};
 use std::iter::FromIterator;
 use std::path::Path;
@@ -96,7 +97,7 @@ impl Display for ConfigSection {
         let string = self.configs.iter().fold(
             String::new(),
             |mut string, (key, value)| {
-                string.push_str(&format!("    {key}={value}\n"));
+                let _ = writeln!(string, "    {key}={value}");
                 string
             },
         );
@@ -211,7 +212,7 @@ impl Display for ConfigParser {
             sections
                 .into_iter()
                 .fold(String::new(), |mut string, section| {
-                    string.push_str(&format!("[{section}]\n"));
+                    let _ = writeln!(string, "[{section}]");
                     string.push_str(&self[section].to_string());
                     string.push('\n');
                     string
@@ -404,7 +405,7 @@ impl From<&Path> for ConfigParser {
         use std::fs::File;
         use std::io::{BufRead, BufReader};
 
-        assert!(path.exists(), "File {path:?} does not exist");
+        assert!(path.exists(), "File {} does not exist", path.display());
 
         let file = File::open(path).expect("Should be able to open the file");
         let iter = BufReader::new(file).lines().map_while(Result::ok);

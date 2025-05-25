@@ -294,7 +294,11 @@ impl<T> Drop for TempDir<'_, T> {
 /// - It fails to read the contents of the directory or any of its subdirectories.
 #[must_use]
 pub fn walkdir(top: &Path) -> Vec<PathBuf> {
-    assert!(top.is_dir(), "Top is not a directory (top = {top:?})");
+    assert!(
+        top.is_dir(),
+        "Top is not a directory (top = {})",
+        top.display()
+    );
     top.read_dir()
         .expect("Should read the dir")
         .flatten()

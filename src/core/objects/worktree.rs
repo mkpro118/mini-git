@@ -14,7 +14,7 @@ use crate::core::{objects::FileSource, GitRepository};
 ///
 /// * `repo` - A reference to the [`GitRepository`] from which to retrieve the worktree paths.
 /// * `top` - An optional path within the worktree to start collecting files from.
-///           If `None`, it defaults to the worktree root.
+///   If `None`, it defaults to the worktree root.
 ///
 /// # Returns
 ///
@@ -52,7 +52,9 @@ pub fn get_worktree_files(
         .map(Path::canonicalize)
         .transpose()
         .map_err(|x| match top {
-            Some(top) => format!("Failed to resolve path {top:?} {x}"),
+            Some(top) => {
+                format!("Failed to resolve path {} {x}", top.display())
+            }
             None => unreachable!("Map would not work if path was none"),
         })?
         .unwrap_or(work_tree.to_path_buf());

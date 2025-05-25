@@ -48,7 +48,7 @@ mod tests {
             }
             Ok(..) => {}
             Err(..) => panic!("Mutex failed!"),
-        };
+        }
     }
 
     fn create_mock_repo() -> TempDir<'static, ()> {
