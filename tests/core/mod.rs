@@ -20,3 +20,23 @@ macro_rules! make_namespaces_from {
         }
     };
 }
+
+#[macro_export]
+macro_rules! run_test {
+    ($setup:ident, $body:block) => {
+        $setup();
+        $body
+    };
+
+    ($setup:ident, $teardown:ident, $body:block) => {
+        $setup();
+
+        let test_result = std::panic::catch_unwind(|| $body);
+
+        $teardown();
+
+        if let Err(err) = test_result {
+            std::panic::resume_unwind(err);
+        }
+    };
+}

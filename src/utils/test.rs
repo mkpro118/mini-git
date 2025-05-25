@@ -35,6 +35,7 @@ use std::sync::Mutex;
 /// // Perform test operations in the temporary directory
 /// // The directory will be automatically cleaned up when `temp_dir` goes out of scope
 /// ```
+#[derive(Clone)]
 pub struct TempDir<'a, T> {
     original_dir: PathBuf,
     tmp_dir: PathBuf,
@@ -224,8 +225,12 @@ impl<'a, T> TempDir<'a, T> {
     /// This function will panic if it fails to change the current working
     /// directory back to the original directory.
     pub fn revert(&self) {
+        println!("Deleting {:?}", &self.tmp_dir);
         // This may not immediately delete, so we just ignore the retval
-        let _ = fs::remove_dir_all(&self.tmp_dir);
+        if let Err(res) = fs::remove_dir_all(&self.tmp_dir) {
+            println!("CLEANING UP {:?}", &self.tmp_dir);
+            println!("RESULT {:?}", res);
+        }
 
         if self.auto_revert {
             self.switch_back();
