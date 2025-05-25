@@ -165,6 +165,14 @@ mod tests {
 
     static FS_MUTEX: Mutex<Option<TempDir<()>>> = Mutex::new(None);
 
+    const GIT_INDEX_PATH: &'static str = const {
+        if cfg!(windows) {
+            ".git\\index"
+        } else {
+            ".git/index"
+        }
+    };
+
     make_namespaces_from!(make_parser);
 
     macro_rules! switch_dir {
@@ -225,7 +233,7 @@ mod tests {
         setup();
         let test_files = ["file1.txt", "src/main.rs", "README.md"];
         let result = switch_dir!({
-            create_dummy_git_index(".git/index", &test_files)
+            create_dummy_git_index(GIT_INDEX_PATH, &test_files)
                 .expect("Failed to create dummy index");
 
             // Test basic ls-files with no arguments
@@ -255,7 +263,7 @@ mod tests {
 
         let result = switch_dir!({
             let test_files = ["debug_test.txt"];
-            create_dummy_git_index(".git/index", &test_files)
+            create_dummy_git_index(GIT_INDEX_PATH, &test_files)
                 .expect("Failed to create dummy index");
 
             // Test with --debug flag
@@ -301,7 +309,7 @@ mod tests {
         let test_files = ["file1.txt", "file2.txt", "file3.txt"];
 
         let result = switch_dir!({
-            create_dummy_git_index(".git/index", &test_files)
+            create_dummy_git_index(GIT_INDEX_PATH, &test_files)
                 .expect("Failed to create dummy index");
 
             // Test with -z (null separator) flag
@@ -335,7 +343,7 @@ mod tests {
         let test_files = ["subdir/nested_file.txt", "root_file.txt"];
 
         let result = switch_dir!({
-            create_dummy_git_index(".git/index", &test_files)
+            create_dummy_git_index(GIT_INDEX_PATH, &test_files)
                 .expect("Failed to create dummy index");
 
             // Test with --full-path flag
@@ -363,7 +371,7 @@ mod tests {
 
         let result = switch_dir!({
             let test_files = ["combined_test.txt"];
-            create_dummy_git_index(".git/index", &test_files)
+            create_dummy_git_index(GIT_INDEX_PATH, &test_files)
                 .expect("Failed to create dummy index");
 
             // Test with multiple flags combined
@@ -399,7 +407,7 @@ mod tests {
         let result = switch_dir!({
             // Create empty index
             let empty_files: [&str; 0] = [];
-            create_dummy_git_index(".git/index", &empty_files)
+            create_dummy_git_index(GIT_INDEX_PATH, &empty_files)
                 .expect("Failed to create empty index");
 
             let args: [&[&str]; 1] = [&[]];
@@ -425,8 +433,8 @@ mod tests {
 
         impl IndexBackup {
             fn new() -> std::io::Result<Option<Self>> {
-                let orig = PathBuf::from(".git/index");
-                let backup = PathBuf::from(".git/index.orig");
+                let orig = PathBuf::from(GIT_INDEX_PATH);
+                let backup = PathBuf::from(&format!("{GIT_INDEX_PATH}.orig"));
 
                 if orig.exists() {
                     if backup.exists() {
@@ -485,7 +493,7 @@ mod tests {
         ];
 
         let result = switch_dir!({
-            create_dummy_git_index(".git/index", &test_files)
+            create_dummy_git_index(GIT_INDEX_PATH, &test_files)
                 .expect("Failed to create dummy index");
 
             let args: [&[&str]; 1] = [&[]];
