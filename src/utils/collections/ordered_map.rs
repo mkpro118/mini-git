@@ -87,7 +87,6 @@ where
     /// let map: OrderedMap<String, i32> = OrderedMap::default();
     /// assert!(map.iter().next().is_none());
     /// ```
-    #[must_use]
     fn default() -> Self {
         Self::new()
     }
