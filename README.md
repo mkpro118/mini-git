@@ -32,7 +32,7 @@ This project is currently a work-in-progress
 
 - [ ] `add`
 - [x] `cat-file`
-- [ ] `check-ignore`
+- [x] `check-ignore`
 - [ ] `checkout`
 - [ ] `commit`
 - [x] `diff`
