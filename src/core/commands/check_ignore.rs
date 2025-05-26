@@ -1,9 +1,9 @@
 use std::path::Path;
 
+use crate::core::objects::ignore::GitIgnore;
 use crate::core::repository::{resolve_repository_context, RepositoryContext};
+use crate::core::utils::gitignore_matcher::GitIgnoreResult;
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
-
-use crate::core::objects::ignore::{GitIgnore, IgnoreResult};
 
 use std::fmt::Write as _;
 
@@ -21,7 +21,9 @@ const COMMA: char = ',';
 /// If file system operations fail, or if input paths are not valid.
 /// A [`String`] message describing the error is returned.
 pub fn check_ignore(args: &Namespace) -> Result<String, String> {
-    let RepositoryContext { repo_path, .. } = resolve_repository_context()?;
+    let RepositoryContext {
+        repo_path, repo, ..
+    } = resolve_repository_context()?;
 
     let quiet: bool = args.get("quiet").is_some();
     let verbose: bool = args.get("verbose").is_some();
@@ -30,7 +32,7 @@ pub fn check_ignore(args: &Namespace) -> Result<String, String> {
     };
     let paths: Vec<&str> = files.split(COMMA).collect();
 
-    let gitignore = GitIgnore::new();
+    let gitignore = GitIgnore::from_repo(&repo)?;
 
     let mut output = String::new();
     let mut any_ignored = false;
@@ -38,7 +40,7 @@ pub fn check_ignore(args: &Namespace) -> Result<String, String> {
     for path_str in paths {
         let path = Path::new(&path_str);
 
-        if let IgnoreResult::Ignored {
+        if let GitIgnoreResult::Ignored {
             ignore_file,
             line_number,
             pattern,
@@ -51,7 +53,7 @@ pub fn check_ignore(args: &Namespace) -> Result<String, String> {
                     // Output in verbose format
                     let _ = writeln!(
                         output,
-                        "{}:{line_number}:{pattern}\t\"{}\"",
+                        "{}:{line_number}:{pattern}\t{}",
                         Path::new(&ignore_file)
                             .strip_prefix(&repo_path)
                             .map_err(|e| format!(
