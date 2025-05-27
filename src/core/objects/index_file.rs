@@ -1,5 +1,7 @@
 use std::fs;
+use std::path::Path;
 
+use crate::utils::path;
 use crate::{core::GitRepository, utils::path::repo_path};
 
 macro_rules! u32_from_be_bytes {
@@ -43,24 +45,20 @@ pub struct GitIndexEntry {
 
 #[derive(Debug)]
 #[expect(unused)]
-pub struct GitIndex {
+pub struct GitIndex<'a> {
+    repo: &'a GitRepository,
     version: u32,
     entries: Vec<GitIndexEntry>,
 }
 
-impl Default for GitIndex {
-    fn default() -> Self {
-        Self {
-            version: 2,
-            entries: Vec::default(),
-        }
-    }
-}
-
-impl GitIndex {
+impl<'a> GitIndex<'a> {
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(repo: &'a GitRepository) -> Self {
+        Self {
+            repo,
+            version: 2,
+            entries: Vec::new(),
+        }
     }
 
     #[must_use]
@@ -88,7 +86,7 @@ impl GitIndex {
     ///
     // Allow too many lines because most of the lines just read/write metadata
     #[expect(clippy::too_many_lines)]
-    pub fn read_index(repo: &GitRepository) -> Result<Self, String> {
+    pub fn read_index(repo: &'a GitRepository) -> Result<Self, String> {
         const HEADER_SIZE: usize = 12;
         const SIGNATURE_SIZE: usize = 4;
         const METADATA_SIZE: usize = 62;
@@ -98,7 +96,7 @@ impl GitIndex {
 
         let index_file = repo_path(repo.gitdir(), &["index"]);
         if !index_file.exists() {
-            return Ok(Self::new());
+            return Ok(Self::new(repo));
         }
 
         let raw = fs::read(&index_file).map_err(|e| e.to_string())?;
@@ -247,7 +245,48 @@ impl GitIndex {
             entries.push(entry);
         }
 
-        Ok(Self::new().set_version(version).set_entries(&entries))
+        Ok(Self::new(repo).set_version(version).set_entries(&entries))
+    }
+
+    /// Get an entry from the index corresponding to the given **relative** path.
+    ///
+    /// This function assumes paths to be relative to the root directory of
+    /// the top level of the repository's work tree. It is caller's responsibility
+    /// to account for the sub directories if the intended path is
+    /// relative to a sub directory of the repository's work tree.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the input path could not be resolved relative to the repository's
+    /// work tree.
+    pub fn get_file<P>(&self, path: P) -> Result<Option<&GitIndexEntry>, String>
+    where
+        P: AsRef<Path>,
+    {
+        let orig = &path; // copy for error message formatting
+        let path = path.as_ref();
+        let path = if path.is_absolute() {
+            path
+        } else {
+            &self.repo.worktree().join(path)
+        };
+        let Some(relpath) = path::repo_relative_path(self.repo, path) else {
+            return Err(format!(
+                "Could not resolve {}",
+                orig.as_ref().display()
+            ));
+        };
+
+        let posix_path = path::to_posix_path(&relpath)?;
+
+        let Ok(idx) = self
+            .entries
+            .binary_search_by(|entry| entry.name.cmp(&posix_path))
+        else {
+            return Ok(None);
+        };
+
+        Ok(Some(&self.entries[idx]))
     }
 }
 
@@ -259,16 +298,23 @@ mod tests {
     use std::fs;
 
     #[test]
-    fn new_has_no_entries() {
-        let index = GitIndex::new();
+    fn new_has_no_entries() -> Result<(), Box<dyn Error>> {
+        let temp = TempDir::<()>::create("test_repo");
+        let repo = GitRepository::create(temp.tmp_dir())?;
+        let index = GitIndex::new(&repo);
         assert!(index.entries().is_empty());
+        Ok(())
     }
 
     #[test]
-    fn set_entries_sets_entries() {
+    fn set_entries_sets_entries() -> Result<(), Box<dyn Error>> {
+        let temp = TempDir::<()>::create("test_repo");
+        let repo = GitRepository::create(temp.tmp_dir())?;
         let entry = GitIndexEntry::default();
-        let index = GitIndex::new().set_entries(std::slice::from_ref(&entry));
+        let index =
+            GitIndex::new(&repo).set_entries(std::slice::from_ref(&entry));
         assert_eq!(index.entries(), &[entry]);
+        Ok(())
     }
 
     #[test]
