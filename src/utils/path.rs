@@ -25,9 +25,25 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::core::GitRepository;
+
 const POSIX_PATH_SEPARATOR: char = '/';
 const CURRENT_DIR_STR: &str = ".";
 const PARENT_DIR_STR: &str = "..";
+
+/// Determines the user home directory.
+///
+/// # Errors
+///
+/// This function only fails if `std::env::var` fails.
+pub fn home_dir() -> Result<std::path::PathBuf, String> {
+    Path::new(
+        &std::env::var("HOME")
+            .map_err(|_| "Could not determine home directory".to_owned())?,
+    )
+    .canonicalize()
+    .map_err(|_| "Failed to resolve home directory".to_owned())
+}
 
 /// Determines the current working directory.
 ///
@@ -328,6 +344,18 @@ where
         "neither {} nor any of it's parent directories is a repository.",
         top.display()
     ))
+}
+
+/// Returns the relative path from `repo` to `absolute_path`
+/// Returns `None` if `absolute_path` is not in `repo`
+pub fn repo_relative_path(
+    repo: &GitRepository,
+    absolute_path: &Path,
+) -> Option<PathBuf> {
+    absolute_path
+        .strip_prefix(repo.worktree())
+        .ok()
+        .map(Path::to_path_buf)
 }
 
 #[cfg(test)]

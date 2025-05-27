@@ -1,5 +1,6 @@
 pub mod blob;
 pub mod commit;
+pub mod ignore;
 pub mod index_file;
 pub mod packfiles;
 pub mod tag;
