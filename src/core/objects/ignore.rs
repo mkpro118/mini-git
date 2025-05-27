@@ -1,16 +1,21 @@
-// ignore.rs
-#![allow(dead_code, unused_variables)]
-
+use crate::core::objects::index_file::GitIndex;
 use crate::core::utils::gitignore_matcher::{GitIgnoreResult, GitignoreSet};
 use crate::core::GitRepository;
+use crate::utils::path;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 pub struct GitIgnore<'a> {
     repo: &'a GitRepository,
+    index: Option<GitIndex<'a>>,
     absolute: Vec<GitignoreSet>, // Global and repo-wide rules
     scoped: HashMap<PathBuf, GitignoreSet>, // Directory-specific .gitignore files
+}
+
+pub enum IndexStrategy {
+    IgnoreIndex,
+    UseIndex,
 }
 
 impl<'a> GitIgnore<'a> {
@@ -19,9 +24,16 @@ impl<'a> GitIgnore<'a> {
     /// # Errors
     ///
     /// Errors if the global or local .gitignore files cannot be read
-    pub fn from_repo(repo: &'a GitRepository) -> Result<Self, String> {
+    pub fn from_repo(
+        repo: &'a GitRepository,
+        index_strategy: &IndexStrategy,
+    ) -> Result<Self, String> {
         let mut gitignore = Self {
             repo,
+            index: match index_strategy {
+                IndexStrategy::IgnoreIndex => None,
+                IndexStrategy::UseIndex => Some(GitIndex::read_index(repo)?),
+            },
             absolute: Vec::new(),
             scoped: HashMap::new(),
         };
@@ -92,24 +104,6 @@ impl<'a> GitIgnore<'a> {
         Ok(())
     }
 
-    fn resolve_path(&self, path: &Path) -> PathBuf {
-        if path.is_absolute() {
-            path.to_path_buf()
-        } else {
-            // If path is relative, resolve it relative to current working directory
-            let current_dir = std::env::current_dir()
-                .unwrap_or_else(|_| self.repo.worktree().to_path_buf());
-            current_dir.join(path)
-        }
-    }
-
-    fn path_relative_to_repo(&self, absolute_path: &Path) -> Option<PathBuf> {
-        absolute_path
-            .strip_prefix(self.repo.worktree())
-            .ok()
-            .map(Path::to_path_buf)
-    }
-
     fn check_ignore_scoped(
         &self,
         absolute_path: &Path,
@@ -117,7 +111,7 @@ impl<'a> GitIgnore<'a> {
     ) -> GitIgnoreResult {
         // Get path relative to repo root for directory lookup
         let Some(repo_relative_path) =
-            self.path_relative_to_repo(absolute_path)
+            path::repo_relative_path(self.repo, absolute_path)
         else {
             return GitIgnoreResult::NotIgnored;
         };
@@ -167,10 +161,10 @@ impl<'a> GitIgnore<'a> {
     /// ```no_run
     /// use std::path::Path;
     /// use mini_git::core::GitRepository;
-    /// use mini_git::core::ignore::GitIgnore;
+    /// use mini_git::core::objects::ignore::{GitIgnore, IndexStrategy};
     ///
     /// let repo = GitRepository::create(Path::new("/test-repo"))?;
-    /// let gitignore = GitIgnore::from_repo(repo)?;
+    /// let gitignore = GitIgnore::from_repo(&repo, &IndexStrategy::UseIndex)?;
     ///
     /// // If current directory is /test-repo/subdir and we check "file"
     /// // it will check /test-repo/subdir/file
@@ -179,7 +173,14 @@ impl<'a> GitIgnore<'a> {
     /// ```
     #[must_use]
     pub fn is_ignored(&self, path: &Path) -> GitIgnoreResult {
-        let absolute_path = self.resolve_path(path);
+        let absolute_path = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            // If path is relative, resolve it relative to current working directory
+            let current_dir = path::current_dir()
+                .unwrap_or_else(|_| self.repo.worktree().to_path_buf());
+            current_dir.join(path)
+        };
 
         // Only check paths within the repository
         if !absolute_path.starts_with(self.repo.worktree()) {
@@ -187,6 +188,17 @@ impl<'a> GitIgnore<'a> {
         }
 
         let is_dir = absolute_path.is_dir();
+
+        // If index exists, check if file is already in the index.
+        // Ignored files can be tracked via a forced add.
+        if !is_dir && self.index.is_some() {
+            let Some(index) = self.index.as_ref() else {
+                unreachable!("Index should exist if index is Some");
+            };
+            if let Ok(Some(_)) = index.get_file(&absolute_path) {
+                return GitIgnoreResult::NotIgnored;
+            }
+        }
 
         // First check scoped rules (directory-specific .gitignore files)
         let scoped_result = self.check_ignore_scoped(&absolute_path, is_dir);
