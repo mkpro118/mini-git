@@ -69,17 +69,14 @@ pub struct GitignoreRule {
 #[derive(Debug)]
 pub struct GitignoreSet {
     rules: Vec<GitignoreRule>,
-    repo_root: PathBuf,
 }
 
 impl GitignoreSet {
-    pub fn new(repo_root: PathBuf) -> Self {
-        GitignoreSet {
-            rules: Vec::new(),
-            repo_root,
-        }
+    pub fn new() -> Self {
+        GitignoreSet { rules: Vec::new() }
     }
 
+    #[cfg(test)]
     fn add_rule(&mut self, rule: GitignoreRule) {
         self.rules.push(rule);
     }
@@ -720,7 +717,7 @@ mod tests {
     macro_rules! check_ignore_assert {
         ($repo_root_str:expr, $rules_spec:expr, $path_to_check_str:expr, $is_dir:expr, $expected_ignored:expr) => {
             let repo_root = rp($repo_root_str);
-            let mut set = GitignoreSet::new(repo_root.clone());
+            let mut set = GitignoreSet::new();
             let rules_vec: Vec<(&str, &str)> = $rules_spec;
 
             for (line, gitignore_path_str_val) in rules_vec {
@@ -1438,7 +1435,7 @@ mod tests {
     #[test]
     fn test_large_number_of_rules() {
         let repo_root_path = rp("/repo");
-        let mut set = GitignoreSet::new(repo_root_path.clone());
+        let mut set = GitignoreSet::new();
         let gitignore_dir_path = repo_root_path.clone();
 
         for i in 0..100 {

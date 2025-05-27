@@ -41,8 +41,7 @@ impl<'a> GitIgnore<'a> {
         // Read local configuration in .git/info/exclude
         let repo_exclude_file = gitignore.repo.gitdir().join("info/exclude");
         if repo_exclude_file.exists() {
-            let mut ruleset =
-                GitignoreSet::new(gitignore.repo.worktree().to_path_buf());
+            let mut ruleset = GitignoreSet::new();
             ruleset.add_patterns_from_file(&repo_exclude_file)?;
             gitignore.absolute.push(ruleset);
         }
@@ -58,8 +57,7 @@ impl<'a> GitIgnore<'a> {
 
         let global_file = PathBuf::from(config_home).join("git/ignore");
         if global_file.exists() {
-            let mut ruleset =
-                GitignoreSet::new(gitignore.repo.worktree().to_path_buf());
+            let mut ruleset = GitignoreSet::new();
             ruleset.add_patterns_from_file(&global_file)?;
             gitignore.absolute.push(ruleset);
         }
@@ -78,8 +76,7 @@ impl<'a> GitIgnore<'a> {
                 .unwrap_or(Path::new(""))
                 .to_path_buf();
 
-            let mut ruleset =
-                GitignoreSet::new(self.repo.worktree().to_path_buf());
+            let mut ruleset = GitignoreSet::new();
             ruleset.add_patterns_from_file(&gitignore_path)?;
             self.scoped.insert(relative_dir, ruleset);
         }
