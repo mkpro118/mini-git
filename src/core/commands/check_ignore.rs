@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::core::objects::ignore::GitIgnore;
+use crate::core::objects::ignore::{GitIgnore, IndexStrategy};
 use crate::core::repository::{resolve_repository_context, RepositoryContext};
 use crate::core::utils::gitignore_matcher::GitIgnoreResult;
 use crate::utils::argparse::{ArgumentParser, ArgumentType, Namespace};
@@ -27,12 +27,19 @@ pub fn check_ignore(args: &Namespace) -> Result<String, String> {
 
     let quiet: bool = args.get("quiet").is_some();
     let verbose: bool = args.get("verbose").is_some();
+    let no_index: bool = args.get("no-index").is_some();
     let Some(files) = args.get("paths") else {
         unreachable!("Should be validated by argparse");
     };
     let paths: Vec<&str> = files.split(COMMA).collect();
 
-    let gitignore = GitIgnore::from_repo(&repo)?;
+    let index_strategy = if no_index {
+        IndexStrategy::IgnoreIndex
+    } else {
+        IndexStrategy::UseIndex
+    };
+
+    let gitignore = GitIgnore::from_repo(&repo, &index_strategy)?;
 
     let mut output = String::new();
     let mut any_ignored = false;
@@ -100,6 +107,11 @@ pub fn make_parser() -> ArgumentParser {
         .optional()
         .short('v')
         .add_help("Display output in verbose format");
+
+    parser
+        .add_argument("no-index", ArgumentType::Boolean)
+        .optional()
+        .add_help("Ignore index while checking if a file should be ignored");
 
     parser
         .add_argument("paths", ArgumentType::String)
