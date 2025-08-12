@@ -27,7 +27,7 @@ jobs:
         os: [ubuntu, windows]
         feature: ["", "--all-features", "--no-default-features"]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: actions-rs/toolchain@v1
     - run: cargo test --workspace ${{matrix.feature}}
 
@@ -43,7 +43,7 @@ jobs:
       target: ${{matrix.target && format('--target={0}', matrix.target)}}
       workspace: ${{matrix.no-workspace || '--workspace'}}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{matrix.rust}}
