@@ -141,8 +141,12 @@ pub mod glob {
         let mut paths = vec![];
 
         unsafe {
-            let result =
-                glob(pattern.as_ptr(), 0, ptr::null_mut(), &mut glob_result);
+            let result = glob(
+                pattern.as_ptr(),
+                0,
+                ptr::null_mut(),
+                &raw mut glob_result,
+            );
 
             match result {
                 0 => {
@@ -162,7 +166,7 @@ pub mod glob {
                         );
                     }
 
-                    globfree(&mut glob_result);
+                    globfree(&raw mut glob_result);
                     Ok(paths)
                 }
                 GLOB_NOMATCH => Err("No matches found!".into()),
