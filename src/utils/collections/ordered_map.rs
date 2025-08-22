@@ -216,7 +216,7 @@ where
     /// assert_eq!(pairs, vec![(&"a", &1), (&"b", &2)]);
     /// ```
     #[must_use]
-    pub fn iter(&self) -> OrderedMapIter<K, V> {
+    pub fn iter(&self) -> OrderedMapIter<'_, K, V> {
         OrderedMapIter { map: self, idx: 0 }
     }
 }
