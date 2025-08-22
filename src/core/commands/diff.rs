@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::sync::Arc;
 use std::thread;
 
 use crate::core::commands::resolve_cla_files;
+use crate::core::objects::index_file::GitIndex;
 use crate::core::objects::{self, get_files, FileSource};
 use crate::core::objects::{blob, tree};
 use crate::core::{
@@ -125,7 +127,17 @@ fn _diff(
     let (tree1, tree2) = resolve_trees(&repo, tree1, tree2)?;
     let (files1, files2) =
         get_file_contents(&repo, tree1.as_deref(), tree2.as_deref())?;
-    let all_files = collect_files_to_process(&files1, &files2, &opts.files);
+    let all_files = collect_files_to_process(
+        &repo,
+        &files1,
+        &files2,
+        &opts.files,
+        tree2.is_none(),
+    )?;
+
+    if all_files.is_empty() {
+        return Ok(String::new());
+    }
 
     process_files_in_parallel(repo, files1, files2, &all_files, opts)
 }
@@ -175,10 +187,12 @@ fn get_file_contents(
 /// # Returns
 /// A `Vec<String>` containing paths to all files that need processing.
 pub(super) fn collect_files_to_process(
+    repo: &GitRepository,
     files1: &[FileSource],
     files2: &[FileSource],
     specified_files: &[String],
-) -> Vec<String> {
+    uses_worktree: bool,
+) -> Result<Vec<String>, String> {
     let mut all_files = HashSet::new();
 
     if specified_files.is_empty() {
@@ -188,7 +202,52 @@ pub(super) fn collect_files_to_process(
         all_files.extend(specified_files.iter().cloned());
     }
 
-    all_files.into_iter().collect()
+    // If we are diffing two commits/trees, we cannot use the mtime from the
+    // index to skip any files
+    if !uses_worktree {
+        return Ok(all_files.into_iter().collect());
+    }
+
+    // If the worktree is used, skip all files that haven't changed
+    // since the index was updated
+    let index = GitIndex::read_index(repo)?;
+    let is_worktree_newer_than_index =
+        make_is_worktree_newer_than_index_fn(index);
+
+    Ok(all_files
+        .into_iter()
+        .filter(|x| is_worktree_newer_than_index(x))
+        .collect())
+}
+
+fn make_is_worktree_newer_than_index_fn(
+    index: GitIndex<'_>,
+) -> impl for<'a> Fn(&'a str) -> bool + use<'_> {
+    move |path: &str| {
+        let Ok(Some(index_entry)) = index.get_file(path) else {
+            return true;
+        };
+
+        let Ok(metadata) = fs::metadata(path) else {
+            return true;
+        };
+
+        let Ok(mtime) = metadata.modified() else {
+            return true;
+        };
+
+        let Ok(mtime) = mtime.duration_since(std::time::UNIX_EPOCH) else {
+            return true;
+        };
+
+        let mtime_seconds = mtime.as_secs();
+        let mtime_nano_seconds = mtime.subsec_nanos();
+        let index_entry_mtime_seconds: u64 = index_entry.mtime.0.into();
+        let index_entry_mtime_nano_seconds = index_entry.mtime.1;
+
+        mtime_seconds >= index_entry_mtime_seconds
+            && mtime_nano_seconds > index_entry_mtime_nano_seconds
+    }
 }
 
 // Processes files in parallel using threads
