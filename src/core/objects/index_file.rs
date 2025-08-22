@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn set_entries_sets_entries() {
         let entry = GitIndexEntry::default();
-        let index = GitIndex::new().set_entries(&[entry.clone()]);
+        let index = GitIndex::new().set_entries(std::slice::from_ref(&entry));
         assert_eq!(index.entries(), &[entry]);
     }
 
